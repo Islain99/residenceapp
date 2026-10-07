@@ -1,0 +1,8 @@
+# Utilisé seulement par scripts/failback.sh : démarre temporairement
+# pg-primary comme réplica de pg-replica.
+services:
+  pg-primary:
+    environment:
+      NODE_ROLE: replica
+      PRIMARY_HOST: pg-replica
+      REPLICATION_SLOT: primary_back

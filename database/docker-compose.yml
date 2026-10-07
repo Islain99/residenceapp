@@ -1,0 +1,75 @@
+# =====================================================================
+# Base de données — environnement local
+#   pg-primary : SGBD principal (lecture + écriture)        → localhost:5432
+#   pg-replica : SGBD de reprise (copie en continu, lecture) → localhost:5433
+#   pg-restore : copie restaurée à un instant précis, à la demande
+#                (profil "restore")                          → localhost:5434
+# Les deux serveurs partagent le dépôt pgBackRest (sauvegardes + WAL).
+# =====================================================================
+
+x-pg-common: &pg-common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+  image: residence-postgres:16
+  env_file: .env
+  restart: unless-stopped
+  shm_size: 256mb
+  stop_grace_period: 60s
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-residence} -q"]
+    interval: 5s
+    timeout: 3s
+    retries: 20
+
+services:
+  pg-primary:
+    <<: *pg-common
+    container_name: residence-pg-primary
+    hostname: pg-primary
+    environment:
+      NODE_ROLE: primary
+      POSTGRES_INITDB_ARGS: "--data-checksums --encoding=UTF8 --locale=C.UTF-8"
+    volumes:
+      - pg-primary-data:/var/lib/postgresql/data
+      - pgbackrest-repo:/var/lib/pgbackrest
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  pg-replica:
+    <<: *pg-common
+    container_name: residence-pg-replica
+    hostname: pg-replica
+    depends_on:
+      pg-primary:
+        condition: service_healthy
+    environment:
+      NODE_ROLE: replica
+      PRIMARY_HOST: pg-primary
+      REPLICATION_SLOT: replica1
+    volumes:
+      - pg-replica-data:/var/lib/postgresql/data
+      - pgbackrest-repo:/var/lib/pgbackrest
+    ports:
+      - "127.0.0.1:5433:5432"
+
+  pg-restore:
+    <<: *pg-common
+    container_name: residence-pg-restore
+    hostname: pg-restore
+    profiles: ["restore"]
+    restart: "no"
+    environment:
+      NODE_ROLE: restore
+      RESTORE_TARGET: ${RESTORE_TARGET:-}
+    volumes:
+      - pg-restore-data:/var/lib/postgresql/data
+      - pgbackrest-repo:/var/lib/pgbackrest
+    ports:
+      - "127.0.0.1:5434:5432"
+
+volumes:
+  pg-primary-data:
+  pg-replica-data:
+  pg-restore-data:
+  pgbackrest-repo:
