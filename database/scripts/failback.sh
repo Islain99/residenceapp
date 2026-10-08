@@ -47,6 +47,8 @@ sleep 3
 say "4/5 Promotion de pg-primary"
 sql pg-primary -tAc "SELECT pg_promote(wait => true, wait_seconds => 60)"
 sql pg-primary -qc "CHECKPOINT"
+# pg-primary est de nouveau le seul principal : retrait du marqueur de bascule
+on pg-primary rm -f /var/lib/pgbackrest/FAILOVER_ACTIVE
 # Redémarre pg-primary avec sa configuration normale
 docker compose up -d --no-deps pg-primary
 sleep 3

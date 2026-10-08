@@ -1,0 +1,8 @@
+# Fichiers exécutés ou lus dans les conteneurs Linux : toujours en LF,
+# même sous Windows (sinon « bash\r: No such file or directory »).
+* text=auto
+*.sh          text eol=lf
+*.conf        text eol=lf
+*.sql         text eol=lf
+Dockerfile    text eol=lf
+.env.example  text eol=lf

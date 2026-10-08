@@ -40,9 +40,8 @@ services:
     <<: *pg-common
     container_name: residence-pg-replica
     hostname: pg-replica
-    depends_on:
-      pg-primary:
-        condition: service_healthy
+    # Pas de depends_on : après une bascule, « up pg-replica » relancerait
+    # l'ancien principal. Le réplica attend lui-même le principal (entrypoint).
     environment:
       NODE_ROLE: replica
       PRIMARY_HOST: pg-primary
