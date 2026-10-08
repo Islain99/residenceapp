@@ -10,47 +10,18 @@
 //     (note_versions), retrait = statut « annulee » avec motif.
 //   * Création, correction, annulation et consultation sont auditées.
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { sql, type Transaction, type Updateable } from 'kysely';
-import { authenticate, residenceOf, type AccessTokenPayload, type Role } from '../auth.js';
-import type { Database } from '../db/index.js';
-import type { DB, Notes } from '../db/types.js';
+import { sql, type Updateable } from 'kysely';
+import { authenticate, isSupervisor, residenceOf, type AccessTokenPayload } from '../auth.js';
+import type { Notes } from '../db/types.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
-
-type Db = Database | Transaction<DB>;
+import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
+import { findNote, NoteBody, noteQuery, toNote, type Db, type NoteRow } from '../lib/note-view.js';
+import { IdParams, Nullable, optionalText, Person, Text, Uuid } from '../lib/schemas.js';
 
 const AUTHOR_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
-const SUPERVISOR_ROLES: Role[] = ['infirmiere', 'responsable'];
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;   // décalage d'horloge des appareils
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-// ---------------------------------------------------------------------
-// Schémas
-// ---------------------------------------------------------------------
-const Uuid = Type.String({ format: 'uuid' });
-const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(t: T) => Type.Union([t, Type.Null()]);
-const Person = Type.Object({ id: Type.String(), firstName: Type.String(), lastName: Type.String() });
-
-const NoteBody = Type.Object({
-  id: Type.String(),
-  occurredAt: Type.String(),
-  description: Type.String(),
-  intervention: Nullable(Type.String()),
-  isPriority: Type.Boolean(),
-  isPositive: Type.Boolean(),
-  status: Type.String(),                 // active | annulee
-  cancelReason: Nullable(Type.String()),
-  cancelledAt: Nullable(Type.String()),
-  cancelledBy: Nullable(Person),
-  author: Person,
-  category: Type.Object({ id: Type.String(), label: Type.String() }),
-  resident: Nullable(Type.Object({
-    id: Type.String(), firstName: Type.String(), lastName: Type.String(), room: Nullable(Type.String()),
-  })),
-  versionCount: Type.Integer(),          // nombre de corrections
-  createdAt: Type.String(),
-  updatedAt: Type.String(),
-});
 
 const VersionBody = Type.Object({
   editedAt: Type.String(),
@@ -66,67 +37,7 @@ const VersionBody = Type.Object({
   }),
 });
 
-const NoteParams = Type.Object({ id: Uuid });
-const Text = (max: number) => Type.String({ minLength: 1, maxLength: max });
-
-// ---------------------------------------------------------------------
-// Lecture
-// ---------------------------------------------------------------------
-function noteQuery(db: Db, residenceId: string) {
-  return db.selectFrom('notes as n')
-    .innerJoin('users as a', 'a.id', 'n.author_id')
-    .innerJoin('note_categories as c', 'c.id', 'n.category_id')
-    .leftJoin('residents as r', 'r.id', 'n.resident_id')
-    .leftJoin('users as x', 'x.id', 'n.cancelled_by')
-    .where('n.residence_id', '=', residenceId)
-    .select((eb) => [
-      'n.id', 'n.occurred_at', 'n.description', 'n.intervention', 'n.is_priority', 'n.is_positive',
-      'n.status', 'n.cancel_reason', 'n.cancelled_at', 'n.created_at', 'n.updated_at',
-      'a.id as author_id', 'a.first_name as author_first_name', 'a.last_name as author_last_name',
-      'c.id as category_id', 'c.label as category_label',
-      'r.id as resident_id', 'r.first_name as resident_first_name',
-      'r.last_name as resident_last_name', 'r.room as resident_room',
-      'x.id as cancelled_by_id', 'x.first_name as cancelled_by_first_name',
-      'x.last_name as cancelled_by_last_name',
-      eb.selectFrom('note_versions as v').whereRef('v.note_id', '=', 'n.id')
-        .select((v) => v.fn.countAll<string>().as('count')).as('version_count'),
-      // Horodatage exact (microsecondes) pour la pagination
-      sql<string>`to_char(n.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.as('cursor_ts'),
-    ]);
-}
-
-type NoteRow = Awaited<ReturnType<ReturnType<typeof noteQuery>['executeTakeFirstOrThrow']>>;
-
-function toNote(row: NoteRow) {
-  return {
-    id: row.id,
-    occurredAt: row.occurred_at.toISOString(),
-    description: row.description,
-    intervention: row.intervention,
-    isPriority: row.is_priority,
-    isPositive: row.is_positive,
-    status: row.status,
-    cancelReason: row.cancel_reason,
-    cancelledAt: row.cancelled_at?.toISOString() ?? null,
-    cancelledBy: row.cancelled_by_id
-      ? { id: row.cancelled_by_id, firstName: row.cancelled_by_first_name ?? '', lastName: row.cancelled_by_last_name ?? '' }
-      : null,
-    author: { id: row.author_id, firstName: row.author_first_name, lastName: row.author_last_name },
-    category: { id: row.category_id, label: row.category_label },
-    resident: row.resident_id
-      ? { id: row.resident_id, firstName: row.resident_first_name ?? '', lastName: row.resident_last_name ?? '', room: row.resident_room }
-      : null,
-    versionCount: Number(row.version_count ?? 0),
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
-  };
-}
-
-async function findNote(db: Db, residenceId: string, id: string) {
-  const row = await noteQuery(db, residenceId).where('n.id', '=', id).executeTakeFirst();
-  if (!row) throw notFound('Note introuvable.');
-  return toNote(row);
-}
+const ReadBody = Type.Object({ user: Person, readAt: Type.String() });
 
 // Pagination : curseur opaque = (occurred_at, id) de la dernière note reçue
 const encodeCursor = (row: NoteRow) => Buffer.from(`${row.cursor_ts}|${row.id}`).toString('base64url');
@@ -141,15 +52,13 @@ function decodeCursor(cursor: string): [string, string] {
 // ---------------------------------------------------------------------
 // Règles d'écriture
 // ---------------------------------------------------------------------
-type LockedNote = Pick<NoteRow, 'id'> & {
-  author_id: string; created_at: Date; status: string;
-};
+interface LockedNote { author_id: string; created_at: Date; status: string }
 
 function assertCanModify(user: AccessTokenPayload, note: LockedNote): void {
   if (note.status === 'annulee') {
     throw new HttpError(409, 'note_cancelled', 'Note annulée : elle ne peut plus être modifiée.');
   }
-  if (SUPERVISOR_ROLES.includes(user.role)) return;
+  if (isSupervisor(user.role)) return;
   if (note.author_id === user.sub && Date.now() - note.created_at.getTime() < AUTHOR_EDIT_WINDOW_MS) return;
   throw forbidden("Seul l'auteur (dans les 24 h) ou une infirmière / responsable peut modifier cette note.");
 }
@@ -182,8 +91,6 @@ function requiredText(value: string): string {
   return text;
 }
 
-const optionalText = (value: string | null | undefined) => value?.trim() || null;
-
 // ---------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------
@@ -200,6 +107,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         from: Type.Optional(Type.String({ format: 'date-time' })),
         to: Type.Optional(Type.String({ format: 'date-time' })),
         priority: Type.Optional(Type.Boolean()),
+        unread: Type.Optional(Type.Boolean()),          // true : pas encore lues par moi
         status: Type.Union([Type.Literal('active'), Type.Literal('annulee'), Type.Literal('all')], { default: 'active' }),
         q: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),   // recherche plein texte
         limit: Type.Integer({ minimum: 1, maximum: 100, default: 50 }),
@@ -209,12 +117,17 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
   }, async (request) => {
     const f = request.query;
-    let query = noteQuery(db, residenceOf(request));
+    const userId = request.user.sub;
+    let query = noteQuery(db, residenceOf(request), userId);
     if (f.residentId) query = query.where('n.resident_id', '=', f.residentId);
     if (f.categoryId) query = query.where('n.category_id', '=', f.categoryId);
     if (f.from) query = query.where('n.occurred_at', '>=', new Date(f.from));
     if (f.to) query = query.where('n.occurred_at', '<', new Date(f.to));
     if (f.priority !== undefined) query = query.where('n.is_priority', '=', f.priority);
+    if (f.unread !== undefined) {
+      const read = sql<boolean>`EXISTS (SELECT 1 FROM note_reads nr WHERE nr.note_id = n.id AND nr.user_id = ${userId})`;
+      query = query.where(f.unread ? sql<boolean>`NOT ${read}` : read);
+    }
     if (f.status !== 'all') query = query.where('n.status', '=', f.status);
     if (f.q) query = query.where(sql<boolean>`n.search @@ websearch_to_tsquery('fr_unaccent', ${f.q})`);
     if (f.cursor) {
@@ -232,21 +145,36 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     };
   });
 
-  // Une note et l'historique de ses corrections
+  // Une note, l'historique de ses corrections, ses suivis et qui l'a lue
   app.get('/notes/:id', {
     schema: {
-      params: NoteParams,
-      response: { 200: Type.Intersect([NoteBody, Type.Object({ versions: Type.Array(VersionBody) })]) },
+      params: IdParams,
+      response: {
+        200: Type.Intersect([NoteBody, Type.Object({
+          versions: Type.Array(VersionBody),
+          followUps: Type.Array(FollowUpBody),
+          reads: Type.Array(ReadBody),
+        })]),
+      },
     },
   }, async (request) => {
     const residenceId = residenceOf(request);
-    const note = await findNote(db, residenceId, request.params.id);
-    const versions = await db.selectFrom('note_versions as v')
-      .innerJoin('users as e', 'e.id', 'v.edited_by')
-      .select(['v.edited_at', 'v.previous', 'e.id', 'e.first_name', 'e.last_name'])
-      .where('v.note_id', '=', note.id)
-      .orderBy('v.edited_at', 'desc')
-      .execute();
+    const note = await findNote(db, residenceId, request.user.sub, request.params.id);
+    const [versions, followUps, reads] = await Promise.all([
+      db.selectFrom('note_versions as v')
+        .innerJoin('users as e', 'e.id', 'v.edited_by')
+        .select(['v.edited_at', 'v.previous', 'e.id', 'e.first_name', 'e.last_name'])
+        .where('v.note_id', '=', note.id)
+        .orderBy('v.edited_at', 'desc')
+        .execute(),
+      orderFollowUps(followUpQuery(db, residenceId).where('f.note_id', '=', note.id)).execute(),
+      db.selectFrom('note_reads as nr')
+        .innerJoin('users as u', 'u.id', 'nr.user_id')
+        .select(['nr.read_at', 'u.id', 'u.first_name', 'u.last_name'])
+        .where('nr.note_id', '=', note.id)
+        .orderBy('nr.read_at')
+        .execute(),
+    ]);
     await audit(db, {
       action: 'view', entity: 'note', entityId: note.id, userId: request.user.sub,
       residenceId, ip: request.ip,
@@ -269,6 +197,11 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
           },
         };
       }),
+      followUps: followUps.map((f) => toFollowUp(f)),
+      reads: reads.map((r) => ({
+        user: { id: r.id, firstName: r.first_name, lastName: r.last_name },
+        readAt: r.read_at.toISOString(),
+      })),
     };
   });
 
@@ -310,13 +243,13 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       return id;
     });
-    return reply.code(201).send(await findNote(db, residenceId, id));
+    return reply.code(201).send(await findNote(db, residenceId, request.user.sub, id));
   });
 
   // Correction : seuls les champs envoyés changent ; l'ancienne version est conservée
   app.patch('/notes/:id', {
     schema: {
-      params: NoteParams,
+      params: IdParams,
       body: Type.Object({
         occurredAt: Type.Optional(Type.String({ format: 'date-time' })),
         categoryId: Type.Optional(Uuid),
@@ -386,13 +319,13 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         details: { fields }, ip: request.ip,
       });
     });
-    return findNote(db, residenceId, request.params.id);
+    return findNote(db, residenceId, request.user.sub, request.params.id);
   });
 
   // Annulation avec motif (la note reste visible avec le statut « annulee »)
   app.post('/notes/:id/cancel', {
     schema: {
-      params: NoteParams,
+      params: IdParams,
       body: Type.Object({ reason: Type.String({ minLength: 3, maxLength: 500 }) }),
       response: { 200: NoteBody },
     },
@@ -417,7 +350,23 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         details: { reason }, ip: request.ip,
       });
     });
-    return findNote(db, residenceId, request.params.id);
+    return findNote(db, residenceId, request.user.sub, request.params.id);
+  });
+
+  // Confirmation de lecture (idempotente : la première lecture fait foi)
+  app.post('/notes/:id/read', {
+    schema: { params: IdParams },
+  }, async (request, reply) => {
+    const residenceId = residenceOf(request);
+    const note = await db.selectFrom('notes').select('id')
+      .where('id', '=', request.params.id).where('residence_id', '=', residenceId)
+      .executeTakeFirst();
+    if (!note) throw notFound('Note introuvable.');
+    await db.insertInto('note_reads')
+      .values({ residence_id: residenceId, note_id: note.id, user_id: request.user.sub })
+      .onConflict((oc) => oc.columns(['note_id', 'user_id']).doNothing())
+      .execute();
+    return reply.code(204).send();
   });
 };
 

@@ -6,8 +6,11 @@ import type { Config } from './config.js';
 import type { Database } from './db/index.js';
 import authRoutes from './routes/auth.js';
 import categoryRoutes from './routes/categories.js';
+import followUpRoutes from './routes/follow-ups.js';
+import handoverRoutes from './routes/handover.js';
 import healthRoutes from './routes/health.js';
 import noteRoutes from './routes/notes.js';
+import residentRoutes from './routes/residents.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -64,6 +67,9 @@ export async function buildApp(config: Config, db: Database) {
   await app.register(authRoutes);
   await app.register(categoryRoutes);
   await app.register(noteRoutes);
+  await app.register(followUpRoutes);
+  await app.register(residentRoutes);
+  await app.register(handoverRoutes);
 
   return app;
 }

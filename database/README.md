@@ -173,7 +173,8 @@ database/
 │   └── 90-pgbackrest-check.sh
 ├── migrations/
 │   ├── 0001_init.sql           # schéma V1
-│   └── 0002_privileges.sql     # droits par défaut, colonnes sensibles
+│   ├── 0002_privileges.sql     # droits par défaut, colonnes sensibles
+│   └── 0003_follow_up_author.sql  # auteur des suivis
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

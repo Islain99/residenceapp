@@ -44,3 +44,27 @@ export async function loginAs(app: App, email: string): Promise<string> {
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+// Comptes connectés par nom court (« prepose1 » → prepose1@exemple.test), et
+// appel d'API avec le jeton de l'un d'eux.
+export async function loginAll(app: App, names: string[]): Promise<Record<string, string>> {
+  const tokens: Record<string, string> = {};
+  for (const name of names) tokens[name] = await loginAs(app, `${name}@exemple.test`);
+  return tokens;
+}
+
+export function caller(app: App, tokens: Record<string, string>) {
+  return (who: string, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
+    app.inject({ method, url, payload, headers: bearer(tokens[who]!) });
+}
+
+// Identifiants utiles des données fictives (résidence A)
+export async function seedIds(app: App) {
+  const category = await app.db.selectFrom('note_categories').select('id')
+    .where('residence_id', '=', RESIDENCE_A).orderBy('sort_order').executeTakeFirstOrThrow();
+  const resident = await app.db.selectFrom('residents').select('id')
+    .where('residence_id', '=', RESIDENCE_A).orderBy('last_name').executeTakeFirstOrThrow();
+  const users = await app.db.selectFrom('users').select(['id', 'email']).execute();
+  const userId = (name: string) => users.find((u) => u.email === `${name}@exemple.test`)!.id;
+  return { categoryId: category.id, residentId: resident.id, userId };
+}
