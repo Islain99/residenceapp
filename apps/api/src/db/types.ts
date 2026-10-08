@@ -25,6 +25,17 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AccountTokens {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  purpose: string;
+  token_hash: string;
+  used_at: Timestamp | null;
+  user_id: string;
+}
+
 export interface AuditLog {
   action: string;
   at: Generated<Timestamp>;
@@ -147,13 +158,14 @@ export interface Users {
   is_active: Generated<boolean>;
   last_login_at: Timestamp | null;
   last_name: string;
-  password_hash: string;
+  password_hash: string | null;
   residence_id: string | null;
   role: string;
   updated_at: Generated<Timestamp>;
 }
 
 export interface DB {
+  account_tokens: AccountTokens;
   audit_log: AuditLog;
   follow_ups: FollowUps;
   handovers: Handovers;

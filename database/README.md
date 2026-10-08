@@ -56,6 +56,8 @@ Au premier démarrage du principal : création du dépôt de sauvegarde, des rô
 
 Sous Windows, lancer les scripts dans Git Bash ou WSL.
 
+`docker compose up -d` démarre aussi **Mailpit** (développement seulement) : il reçoit les courriels de l'API (invitations, mot de passe oublié) sans rien envoyer pour vrai. Boîte de réception : http://localhost:8025.
+
 ## Comptes de base de données
 
 | Rôle | Usage | Droits |
@@ -174,7 +176,8 @@ database/
 ├── migrations/
 │   ├── 0001_init.sql           # schéma V1
 │   ├── 0002_privileges.sql     # droits par défaut, colonnes sensibles
-│   └── 0003_follow_up_author.sql  # auteur des suivis
+│   ├── 0003_follow_up_author.sql  # auteur des suivis
+│   └── 0004_account_tokens.sql    # invitations, mot de passe oublié
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

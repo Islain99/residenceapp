@@ -4,6 +4,7 @@
 import { buildApp, type App } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { createDb } from '../src/db/index.js';
+import { MemoryMailer } from '../src/lib/mailer.js';
 import { hashPassword } from '../src/lib/passwords.js';
 import { TEST_DB } from './global-setup.js';
 
@@ -11,11 +12,12 @@ export const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'Residence2026!';
 export const RESIDENCE_A = '00000000-0000-4000-8000-000000000001';   // seed.sql
 export const RESIDENCE_B = '00000000-0000-4000-8000-0000000000b0';   // créée par les tests
 
+// Courriels gardés en mémoire (app.mailer.outbox), jamais envoyés
 export async function buildTestApp(overrides: Parameters<typeof loadConfig>[0] = {}): Promise<App> {
   const config = loadConfig({ NODE_ENV: 'test', LOGIN_RATE_LIMIT_MAX: 1000, ...overrides });
   const url = new URL(config.DATABASE_URL);
   url.pathname = `/${TEST_DB}`;
-  const app = await buildApp(config, createDb(url.toString()));
+  const app = await buildApp(config, createDb(url.toString()), new MemoryMailer());
   // Comptes fictifs « !seed » → mot de passe de développement (comme npm run seed:passwords)
   await app.db.updateTable('users').set({ password_hash: await hashPassword(PASSWORD) })
     .where('password_hash', '=', '!seed').execute();
@@ -41,6 +43,16 @@ export async function loginAs(app: App, email: string): Promise<string> {
   const res = await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password: PASSWORD } });
   if (res.statusCode !== 200) throw new Error(`Connexion impossible pour ${email} : ${res.body}`);
   return res.json().accessToken;
+}
+
+export const outbox = (app: App) => (app.mailer as MemoryMailer).outbox;
+
+// Jeton contenu dans le lien d'un courriel (…/mot-de-passe#<jeton>)
+export function tokenFromMail(text: string): string {
+  const match = /mot-de-passe#([\w-]+)/.exec(text);
+  if (!match) throw new Error(`Aucun lien dans le courriel :
+${text}`);
+  return match[1]!;
 }
 
 export const bearer = (token: string) => ({ authorization: `Bearer ${token}` });

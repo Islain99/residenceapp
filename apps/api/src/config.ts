@@ -17,6 +17,11 @@ const ConfigSchema = Type.Object({
   REFRESH_TOKEN_TTL_DAYS: Type.Integer({ minimum: 1, maximum: 90, default: 30 }),
   // Tentatives de connexion par minute et par adresse IP
   LOGIN_RATE_LIMIT_MAX: Type.Integer({ minimum: 1, default: 10 }),
+  // Adresse de l'interface web : liens des courriels (invitation, mot de passe oublié)
+  APP_URL: Type.String({ default: 'http://localhost:5173' }),
+  // Serveur d'envoi des courriels. Développement : Mailpit (database/docker-compose.yml)
+  SMTP_URL: Type.String({ default: 'smtp://127.0.0.1:1025' }),
+  MAIL_FROM: Type.String({ default: 'Journal de bord <no-reply@residence.local>' }),
 });
 
 export type Config = Static<typeof ConfigSchema>;
