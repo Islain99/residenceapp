@@ -1,4 +1,5 @@
 import Fastify, { type FastifyError } from 'fastify';
+import cookie from '@fastify/cookie';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
@@ -11,6 +12,7 @@ import handoverRoutes from './routes/handover.js';
 import healthRoutes from './routes/health.js';
 import noteRoutes from './routes/notes.js';
 import residentRoutes from './routes/residents.js';
+import staffRoutes from './routes/staff.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -36,6 +38,7 @@ export async function buildApp(config: Config, db: Database) {
     sign: { algorithm: 'HS256', expiresIn: `${config.ACCESS_TOKEN_TTL_MINUTES}m` },
     verify: { algorithms: ['HS256'] },
   });
+  await app.register(cookie);   // jeton de rafraîchissement du navigateur (routes/auth.ts)
   // Pas de limite globale : seulement sur les routes qui la déclarent (login)
   await app.register(rateLimit, { global: false });
 
@@ -70,6 +73,7 @@ export async function buildApp(config: Config, db: Database) {
   await app.register(followUpRoutes);
   await app.register(residentRoutes);
   await app.register(handoverRoutes);
+  await app.register(staffRoutes);
 
   return app;
 }

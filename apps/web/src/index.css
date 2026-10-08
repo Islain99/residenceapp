@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Jetons de couleur : les classes Tailwind (bg-surface, text-muted…) lisent ces
+   variables ; le thème sombre (quarts de nuit) ne fait que les redéfinir. */
+@theme {
+  --color-page: #f4f6f6;
+  --color-surface: #ffffff;
+  --color-sunken: #eef1f1;
+  --color-line: #d9dfdf;
+  --color-ink: #17201f;
+  --color-muted: #5b6766;
+  --color-primary: #0f766e;
+  --color-primary-hover: #0b5f58;
+  --color-on-primary: #ffffff;
+  --color-priority: #b45309;
+  --color-priority-soft: #fef3c7;
+  --color-positive: #15803d;
+  --color-positive-soft: #dcfce7;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fee2e2;
+  --color-info-soft: #e0f2f1;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-page: #0e1514;
+    --color-surface: #162120;
+    --color-sunken: #111a19;
+    --color-line: #2a3837;
+    --color-ink: #e6eeed;
+    --color-muted: #9aa8a6;
+    --color-primary: #2dd4bf;
+    --color-primary-hover: #5eead4;
+    --color-on-primary: #062420;
+    --color-priority: #fbbf24;
+    --color-priority-soft: #3a2a0a;
+    --color-positive: #4ade80;
+    --color-positive-soft: #0f2e1b;
+    --color-danger: #f87171;
+    --color-danger-soft: #3b1414;
+    --color-info-soft: #12302d;
+  }
+}
+
+html {
+  background: var(--color-page);
+  color: var(--color-ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+}
+
+/* Focus visible pour la navigation au clavier */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}

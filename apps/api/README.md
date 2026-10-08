@@ -26,15 +26,17 @@ npm run dev                   # http://127.0.0.1:3000
 
 | Route | Corps | Réponse |
 | --- | --- | --- |
-| `POST /auth/login` | `{ email, password }` | `{ accessToken, refreshToken, expiresIn, user }` |
-| `POST /auth/refresh` | `{ refreshToken }` | `{ accessToken, refreshToken, expiresIn }` |
-| `POST /auth/logout` | `{ refreshToken }` | 204 |
+| `POST /auth/login` | `{ email, password, session? }` | `{ accessToken, refreshToken, expiresIn, user }` |
+| `POST /auth/refresh` | `{ refreshToken }` (ou `{}` + cookie) | `{ accessToken, refreshToken, expiresIn }` |
+| `POST /auth/logout` | `{ refreshToken }` (ou `{}` + cookie) | 204 |
+| `GET /staff` | — | Employés actifs de ma résidence (`id`, nom, rôle), pour assigner un suivi |
 | `GET /auth/me` | — (`Authorization: Bearer <accessToken>`) | profil |
 | `GET /health` | — | `{ status, db }` (503 si la base ne répond pas) |
 
 - **Mots de passe** : Argon2id. Un courriel inconnu, un mauvais mot de passe ou un compte désactivé donnent la même réponse 401, dans le même temps.
 - **Jeton d'accès** : JWT HS256 de 15 min, contient `sub` (utilisateur), `rid` (résidence) et `role`. Sans jeton ou jeton invalide : 401 `unauthorized` ; jeton expiré : 401 `token_expired` (le client appelle alors `/auth/refresh`).
 - **Jeton de rafraîchissement** : 30 jours, à usage unique (remplacé à chaque `/auth/refresh`), stocké haché. Un jeton déjà utilisé présenté de nouveau révoque toutes les sessions de l'utilisateur (vol probable).
+- **Mode cookie (navigateur)** : `session: "cookie"` à la connexion → le jeton de rafraîchissement est posé dans un cookie `httpOnly`, `SameSite=Strict` (`Secure` en production) et n'apparaît pas dans la réponse ; `/auth/refresh` et `/auth/logout` le lisent dans le cookie. Le site doit être servi sur la même origine que l'API (proxy `/api`). Sans `session` (mode `token`, application mobile) : jeton dans le corps, comme avant.
 - **Limite** : 10 tentatives de connexion par minute et par adresse IP (429 au-delà).
 - **Audit** : `login`, `login_failed` (avec le motif), `logout`, `refresh_reuse` dans `audit_log`.
 

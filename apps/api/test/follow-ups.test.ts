@@ -66,6 +66,18 @@ describe('création', () => {
   });
 });
 
+describe('employés (assignation)', () => {
+  it('employés actifs de ma résidence seulement, sans courriel', async () => {
+    const res = await call('prepose1', 'GET', '/staff');
+    expect(res.statusCode).toBe(200);
+    const staff = res.json() as { firstName: string; role: string }[];
+    expect(staff.map((s) => s.firstName)).toContain('Nadia');
+    expect(staff.map((s) => s.firstName)).not.toContain('Test');      // employée de la résidence B
+    expect(staff.some((s) => s.role === 'admin')).toBe(false);
+    expect(staff[0]).not.toHaveProperty('email');
+  });
+});
+
 describe('liste', () => {
   it('« assignés à moi »', async () => {
     const { followUp } = await createFollowUp({ assignedTo: ids.userId('prepose2') });

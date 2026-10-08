@@ -147,3 +147,47 @@ describe('rafraîchissement et déconnexion', () => {
     expect((await refresh(token)).statusCode).toBe(401);
   });
 });
+
+describe('mode cookie (navigateur)', () => {
+  const cookieLogin = () => app.inject({
+    method: 'POST', url: '/auth/login',
+    payload: { email: 'prepose2@exemple.test', password: PASSWORD, session: 'cookie' },
+  });
+  const refreshCookie = (res: { cookies: { name: string; value: string }[] }) =>
+    res.cookies.find((c) => c.name === 'refresh_token');
+
+  it('jeton dans un cookie httpOnly SameSite=Strict, absent du corps', async () => {
+    const res = await cookieLogin();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).not.toHaveProperty('refreshToken');
+    expect(res.json().accessToken).toBeTypeOf('string');
+    const cookie = refreshCookie(res as never) as unknown as { httpOnly: boolean; sameSite: string; path: string };
+    expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Strict', path: '/' });
+  });
+
+  it('rafraîchir avec le cookie : nouveau cookie, ancien refusé', async () => {
+    const first = refreshCookie((await cookieLogin()) as never)!.value;
+    const res = await app.inject({ method: 'POST', url: '/auth/refresh', payload: {}, cookies: { refresh_token: first } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).not.toHaveProperty('refreshToken');
+    const second = refreshCookie(res as never)!.value;
+    expect(second).not.toBe(first);
+
+    const reuse = await app.inject({ method: 'POST', url: '/auth/refresh', payload: {}, cookies: { refresh_token: first } });
+    expect(reuse.statusCode).toBe(401);
+    expect(refreshCookie(reuse as never)?.value).toBe('');   // cookie effacé
+  });
+
+  it('déconnexion : cookie effacé et jeton révoqué', async () => {
+    const token = refreshCookie((await cookieLogin()) as never)!.value;
+    const out = await app.inject({ method: 'POST', url: '/auth/logout', payload: {}, cookies: { refresh_token: token } });
+    expect(out.statusCode).toBe(204);
+    expect(refreshCookie(out as never)?.value).toBe('');
+    const res = await app.inject({ method: 'POST', url: '/auth/refresh', payload: {}, cookies: { refresh_token: token } });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('ni corps ni cookie : 401', async () => {
+    expect((await app.inject({ method: 'POST', url: '/auth/refresh', payload: {} })).statusCode).toBe(401);
+  });
+});
