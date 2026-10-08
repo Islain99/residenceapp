@@ -9,10 +9,7 @@ source "$(dirname "$0")/_lib.sh"
 TYPE="${1:-diff}"
 case "$TYPE" in full|diff|incr) ;; *) echo "Usage : $0 [full|diff|incr]"; exit 1 ;; esac
 
-SVC=pg-primary
-if is_standby pg-primary 2>/dev/null || ! on pg-primary pg_isready -q 2>/dev/null; then
-  SVC=pg-replica   # après une bascule, le principal est pg-replica
-fi
+SVC="$(primary_svc)"
 say "Sauvegarde $TYPE sur $SVC"
 on "$SVC" pgbackrest --stanza=residence --type="$TYPE" backup
 on "$SVC" pgbackrest --stanza=residence info

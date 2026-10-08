@@ -6,7 +6,8 @@
 #   avec une date : état exact de la base à cet instant (erreur humaine)
 # Heure locale de Montréal par défaut.
 # Ensuite : consulter sur localhost:5434, récupérer les données utiles,
-# puis supprimer :  docker compose --profile restore down -v pg-restore
+# puis supprimer :  docker compose --profile restore rm -sf pg-restore
+# (JAMAIS « down -v » : supprimerait aussi le volume des sauvegardes)
 # =====================================================================
 source "$(dirname "$0")/_lib.sh"
 PROJECT="$(docker compose config --format json | python3 -c 'import sys,json;print(json.load(sys.stdin)["name"])' 2>/dev/null || basename "$PWD")"

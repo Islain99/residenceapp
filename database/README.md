@@ -35,7 +35,14 @@ Deux serveurs **PostgreSQL 16** identiques et un dépôt de sauvegardes **pgBack
 
 ## Démarrage
 
-Prérequis : Docker Desktop (ou Docker Engine + Compose v2).
+Prérequis :
+
+- Docker Desktop (ou Docker Engine + Compose v2).
+- **Sous Windows** : les scripts doivent être en fins de ligne LF, sinon les conteneurs refusent de démarrer (`bash\r: No such file or directory`). Le fichier `.gitattributes` s'en charge pour les nouveaux clones. Sur un clone fait avant son ajout (aucune modification locale en cours), lancer une fois depuis la racine du dépôt :
+  `git rm -r --cached -q database` puis `git checkout HEAD -- database`, et vérifier avec `git ls-files --eol database` (colonne `w/lf` pour les `.sh`, `.conf`, `.sql`).
+- **Sous Windows** : le port 5432 doit être libre. Un PostgreSQL installé sur Windows l'occupe : l'arrêter (`Stop-Service postgresql-x64-<version>`, PowerShell administrateur) et le passer en démarrage manuel.
+- Les scripts `scripts/*.sh` se lancent depuis Git Bash (ou WSL), depuis le dossier `database/`.
+- `.env` : remplacer tous les mots de passe (sans espaces) ; garder `SEED=true` pour avoir des données de test.
 
 ```bash
 cd database
@@ -55,8 +62,8 @@ Sous Windows, lancer les scripts dans Git Bash ou WSL.
 | --- | --- | --- |
 | `postgres` | Administration seulement | Superutilisateur |
 | `app_migrator` | Migrations | Propriétaire du schéma |
-| `app_user` | **API** (`DATABASE_URL`) | SELECT / INSERT / UPDATE. **Aucun DELETE** (on annule, on ne supprime pas). `audit_log` : INSERT + SELECT seulement |
-| `app_readonly` | Rapports, support, lecture sur le réplica | SELECT, sauf `refresh_tokens` |
+| `app_user` | **API** (`DATABASE_URL`) | SELECT / INSERT / UPDATE, y compris sur les tables des migrations futures (droits par défaut). **Aucun DELETE** (on annule, on ne supprime pas). `audit_log` : INSERT + SELECT seulement |
+| `app_readonly` | Rapports, support, lecture sur le réplica | SELECT, sauf `refresh_tokens`, `users.password_hash` et `residents.restricted_notes`. Tables futures : à accorder explicitement dans chaque migration |
 | `replicator` | Réplication | Réplication uniquement |
 
 Garanties au niveau de la base (pas seulement dans l'API) :
@@ -72,7 +79,7 @@ Garanties au niveau de la base (pas seulement dans l'API) :
 | `scripts/status.sh` | Chaque jour, et avant toute opération |
 | `scripts/backup.sh full` | 1 fois par semaine (dimanche nuit) |
 | `scripts/backup.sh diff` | Chaque nuit |
-| `scripts/migrate.sh` | Après l'ajout d'un fichier dans `migrations/` |
+| `scripts/migrate.sh` | Après l'ajout d'un fichier dans `migrations/` (`NNNN_nom.sql`, appliqués dans l'ordre ; la version est enregistrée automatiquement dans `schema_migrations`) |
 | `scripts/restore-test.sh` | **1 fois par mois** : prouve que les sauvegardes sont restaurables |
 
 Planifier les sauvegardes avec cron (Linux) ou le Planificateur de tâches (Windows) :
@@ -92,7 +99,7 @@ scripts/failover.sh            # arrête pg-primary, promeut pg-replica
 Puis :
 1. API : `DATABASE_URL` → port **5433**, redémarrer l'API.
 2. `scripts/backup.sh full` sur le nouveau principal.
-3. **Ne pas** relancer l'ancien `pg-primary` tel quel (deux principaux = données divergentes). Ne pas faire `docker compose up -d` sans nom de service tant que le retour à la normale n'est pas fait.
+3. L'ancien `pg-primary` ne peut pas être relancé par erreur : `failover.sh` dépose un marqueur (`FAILOVER_ACTIVE`) dans le dépôt de sauvegarde, et `pg-primary` refuse de démarrer en principal tant que `failback.sh` ne l'a pas retiré (deux principaux = données divergentes).
 
 ## Scénario 2 — Retour à la normale après une bascule
 
@@ -164,9 +171,11 @@ database/
 │   ├── 20-migrate.sh
 │   ├── 30-seed.sh
 │   └── 90-pgbackrest-check.sh
-├── migrations/0001_init.sql    # schéma V1
+├── migrations/
+│   ├── 0001_init.sql           # schéma V1
+│   └── 0002_privileges.sql     # droits par défaut, colonnes sensibles
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```
 
-Avec Prisma : `prisma db pull` génère `schema.prisma` à partir de ce schéma, puis `prisma migrate resolve --applied 0001_init` le marque comme déjà appliqué.
+L'API (`apps/api`) lit ce schéma avec Kysely : après chaque migration, `npm run db:types` dans `apps/api` régénère les types TypeScript.

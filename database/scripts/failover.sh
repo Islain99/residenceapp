@@ -32,6 +32,9 @@ sql pg-replica -tAc "SELECT pg_promote(wait => true, wait_seconds => 60)"
 # la promotion échoue (« WAL timeline 2 does not match pg_control timeline 1 »)
 sql pg-replica -qc "CHECKPOINT"
 sql pg-replica -tAc "SELECT CASE WHEN pg_is_in_recovery() THEN 'ÉCHEC : encore en réplica' ELSE 'OK : pg-replica est le principal' END"
+# Marqueur dans le dépôt partagé : pg-primary refusera de redémarrer en
+# principal tant que failback.sh ne l'a pas retiré
+on pg-replica touch /var/lib/pgbackrest/FAILOVER_ACTIVE
 
 say "3/3 À faire maintenant"
 cat <<'TXT'
@@ -40,5 +43,5 @@ cat <<'TXT'
         scripts/backup.sh full
   - Tant que l'ancien principal n'est pas reconstruit, il n'y a PLUS de
     réplica : reconstruire dès que possible (README, « Retour à la normale »).
-  - NE PAS relancer l'ancien volume pg-primary tel quel.
+  - pg-primary refusera de démarrer tant que scripts/failback.sh n'est pas lancé.
 TXT

@@ -27,6 +27,12 @@ as_postgres() {
 
 case "$NODE_ROLE" in
   primary)
+    # Déposé par scripts/failover.sh dans le dépôt partagé : pg-replica est
+    # devenu principal. Démarrer ici créerait deux principaux (données divergentes).
+    if [ -e "${FAILOVER_MARKER:-/var/lib/pgbackrest/FAILOVER_ACTIVE}" ]; then
+      log "REFUS : bascule en cours (pg-replica est le principal). Lancer scripts/failback.sh."
+      exit 1
+    fi
     ;;
 
   replica)

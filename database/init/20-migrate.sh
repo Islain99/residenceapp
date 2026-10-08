@@ -3,6 +3,8 @@
 # 20-migrate.sh — applique les migrations SQL, dans l'ordre, en tant
 # que app_migrator. Réutilisable plus tard : scripts/migrate.sh
 # n'applique que les versions absentes de schema_migrations.
+# La version est enregistrée ici, après succès : une migration n'a pas
+# à écrire dans schema_migrations (0001 le fait, sans conséquence).
 # =====================================================================
 set -Eeuo pipefail
 DB="${POSTGRES_DB:-residence}"
@@ -26,4 +28,8 @@ for f in "$MIGRATIONS_DIR"/*.sql; do
   # SET ROLE : les objets appartiennent à app_migrator, pas au superutilisateur
   { echo "SET ROLE app_migrator;"; cat "$f"; } | \
     psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER:-postgres}" --dbname "$DB" -q
+  psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER:-postgres}" --dbname "$DB" -q \
+    -v version="$version" <<'SQL'
+INSERT INTO schema_migrations (version) VALUES (:'version') ON CONFLICT (version) DO NOTHING;
+SQL
 done
