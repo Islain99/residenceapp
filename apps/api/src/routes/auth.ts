@@ -7,6 +7,7 @@
 //   Un jeton déjà révoqué présenté de nouveau = vol probable : toutes les
 //   sessions de l'utilisateur sont révoquées.
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
 import { audit } from '../lib/audit.js';
 import { burnVerifyTime, verifyPassword } from '../lib/passwords.js';
@@ -26,13 +27,19 @@ const UserBody = Type.Object({
 
 const TokensBody = Type.Object({
   accessToken: Type.String(),
-  refreshToken: Type.String(),
+  refreshToken: Type.Optional(Type.String()),   // absent en mode cookie
   expiresIn: Type.Integer(),   // durée de vie du jeton d'accès, en secondes
 });
 
+// Jeton dans le corps (application mobile) ou, s'il est absent, dans le cookie (navigateur)
 const RefreshTokenInput = Type.Object({
-  refreshToken: Type.String({ minLength: 1, maxLength: 200 }),
+  refreshToken: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
 });
+
+// Mode cookie (navigateur) : le jeton de rafraîchissement est déposé dans un
+// cookie httpOnly, illisible par le JavaScript de la page (un script injecté
+// ne peut pas le voler). SameSite=Strict : jamais envoyé depuis un autre site.
+export const REFRESH_COOKIE = 'refresh_token';
 
 const INVALID_CREDENTIALS = { error: 'invalid_credentials', message: 'Courriel ou mot de passe invalide.' };
 const INVALID_REFRESH = { error: 'invalid_refresh_token', message: 'Session expirée : se reconnecter.' };
@@ -61,12 +68,37 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
     };
   }
 
+  // Mode cookie : jeton dans le cookie, retiré du corps de la réponse
+  function deliver<T extends { refreshToken: string }>(reply: FastifyReply, tokens: T, useCookie: boolean) {
+    if (!useCookie) return tokens;
+    reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, {
+      httpOnly: true,
+      secure: config.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+      maxAge: config.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60,
+    });
+    const { refreshToken: _omitted, ...rest } = tokens;
+    return rest;
+  }
+
+  const clearCookie = (reply: FastifyReply) => reply.clearCookie(REFRESH_COOKIE, { path: '/' });
+
+  // Jeton présenté : corps d'abord, sinon cookie
+  function presentedToken(request: FastifyRequest<{ Body: { refreshToken?: string } }>) {
+    if (request.body?.refreshToken) return { token: request.body.refreshToken, fromCookie: false };
+    const cookie = request.cookies[REFRESH_COOKIE];
+    return cookie ? { token: cookie, fromCookie: true } : null;
+  }
+
   app.post('/auth/login', {
     config: { rateLimit: { max: config.LOGIN_RATE_LIMIT_MAX, timeWindow: '1 minute' } },
     schema: {
       body: Type.Object({
         email: Type.String({ minLength: 3, maxLength: 254 }),
         password: Type.String({ minLength: 1, maxLength: 1024 }),
+        // token : jeton de rafraîchissement dans la réponse ; cookie : dans un cookie httpOnly
+        session: Type.Union([Type.Literal('token'), Type.Literal('cookie')], { default: 'token' }),
       }),
       response: {
         200: Type.Intersect([TokensBody, Type.Object({ user: UserBody })]),
@@ -112,7 +144,7 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
     });
 
     return {
-      ...tokens,
+      ...deliver(reply, tokens, request.body.session === 'cookie'),
       user: {
         id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name,
         role: user.role, residenceId: user.residence_id,
@@ -123,7 +155,9 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
   app.post('/auth/refresh', {
     schema: { body: RefreshTokenInput, response: { 200: TokensBody, 401: ErrorBody } },
   }, async (request, reply) => {
-    const tokenHash = hashToken(request.body.refreshToken);
+    const presented = presentedToken(request);
+    if (!presented) return reply.code(401).send(INVALID_REFRESH);
+    const tokenHash = hashToken(presented.token);
 
     // Le résultat est renvoyé (pas d'exception) pour que la révocation
     // en cas de réutilisation soit bien validée (COMMIT).
@@ -157,14 +191,21 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         request.headers['user-agent']);
     });
 
-    return result ?? reply.code(401).send(INVALID_REFRESH);
+    if (!result) {
+      if (presented.fromCookie) clearCookie(reply);
+      return reply.code(401).send(INVALID_REFRESH);
+    }
+    return deliver(reply, result, presented.fromCookie);
   });
 
   app.post('/auth/logout', {
     schema: { body: RefreshTokenInput },
   }, async (request, reply) => {
+    const presented = presentedToken(request);
+    clearCookie(reply);
+    if (!presented) return reply.code(204).send();
     const revoked = await db.updateTable('refresh_tokens').set({ revoked_at: new Date() })
-      .where('token_hash', '=', hashToken(request.body.refreshToken))
+      .where('token_hash', '=', hashToken(presented.token))
       .where('revoked_at', 'is', null)
       .returning(['user_id'])
       .executeTakeFirst();

@@ -17,6 +17,7 @@
     "db:types": "kysely-codegen --dialect postgres --date-parser string --out-file src/db/types.ts --exclude-pattern \"*.{schema_migrations,ops_heartbeat,pg_stat_statements,pg_stat_statements_info}\""
   },
   "dependencies": {
+    "@fastify/cookie": "^11.1.2",
     "@fastify/jwt": "^10.2.2",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/type-provider-typebox": "^6.1.0",
