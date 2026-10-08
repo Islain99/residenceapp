@@ -43,6 +43,7 @@ export interface FollowUps {
   closed_by: string | null;
   closing_note: string | null;
   created_at: Generated<Timestamp>;
+  created_by: string | null;
   description: string;
   due_at: Timestamp | null;
   id: Generated<string>;
@@ -122,14 +123,14 @@ export interface Residences {
 }
 
 export interface Residents {
-  admitted_at: Timestamp | null;
-  birth_date: Timestamp | null;
+  admitted_at: string | null;
+  birth_date: string | null;
   created_at: Generated<Timestamp>;
   emergency_contact: string | null;
   first_name: string;
   id: Generated<string>;
   last_name: string;
-  left_at: Timestamp | null;
+  left_at: string | null;
   residence_id: string;
   restricted_notes: string | null;
   room: string | null;

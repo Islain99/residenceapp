@@ -5,6 +5,11 @@ import { forbidden } from './lib/errors.js';
 export const ROLES = ['prepose', 'infirmiere', 'responsable', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
 
+// Rôles qui encadrent l'équipe : corrigent toute note, gèrent les résidents,
+// lisent les notes réservées.
+export const SUPERVISOR_ROLES: Role[] = ['infirmiere', 'responsable'];
+export const isSupervisor = (role: Role) => SUPERVISOR_ROLES.includes(role);
+
 // Contenu du jeton d'accès
 export interface AccessTokenPayload {
   sub: string;              // users.id

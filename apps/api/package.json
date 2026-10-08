@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "seed:passwords": "tsx scripts/seed-passwords.ts",
-    "db:types": "kysely-codegen --dialect postgres --out-file src/db/types.ts --exclude-pattern \"*.{schema_migrations,ops_heartbeat,pg_stat_statements,pg_stat_statements_info}\""
+    "db:types": "kysely-codegen --dialect postgres --date-parser string --out-file src/db/types.ts --exclude-pattern \"*.{schema_migrations,ops_heartbeat,pg_stat_statements,pg_stat_statements_info}\""
   },
   "dependencies": {
     "@fastify/jwt": "^10.2.2",

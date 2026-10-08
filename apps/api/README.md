@@ -46,7 +46,8 @@ Toutes les routes exigent un jeton et ne voient que **la résidence de l'utilisa
 | --- | --- |
 | `GET /note-categories` | Catégories actives, dans l'ordre d'affichage |
 | `GET /notes` | Liste, la plus récente d'abord. Filtres : `residentId`, `categoryId`, `from`, `to`, `priority`, `status` (`active` par défaut, `annulee`, `all`), `q` (recherche plein texte, sans accents). Pagination : `limit` (50, max 100) et `cursor` (= `nextCursor` de la page précédente) |
-| `GET /notes/:id` | Une note + l'historique de ses corrections (`versions`) |
+| `GET /notes/:id` | Une note + l'historique de ses corrections (`versions`), ses suivis (`followUps`) et qui l'a lue (`reads`) |
+| `POST /notes/:id/read` | Confirmer la lecture (204 ; répéter n'a pas d'effet). Chaque note porte `readByMe` ; filtre `GET /notes?unread=true` |
 | `POST /notes` | Nouvelle note : `occurredAt`, `categoryId`, `description`, et en option `residentId` (absent = note générale), `intervention`, `isPriority`, `isPositive` |
 | `PATCH /notes/:id` | Correction des champs envoyés ; l'ancienne version est conservée |
 | `POST /notes/:id/cancel` | Annulation avec `reason` (la note reste visible, statut `annulee`) |
@@ -57,6 +58,38 @@ Règles :
 - Corriger ou annuler : **l'auteur pendant 24 h**, une **infirmière ou responsable** en tout temps. Une note annulée ne change plus (409).
 - Rien n'est supprimé. Création, correction, annulation et consultation d'une note sont inscrites dans `audit_log`.
 - `occurredAt` ne peut pas être dans le futur (5 min de tolérance).
+
+## Suivis
+
+Actions à faire issues d'une note. Tous les rôles les créent, modifient et ferment ; un suivi fermé ne change plus (409).
+
+| Route | Rôle |
+| --- | --- |
+| `GET /follow-ups` | Ouverts par défaut, échéance la plus proche d'abord. Filtres : `status` (`open`, `closed`, `all`), `assignedTo` (`me`, `team` = sans assignation, ou un identifiant), `residentId`. Chaque suivi porte `isOverdue` |
+| `GET /follow-ups/:id` | Un suivi |
+| `POST /notes/:id/follow-ups` | `{ description, assignedTo?, dueAt? }` sur une note active (sans `assignedTo` : toute l'équipe) |
+| `PATCH /follow-ups/:id` | Description, assignation, échéance |
+| `POST /follow-ups/:id/close` | `{ closingNote? }` |
+
+## Relève de quart
+
+| Route | Rôle |
+| --- | --- |
+| `GET /handover` | Notes actives écrites depuis ma dernière relève (24 h si aucune), prioritaires d'abord, compteurs (`notes`, `priority`, `unread`) et suivis ouverts assignés à moi ou à l'équipe |
+| `POST /handover/ack` | `{ seenUntil }` = le `generatedAt` reçu du `GET` : la relève suivante part de là, une note écrite entre la lecture et la confirmation n'est pas perdue |
+
+Les heures de relève viennent de l'horloge de la base (même horloge que `created_at` des notes).
+
+## Résidents
+
+| Route | Rôle |
+| --- | --- |
+| `GET /residents` | Actifs par défaut (`status` : `actif`, `parti`, `all`), tri français par nom ; `q` cherche dans le nom (sans accents) ou la chambre |
+| `GET /residents/:id` | Fiche (consultation auditée). `restrictedNotes` seulement pour une infirmière ou une responsable |
+| `POST /residents` | Infirmière, responsable : `{ firstName, lastName, room?, birthDate?, emergencyContact?, specialInstructions?, restrictedNotes?, admittedAt? }` (dates `AAAA-MM-JJ`) |
+| `PATCH /residents/:id` | Infirmière, responsable. Départ : `{ status: "parti", leftAt }` ; retour : `{ status: "actif" }` |
+
+Aucune suppression de résident.
 
 ## Protéger une route
 
