@@ -5,23 +5,27 @@ import rateLimit from '@fastify/rate-limit';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
+import { smtpMailer, type Mailer } from './lib/mailer.js';
 import authRoutes from './routes/auth.js';
 import categoryRoutes from './routes/categories.js';
 import followUpRoutes from './routes/follow-ups.js';
 import handoverRoutes from './routes/handover.js';
 import healthRoutes from './routes/health.js';
 import noteRoutes from './routes/notes.js';
+import passwordRoutes from './routes/password.js';
 import residentRoutes from './routes/residents.js';
 import staffRoutes from './routes/staff.js';
+import userRoutes from './routes/users.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
     db: Database;
     config: Config;
+    mailer: Mailer;
   }
 }
 
-export async function buildApp(config: Config, db: Database) {
+export async function buildApp(config: Config, db: Database, mailer: Mailer = smtpMailer(config.SMTP_URL, config.MAIL_FROM)) {
   const app = Fastify({
     logger: config.NODE_ENV === 'test' ? false : {
       level: 'info',
@@ -31,6 +35,7 @@ export async function buildApp(config: Config, db: Database) {
 
   app.decorate('db', db);
   app.decorate('config', config);
+  app.decorate('mailer', mailer);
   app.addHook('onClose', async () => { await db.destroy(); });
 
   await app.register(jwt, {
@@ -74,6 +79,8 @@ export async function buildApp(config: Config, db: Database) {
   await app.register(residentRoutes);
   await app.register(handoverRoutes);
   await app.register(staffRoutes);
+  await app.register(userRoutes);
+  await app.register(passwordRoutes);
 
   return app;
 }

@@ -93,6 +93,26 @@ Les heures de relève viennent de l'horloge de la base (même horloge que `creat
 
 Aucune suppression de résident.
 
+## Comptes des employés et mot de passe
+
+Personne d'autre que l'employé ne connaît son mot de passe : la responsable l'invite, il le choisit lui-même à partir d'un lien reçu par courriel.
+
+| Route | Rôle |
+| --- | --- |
+| `GET /users` | Responsable : comptes de la résidence, avec `status` (`invited`, `active`, `inactive`) |
+| `POST /users` | Responsable : `{ email, firstName, lastName, role }` (`prepose`, `infirmiere`, `responsable`) → courriel d'invitation, lien valable 72 h. Si le courriel ne part pas, rien n'est créé (502) |
+| `POST /users/:id/invite` | Responsable : renvoyer l'invitation (l'ancien lien ne vaut plus rien) |
+| `PATCH /users/:id` | Responsable : `firstName`, `lastName`, `role`, `isActive`. Désactiver ferme ses sessions tout de suite. Pas sur son propre rôle ni sa propre désactivation |
+| `POST /auth/password/forgot` | `{ email }` → 204 **dans tous les cas** (ne révèle pas qui a un compte) ; lien valable 1 h si le compte existe et est actif. 5 demandes / minute / IP |
+| `POST /auth/password/check` | `{ token }` → `{ purpose, email, firstName }` ou 400 `invalid_token` |
+| `POST /auth/password/reset` | `{ token, password }` (10 caractères minimum, pas le courriel) → 204 ; toutes les sessions de l'employé sont fermées |
+
+- Liens à usage unique : un nouveau lien annule les précédents ; seul le SHA-256 est stocké (`account_tokens`).
+- Le lien est `APP_URL/mot-de-passe#<jeton>` : le jeton est dans le fragment, jamais envoyé à un serveur ni noté dans un journal.
+- Un compte invité n'a pas de mot de passe (`password_hash` NULL) : connexion refusée avec le message habituel.
+- Audit : `create`, `invite`, `account_activated`, `password_reset_requested`, `password_reset`, `deactivate`, `reactivate`, `update`.
+- Courriels : `SMTP_URL`, `MAIL_FROM`, `APP_URL` (voir `.env.example`). En développement, Mailpit (http://localhost:8025) reçoit tout, rien ne part pour vrai. Les tests gardent les courriels en mémoire.
+
 ## Protéger une route
 
 ```ts

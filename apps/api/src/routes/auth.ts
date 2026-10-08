@@ -118,6 +118,10 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (!user) {
       await burnVerifyTime(request.body.password);
       reason = 'unknown_email';
+    } else if (user.password_hash === null) {
+      // Invitation pas encore acceptée : aucun mot de passe choisi
+      await burnVerifyTime(request.body.password);
+      reason = 'not_activated';
     } else if (!(await verifyPassword(user.password_hash, request.body.password))) {
       reason = 'bad_password';
     } else if (!user.is_active || (user.residence_id !== null && user.residence_active === false)) {

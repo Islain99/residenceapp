@@ -29,6 +29,9 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 | `/notes/:id` | Note : marquer comme lue, ajouter un suivi, corriger, annuler (avec motif), qui l'a lue, historique des corrections |
 | `/suivis` | Suivis : pour moi, pour l'équipe, tous les ouverts, faits |
 | `/residents`, `/residents/:id` | Résidents et fiche (consignes, suivis ouverts, notes récentes) ; ajout, modification et départ pour infirmière / responsable |
+| `/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver |
+| `/mot-de-passe-oublie` | Public : demander un lien de réinitialisation par courriel |
+| `/mot-de-passe#<jeton>` | Public : choisir son mot de passe (lien d'invitation ou de réinitialisation) |
 
 L'interface masque les actions non permises (ex. « Corriger » après 24 h pour un préposé), mais c'est l'API qui fait foi.
 

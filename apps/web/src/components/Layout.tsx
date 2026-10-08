@@ -11,6 +11,7 @@ const LINKS = [
   { to: '/suivis', label: 'Suivis', icon: '✓', end: false },
   { to: '/residents', label: 'Résidents', icon: '⌂', end: false },
 ];
+const TEAM_LINK = { to: '/equipe', label: 'Équipe', icon: '☺', end: false };
 
 function NavBadge() {
   const handover = useHandover();
@@ -26,6 +27,7 @@ function NavBadge() {
 export function Layout() {
   const user = useUser();
   const { logout } = useAuth();
+  const links = user.role === 'responsable' ? [...LINKS, TEAM_LINK] : LINKS;
 
   return (
     <div className="min-h-dvh pb-20 md:pb-0">
@@ -36,7 +38,7 @@ export function Layout() {
             Journal de bord
           </span>
           <nav aria-label="Navigation principale" className="hidden gap-1 md:flex">
-            {LINKS.map((link) => (
+            {links.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
@@ -67,8 +69,8 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-4 border-t border-line bg-surface md:hidden">
-        {LINKS.map((link) => (
+      <nav aria-label="Navigation principale" className={cx('fixed inset-x-0 bottom-0 z-10 grid border-t border-line bg-surface md:hidden', links.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
+        {links.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}

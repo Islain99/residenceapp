@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type {
-  Category, FollowUp, Handover, Note, NoteDetail, NoteInput, NotePage, Resident,
+  Account, AccountInput, Category, FollowUp, Handover, Note, NoteDetail, NoteInput, NotePage, Resident,
   ResidentInput, ResidentSummary, StaffMember,
 } from './types';
 
@@ -132,3 +132,43 @@ export function useSaveResident(id?: string) {
     onSuccess: () => invalidate('residents', 'resident', 'notes'),
   });
 }
+
+// ---------------------------------------------------------------------
+// Comptes des employés (responsable) et mot de passe
+// ---------------------------------------------------------------------
+export const useAccounts = () =>
+  useQuery({ queryKey: ['accounts'], queryFn: () => api<Account[]>('/users') });
+
+export function useInviteAccount() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: AccountInput) => api<Account>('/users', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('accounts', 'staff'),
+  });
+}
+
+export function useResendInvite() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api<Account>(`/users/${id}/invite`, { method: 'POST', body: {} }),
+    onSuccess: () => invalidate('accounts'),
+  });
+}
+
+export function useUpdateAccount() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & Partial<Omit<AccountInput, 'email'>> & { isActive?: boolean }) =>
+      api<Account>(`/users/${id}`, { method: 'PATCH', body: input }),
+    onSuccess: () => invalidate('accounts', 'staff'),
+  });
+}
+
+export const forgotPassword = (email: string) =>
+  api<void>('/auth/password/forgot', { method: 'POST', body: { email } });
+
+export const checkPasswordToken = (token: string) =>
+  api<{ purpose: 'invite' | 'reset'; email: string; firstName: string }>('/auth/password/check', { method: 'POST', body: { token } });
+
+export const setPassword = (token: string, password: string) =>
+  api<void>('/auth/password/reset', { method: 'POST', body: { token, password } });

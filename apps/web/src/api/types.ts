@@ -129,6 +129,21 @@ export interface StaffMember extends Person {
   role: Role;
 }
 
+export interface Account extends StaffMember {
+  email: string;
+  isActive: boolean;
+  status: 'invited' | 'active' | 'inactive';
+  lastLoginAt: string | null;
+  invitationExpiresAt: string | null;
+}
+
+export interface AccountInput {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Exclude<Role, 'admin'>;
+}
+
 export interface Handover {
   generatedAt: string;
   since: string;

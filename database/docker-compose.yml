@@ -67,6 +67,17 @@ services:
     ports:
       - "127.0.0.1:5434:5432"
 
+  # Développement seulement : reçoit les courriels de l'API (invitations,
+  # mot de passe oublié) sans rien envoyer pour vrai. Boîte de réception :
+  # http://localhost:8025. En production, l'API utilise un vrai SMTP (SMTP_URL).
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    container_name: residence-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # boîte de réception (web)
+
 volumes:
   pg-primary-data:
   pg-replica-data:
