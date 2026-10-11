@@ -7,6 +7,9 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Suivis** : actions à faire issues d'une note, assignées à quelqu'un ou à toute l'équipe.
 - **Résidents** : fiches, consignes particulières, notes réservées aux infirmières et responsables.
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
+- **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
+
+Sur téléphone et tablette, l'application s'installe comme une application (PWA). Sur un appareil partagé, la session se ferme après 15 minutes sans activité. Aucune donnée de résident n'est gardée hors connexion.
 
 Chaque résidence ne voit que ses propres données, et chaque action sensible est inscrite dans un journal d'audit.
 
@@ -73,8 +76,8 @@ Mot de passe pour tous : **`Residence2026!`**
 
 | Courriel | Rôle | Peut en plus |
 | --- | --- | --- |
-| `responsable@exemple.test` | Responsable | Gérer l'équipe (inviter, désactiver), tout ce que fait l'infirmière |
-| `infirmiere@exemple.test` | Infirmière | Corriger ou annuler toute note, gérer les résidents, lire les notes réservées |
+| `responsable@exemple.test` | Responsable | Administration : équipe, catégories, journal d'audit, export d'un dossier (Loi 25) ; tout ce que fait l'infirmière |
+| `infirmiere@exemple.test` | Infirmière | Consignes prioritaires, corriger ou annuler toute note, gérer les résidents, lire les notes réservées |
 | `prepose1@exemple.test` … `prepose4@exemple.test` | Préposé·e | Relève, notes, suivis ; corriger sa propre note pendant 24 h |
 | `admin@exemple.test` | Administrateur plateforme | Aucun accès au journal (pas de résidence), pas encore d'écran |
 
@@ -104,4 +107,5 @@ Pour l'interface : `npm run build` (vérification des types) et `npm run lint` d
 
 - [database/README.md](database/README.md) : sauvegardes, bascule vers le serveur de reprise, restauration à un instant précis, migrations.
 - [apps/api/README.md](apps/api/README.md) : toutes les routes de l'API et les règles d'accès par rôle.
-- [apps/web/README.md](apps/web/README.md) : écrans, gestion de la session, structure du code.
+- [apps/web/README.md](apps/web/README.md) : écrans, gestion de la session, application installable, structure du code.
+- [Déploiement de test (Railway + Vercel)](apps/api/README.md#déploiement-de-test--railway-api--base-et-vercel-interface) et vérification automatique (GitHub Actions).

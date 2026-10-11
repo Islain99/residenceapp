@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Hors connexion — Journal de bord</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root { --page: #f4f6f6; --surface: #fff; --ink: #17201f; --muted: #5b6766; --primary: #0f766e; --on-primary: #fff; --line: #d9dfdf; }
+    @media (prefers-color-scheme: dark) {
+      :root { --page: #0e1514; --surface: #162120; --ink: #e6eeed; --muted: #9aa8a6; --primary: #2dd4bf; --on-primary: #062420; --line: #2a3837; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100dvh; display: flex; align-items: center; justify-content: center; padding: 16px;
+           background: var(--page); color: var(--ink); font: 16px/1.5 system-ui, sans-serif; }
+    main { width: 100%; max-width: 26rem; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px; text-align: center; }
+    img { width: 48px; height: 48px; }
+    h1 { font-size: 1.25rem; margin: 12px 0 8px; }
+    p { color: var(--muted); margin: 0 0 20px; }
+    button { min-height: 44px; padding: 0 20px; border: 0; border-radius: 10px; background: var(--primary); color: var(--on-primary); font: inherit; font-weight: 600; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/favicon.svg" alt="" />
+    <h1>Hors connexion</h1>
+    <p>Le journal de bord a besoin du réseau. Pour protéger les renseignements des résidents,
+       aucune note n'est gardée sur cet appareil. Vérifiez le Wi-Fi, puis réessayez.</p>
+    <button type="button" onclick="location.reload()">Réessayer</button>
+  </main>
+  <script>window.addEventListener('online', () => location.reload());</script>
+</body>
+</html>

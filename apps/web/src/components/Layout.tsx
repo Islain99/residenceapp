@@ -4,6 +4,8 @@ import { useHandover } from '../api/hooks';
 import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
 import { fullName } from '../lib/format';
 import { cx } from '../lib/cx';
+import { IdleLogout } from './IdleLogout';
+import { OfflineBanner } from './OfflineBanner';
 
 const LINKS = [
   { to: '/', label: 'Relève', icon: '◷', end: true },
@@ -11,7 +13,8 @@ const LINKS = [
   { to: '/suivis', label: 'Suivis', icon: '✓', end: false },
   { to: '/residents', label: 'Résidents', icon: '⌂', end: false },
 ];
-const TEAM_LINK = { to: '/equipe', label: 'Équipe', icon: '☺', end: false };
+// Responsable : équipe, catégories, journal d'audit
+const ADMIN_LINK = { to: '/administration', label: 'Admin', icon: '⚙', end: false };
 
 function NavBadge() {
   const handover = useHandover();
@@ -26,12 +29,14 @@ function NavBadge() {
 
 export function Layout() {
   const user = useUser();
-  const { logout } = useAuth();
-  const links = user.role === 'responsable' ? [...LINKS, TEAM_LINK] : LINKS;
+  const { logout, sharedDevice } = useAuth();
+  const links = user.role === 'responsable' ? [...LINKS, ADMIN_LINK] : LINKS;
 
   return (
     <div className="min-h-dvh pb-20 md:pb-0">
+      {sharedDevice && <IdleLogout />}
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
+        <OfflineBanner />
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4">
           <span className="flex items-center gap-2 font-bold">
             <img src="/favicon.svg" alt="" className="size-7" />
@@ -58,7 +63,7 @@ export function Layout() {
               <span className="block font-medium">{fullName(user)}</span>
               <span className="block text-xs text-muted">{ROLE_LABELS[user.role]}</span>
             </span>
-            <button type="button" onClick={logout} className="rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
+            <button type="button" onClick={() => void logout()} className="rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
               Déconnexion
             </button>
           </div>

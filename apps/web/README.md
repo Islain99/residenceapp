@@ -29,7 +29,10 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 | `/notes/:id` | Note : marquer comme lue, ajouter un suivi, corriger, annuler (avec motif), qui l'a lue, historique des corrections |
 | `/suivis` | Suivis : pour moi, pour l'équipe, tous les ouverts, faits |
 | `/residents`, `/residents/:id` | Résidents et fiche (consignes, suivis ouverts, notes récentes) ; ajout, modification et départ pour infirmière / responsable |
-| `/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver |
+| `/residents/:id` (bouton « Exporter le dossier ») | Responsable : export complet du dossier en JSON (demande d'accès, Loi 25) |
+| `/administration/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver (`/equipe` y redirige) |
+| `/administration/categories` | Responsable : ajouter, renommer, réordonner, désactiver / réactiver les catégories de notes |
+| `/administration/audit` | Responsable : journal d'audit, filtres par type d'élément et par employé |
 | `/mot-de-passe-oublie` | Public : demander un lien de réinitialisation par courriel |
 | `/mot-de-passe#<jeton>` | Public : choisir son mot de passe (lien d'invitation ou de réinitialisation) |
 
@@ -39,7 +42,15 @@ L'interface masque les actions non permises (ex. « Corriger » après 24 h pour
 
 - Connexion en **mode cookie** : le jeton de rafraîchissement est dans un cookie `httpOnly` (illisible par le JavaScript de la page), le jeton d'accès reste **en mémoire** seulement.
 - Recharger la page restaure la session par ce cookie. Un jeton d'accès expiré est renouvelé automatiquement, une seule fois même avec plusieurs onglets ouverts (Web Locks).
+- **Appareil partagé** (case à la connexion) : la session se ferme à la fermeture du navigateur et après **15 minutes sans activité**, avec un avertissement une minute avant (« Toujours là ? »). La dernière activité est partagée entre les onglets. Sur un appareil personnel, la session dure 12 h.
 - Le site et l'API doivent être servis **sur la même origine** (en développement, le proxy de Vite ; en production, un reverse proxy qui envoie `/api/*` à l'API).
+
+## Application installable (PWA) et hors connexion
+
+- `public/manifest.webmanifest` et `public/icons/` : installable sur téléphone et tablette (« Ajouter à l'écran d'accueil »), sans magasin d'applications.
+- `public/sw.js` (enregistré en production seulement) : met en cache **uniquement les fichiers de l'interface** (code, styles, icônes). **Aucune réponse de l'API n'est mise en cache** : aucune donnée de résident ne reste sur l'appareil (Loi 25).
+- Sans réseau : bandeau « Hors connexion » dans l'application, et page `offline.html` si on ouvre une page. Tout se recharge au retour du réseau.
+- Après une modification de `sw.js`, changer `VERSION` dans le fichier : l'ancien cache est supprimé.
 
 ## Structure
 

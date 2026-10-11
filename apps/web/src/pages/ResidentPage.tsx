@@ -1,7 +1,7 @@
 // Fiche d'un résident : informations, consignes, suivis ouverts et notes récentes.
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { useCreateNote, useFollowUps, useNotes, useResident, useSaveResident } from '../api/hooks';
+import { downloadResidentExport, useCreateNote, useFollowUps, useNotes, useResident, useSaveResident } from '../api/hooks';
 import type { Resident } from '../api/types';
 import { isSupervisor, useUser } from '../auth/session';
 import { FollowUpItem } from '../components/FollowUps';
@@ -29,6 +29,20 @@ function ResidentView({ resident }: { resident: Resident }) {
   const close = () => setDialog(null);
   const save = useSaveResident(resident.id);
   const supervisor = isSupervisor(user.role);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<unknown>(null);
+
+  async function exportFile() {
+    setExportError(null);
+    setExporting(true);
+    try {
+      await downloadResidentExport(resident);
+    } catch (err) {
+      setExportError(err);
+    } finally {
+      setExporting(false);
+    }
+  }
   const items = notes.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
@@ -52,8 +66,15 @@ function ResidentView({ resident }: { resident: Resident }) {
             {supervisor && resident.status === 'parti' && (
               <Button variant="ghost" busy={save.isPending} onClick={() => save.mutate({ status: 'actif' })}>Réadmettre</Button>
             )}
+            {user.role === 'responsable' && (
+              <Button variant="ghost" busy={exporting} onClick={exportFile}
+                title="Dossier complet en JSON (demande d'accès, Loi 25). L'export est inscrit au journal d'audit.">
+                Exporter le dossier
+              </Button>
+            )}
           </div>
         </div>
+        <ErrorMessage error={exportError} />
 
         {resident.specialInstructions && (
           <div className="mt-4 rounded-lg bg-priority-soft p-3">

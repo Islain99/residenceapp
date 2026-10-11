@@ -177,7 +177,8 @@ database/
 │   ├── 0001_init.sql           # schéma V1
 │   ├── 0002_privileges.sql     # droits par défaut, colonnes sensibles
 │   ├── 0003_follow_up_author.sql  # auteur des suivis
-│   └── 0004_account_tokens.sql    # invitations, mot de passe oublié
+│   ├── 0004_account_tokens.sql    # invitations, mot de passe oublié
+│   └── 0005_login_lockout.sql     # blocage par compte, sessions « appareil partagé »
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

@@ -6,6 +6,10 @@
 //   Chaque /auth/refresh le révoque et en remet un nouveau (rotation).
 //   Un jeton déjà révoqué présenté de nouveau = vol probable : toutes les
 //   sessions de l'utilisateur sont révoquées.
+// Blocage par compte : LOGIN_MAX_ATTEMPTS mauvais mots de passe d'affilée
+//   bloquent le compte LOGIN_LOCK_MINUTES (429 account_locked), quelle que
+//   soit l'adresse IP.
+// Appareil partagé : le cookie de session disparaît à la fermeture du navigateur.
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
@@ -29,6 +33,8 @@ const TokensBody = Type.Object({
   accessToken: Type.String(),
   refreshToken: Type.Optional(Type.String()),   // absent en mode cookie
   expiresIn: Type.Integer(),   // durée de vie du jeton d'accès, en secondes
+  // Session ouverte sur un appareil partagé : l'interface déconnecte après 15 min d'inactivité
+  sharedDevice: Type.Boolean(),
 });
 
 // Jeton dans le corps (application mobile) ou, s'il est absent, dans le cookie (navigateur)
@@ -43,16 +49,22 @@ export const REFRESH_COOKIE = 'refresh_token';
 
 const INVALID_CREDENTIALS = { error: 'invalid_credentials', message: 'Courriel ou mot de passe invalide.' };
 const INVALID_REFRESH = { error: 'invalid_refresh_token', message: 'Session expirée : se reconnecter.' };
+const accountLocked = (minutes: number) => ({
+  error: 'account_locked',
+  message: `Trop de mots de passe erronés : compte bloqué ${minutes} minutes. `
+    + 'Réessayer plus tard ou utiliser « Mot de passe oublié ».',
+});
 
 const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
   const { db, config } = app;
-  const refreshTtlMs = config.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+  const refreshTtlMs = config.REFRESH_TOKEN_TTL_HOURS * 60 * 60 * 1000;
 
   // Émet un jeton d'accès + un jeton de rafraîchissement (stocké haché)
   async function issueTokens(
     trx: typeof db,
     payload: AccessTokenPayload,
     userAgent: string | undefined,
+    sharedDevice: boolean,
   ) {
     const refreshToken = generateRefreshToken();
     await trx.insertInto('refresh_tokens').values({
@@ -60,23 +72,28 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
       token_hash: hashToken(refreshToken),
       expires_at: new Date(Date.now() + refreshTtlMs),
       user_agent: userAgent?.slice(0, 256) ?? null,
+      shared_device: sharedDevice,
     }).execute();
     return {
       accessToken: app.jwt.sign(payload),
       refreshToken,
       expiresIn: config.ACCESS_TOKEN_TTL_MINUTES * 60,
+      sharedDevice,
     };
   }
 
-  // Mode cookie : jeton dans le cookie, retiré du corps de la réponse
-  function deliver<T extends { refreshToken: string }>(reply: FastifyReply, tokens: T, useCookie: boolean) {
+  // Mode cookie : jeton dans le cookie, retiré du corps de la réponse.
+  // Appareil partagé : cookie de session (sans durée), effacé à la fermeture du navigateur.
+  function deliver<T extends { refreshToken: string }>(
+    reply: FastifyReply, tokens: T, useCookie: boolean, sharedDevice: boolean,
+  ) {
     if (!useCookie) return tokens;
     reply.setCookie(REFRESH_COOKIE, tokens.refreshToken, {
       httpOnly: true,
       secure: config.NODE_ENV === 'production',
       sameSite: 'strict',
       path: '/',
-      maxAge: config.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60,
+      ...(sharedDevice ? {} : { maxAge: config.REFRESH_TOKEN_TTL_HOURS * 60 * 60 }),
     });
     const { refreshToken: _omitted, ...rest } = tokens;
     return rest;
@@ -99,10 +116,13 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
         password: Type.String({ minLength: 1, maxLength: 1024 }),
         // token : jeton de rafraîchissement dans la réponse ; cookie : dans un cookie httpOnly
         session: Type.Union([Type.Literal('token'), Type.Literal('cookie')], { default: 'token' }),
+        // Ordinateur ou tablette de la résidence utilisés par plusieurs employés
+        sharedDevice: Type.Boolean({ default: false }),
       }),
       response: {
         200: Type.Intersect([TokensBody, Type.Object({ user: UserBody })]),
         401: ErrorBody,
+        429: ErrorBody,
       },
     },
   }, async (request, reply) => {
@@ -110,9 +130,19 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const user = await db.selectFrom('users as u')
       .leftJoin('residences as r', 'r.id', 'u.residence_id')
       .select(['u.id', 'u.email', 'u.password_hash', 'u.first_name', 'u.last_name', 'u.role',
-               'u.residence_id', 'u.is_active', 'r.is_active as residence_active'])
+               'u.residence_id', 'u.is_active', 'u.locked_until', 'r.is_active as residence_active'])
       .where(sql<string>`lower(u.email)`, '=', email)
       .executeTakeFirst();
+
+    // Compte bloqué : refusé sans même vérifier le mot de passe
+    if (user?.locked_until && user.locked_until > new Date()) {
+      await audit(db, {
+        action: 'login_failed', entity: 'user', entityId: user.id,
+        residenceId: user.residence_id, details: { email, reason: 'locked' }, ip: request.ip,
+      });
+      const minutes = Math.ceil((user.locked_until.getTime() - Date.now()) / 60_000);
+      return reply.code(429).send(accountLocked(minutes));
+    }
 
     let reason: string | null = null;
     if (!user) {
@@ -129,26 +159,45 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
     }
 
     if (!user || reason) {
+      // Mauvais mot de passe : compteur du compte ; au maximum, blocage et remise à zéro
+      let lockedNow = false;
+      if (user && reason === 'bad_password') {
+        const max = config.LOGIN_MAX_ATTEMPTS;
+        const row = await db.updateTable('users')
+          .set({
+            failed_login_count: sql<number>`CASE WHEN failed_login_count + 1 >= ${max} THEN 0 ELSE failed_login_count + 1 END`,
+            locked_until: sql<Date | null>`CASE WHEN failed_login_count + 1 >= ${max}
+              THEN now() + make_interval(mins => ${config.LOGIN_LOCK_MINUTES}) ELSE locked_until END`,
+          })
+          .where('id', '=', user.id)
+          .returning(['locked_until'])
+          .executeTakeFirstOrThrow();
+        lockedNow = row.locked_until !== null && row.locked_until > new Date();
+      }
       await audit(db, {
         action: 'login_failed', entity: 'user', entityId: user?.id,
-        residenceId: user?.residence_id, details: { email, reason }, ip: request.ip,
+        residenceId: user?.residence_id, details: { email, reason, ...(lockedNow ? { locked: true } : {}) },
+        ip: request.ip,
       });
+      if (lockedNow) return reply.code(429).send(accountLocked(config.LOGIN_LOCK_MINUTES));
       // Même réponse dans tous les cas : ne révèle pas si le compte existe
       return reply.code(401).send(INVALID_CREDENTIALS);
     }
 
     const payload: AccessTokenPayload = { sub: user.id, rid: user.residence_id, role: user.role as Role };
     const tokens = await db.transaction().execute(async (trx) => {
-      await trx.updateTable('users').set({ last_login_at: new Date() }).where('id', '=', user.id).execute();
+      await trx.updateTable('users')
+        .set({ last_login_at: new Date(), failed_login_count: 0, locked_until: null })
+        .where('id', '=', user.id).execute();
       await audit(trx, {
         action: 'login', entity: 'user', entityId: user.id, userId: user.id,
         residenceId: user.residence_id, ip: request.ip,
       });
-      return issueTokens(trx, payload, request.headers['user-agent']);
+      return issueTokens(trx, payload, request.headers['user-agent'], request.body.sharedDevice);
     });
 
     return {
-      ...deliver(reply, tokens, request.body.session === 'cookie'),
+      ...deliver(reply, tokens, request.body.session === 'cookie', request.body.sharedDevice),
       user: {
         id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name,
         role: user.role, residenceId: user.residence_id,
@@ -169,7 +218,7 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const row = await trx.selectFrom('refresh_tokens as t')
         .innerJoin('users as u', 'u.id', 't.user_id')
         .leftJoin('residences as r', 'r.id', 'u.residence_id')
-        .select(['t.id', 't.revoked_at', 't.expires_at', 'u.id as user_id', 'u.role',
+        .select(['t.id', 't.revoked_at', 't.expires_at', 't.shared_device', 'u.id as user_id', 'u.role',
                  'u.residence_id', 'u.is_active', 'r.is_active as residence_active'])
         .where('t.token_hash', '=', tokenHash)
         .forUpdate('t')   // deux rafraîchissements simultanés : le second attend
@@ -191,15 +240,16 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
       const active = row.is_active && (row.residence_id === null || row.residence_active !== false);
       if (row.expires_at <= new Date() || !active) return null;
 
-      return issueTokens(trx, { sub: row.user_id, rid: row.residence_id, role: row.role as Role },
-        request.headers['user-agent']);
+      const tokens = await issueTokens(trx, { sub: row.user_id, rid: row.residence_id, role: row.role as Role },
+        request.headers['user-agent'], row.shared_device);
+      return { tokens, sharedDevice: row.shared_device };
     });
 
     if (!result) {
       if (presented.fromCookie) clearCookie(reply);
       return reply.code(401).send(INVALID_REFRESH);
     }
-    return deliver(reply, result, presented.fromCookie);
+    return deliver(reply, result.tokens, presented.fromCookie, result.sharedDevice);
   });
 
   app.post('/auth/logout', {

@@ -1,6 +1,7 @@
 // Formulaire de note : création (valeurs par défaut) ou correction (note existante).
 import { useState, type FormEvent } from 'react';
 import { useCategories, useResidents } from '../api/hooks';
+import { isSupervisor, useUser } from '../auth/session';
 import type { Note, NoteInput } from '../api/types';
 import { fromLocalInput, fullName, toLocalInput } from '../lib/format';
 import { Button, Checkbox, ErrorMessage, SelectField, TextArea, TextField } from './ui';
@@ -14,6 +15,9 @@ interface Props {
 }
 
 export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLabel }: Props) {
+  const user = useUser();
+  // Consigne prioritaire : infirmière ou responsable seulement (règle de l'API)
+  const canMarkPriority = isSupervisor(user.role);
   const categories = useCategories();
   const residents = useResidents('actif');
   const [occurredAt, setOccurredAt] = useState(() => toLocalInput(note ? new Date(note.occurredAt) : new Date()));
@@ -96,8 +100,10 @@ export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLa
       />
 
       <div className="flex flex-wrap gap-x-6">
-        <Checkbox label={<span><strong>Consigne prioritaire</strong> — à lire par toute l'équipe</span>}
-          checked={isPriority} onChange={(e) => setPriority(e.target.checked)} />
+        {canMarkPriority && (
+          <Checkbox label={<span><strong>Consigne prioritaire</strong> — à lire par toute l'équipe</span>}
+            checked={isPriority} onChange={(e) => setPriority(e.target.checked)} />
+        )}
         <Checkbox label="Observation positive" checked={isPositive} onChange={(e) => setPositive(e.target.checked)} />
       </div>
 

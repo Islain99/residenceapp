@@ -22,6 +22,30 @@ export interface Category {
   label: string;
 }
 
+// Gestion des catégories (responsable)
+export interface ManagedCategory extends Category {
+  sortOrder: number;
+  isActive: boolean;
+}
+
+// Journal d'audit (responsable)
+export interface AuditEntry {
+  id: string;
+  at: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  user: Person | null;          // qui a agi
+  target: Person | null;        // compte visé (élément « compte »)
+  details: Record<string, unknown> | null;
+  ip: string | null;
+}
+
+export interface AuditPage {
+  items: AuditEntry[];
+  nextCursor: string | null;
+}
+
 export interface ResidentRef {
   id: string;
   firstName: string;

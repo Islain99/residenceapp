@@ -7,9 +7,13 @@
 //   * Créer ou modifier un résident : infirmière ou responsable.
 //   * Aucune suppression : un départ = statut « parti » + date de départ.
 //   * Consultation de la fiche, création et modification sont auditées.
+//   * Export complet d'un dossier (Loi 25, droit d'accès) : responsable
+//     seulement, audité. GET /residents/:id/export
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql, type Selectable, type Updateable } from 'kysely';
 import { authenticate, isSupervisor, requireRole, residenceOf, SUPERVISOR_ROLES } from '../auth.js';
+import { followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
+import { noteQuery, toNote } from '../lib/note-view.js';
 import type { Residents } from '../db/types.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, notFound } from '../lib/errors.js';
@@ -210,6 +214,83 @@ const residentRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return row;
     });
     return toDetail(row, true);
+  });
+
+  // Export complet du dossier d'un résident, pour répondre à une demande
+  // d'accès (Loi 25, art. 27) : fiche entière (champs réservés compris),
+  // toutes les notes (annulées comprises) avec leurs corrections, les suivis,
+  // et l'historique des consultations et modifications du dossier.
+  app.get('/residents/:id/export', {
+    preHandler: requireRole('responsable'),
+    schema: { params: IdParams },
+  }, async (request, reply) => {
+    const residenceId = residenceOf(request);
+    const resident = await loadResident(residenceId, request.params.id);
+
+    const notes = await noteQuery(db, residenceId, request.user.sub)
+      .where('n.resident_id', '=', resident.id)
+      .orderBy('n.occurred_at').orderBy('n.id')
+      .execute();
+    const noteIds = notes.map((n) => n.id);
+
+    const [versions, followUps, accessLog] = await Promise.all([
+      noteIds.length === 0 ? [] : db.selectFrom('note_versions as v')
+        .innerJoin('users as e', 'e.id', 'v.edited_by')
+        .select(['v.note_id', 'v.edited_at', 'v.previous', 'e.id', 'e.first_name', 'e.last_name'])
+        .where('v.note_id', 'in', noteIds)
+        .orderBy('v.edited_at')
+        .execute(),
+      noteIds.length === 0 ? [] : orderFollowUps(followUpQuery(db, residenceId)
+        .where('f.note_id', 'in', noteIds)).execute(),
+      // Consultations et modifications du dossier et de ses notes
+      db.selectFrom('audit_log as l')
+        .leftJoin('users as u', 'u.id', 'l.user_id')
+        .select(['l.at', 'l.action', 'l.entity', 'l.entity_id', 'u.id as user_id', 'u.first_name', 'u.last_name', 'u.role'])
+        .where('l.residence_id', '=', residenceId)
+        .where((eb) => eb.or([
+          eb.and([eb('l.entity', '=', 'resident'), eb('l.entity_id', '=', resident.id)]),
+          ...(noteIds.length ? [eb.and([eb('l.entity', '=', 'note'), eb('l.entity_id', 'in', noteIds)])] : []),
+        ]))
+        .orderBy('l.at')
+        .execute(),
+    ]);
+
+    const exportedAt = new Date();
+    await audit(db, {
+      action: 'export', entity: 'resident', entityId: resident.id, userId: request.user.sub,
+      residenceId, details: { notes: notes.length }, ip: request.ip,
+    });
+
+    const residence = await db.selectFrom('residences').select(['name'])
+      .where('id', '=', residenceId).executeTakeFirstOrThrow();
+    const fileName = `dossier-${resident.last_name}-${resident.first_name}-${exportedAt.toISOString().slice(0, 10)}`
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').toLowerCase();
+
+    reply.header('content-disposition', `attachment; filename="${fileName}.json"`);
+    return {
+      format: 'residence-app/dossier-resident',
+      version: 1,
+      exportedAt: exportedAt.toISOString(),
+      exportedBy: request.user.sub,
+      residence: { id: residenceId, name: residence.name },
+      resident: toDetail(resident, true),
+      notes: notes.map((row) => ({
+        ...toNote(row),
+        corrections: versions.filter((v) => v.note_id === row.id).map((v) => ({
+          editedAt: v.edited_at.toISOString(),
+          editedBy: { id: v.id, firstName: v.first_name, lastName: v.last_name },
+          previous: v.previous,
+        })),
+      })),
+      followUps: followUps.map((f) => toFollowUp(f, exportedAt)),
+      accessLog: accessLog.map((l) => ({
+        at: l.at.toISOString(),
+        action: l.action,
+        entity: l.entity,
+        entityId: l.entity_id,
+        user: l.user_id ? { id: l.user_id, firstName: l.first_name, lastName: l.last_name, role: l.role } : null,
+      })),
+    };
   });
 };
 

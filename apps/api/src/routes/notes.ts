@@ -11,7 +11,7 @@
 //   * Création, correction, annulation et consultation sont auditées.
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql, type Updateable } from 'kysely';
-import { authenticate, isSupervisor, residenceOf, type AccessTokenPayload } from '../auth.js';
+import { authenticate, isSupervisor, residenceOf, type AccessTokenPayload, type Role } from '../auth.js';
 import type { Notes } from '../db/types.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
@@ -20,6 +20,14 @@ import { findNote, NoteBody, noteQuery, toNote, type Db, type NoteRow } from '..
 import { IdParams, Nullable, optionalText, Person, Text, Uuid } from '../lib/schemas.js';
 
 const AUTHOR_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+// Consigne prioritaire (en haut de la relève de toute l'équipe) : infirmière
+// ou responsable seulement, à la création comme en correction.
+function assertCanMarkPriority(role: Role) {
+  if (!isSupervisor(role)) {
+    throw forbidden('Seule une infirmière ou une responsable peut marquer (ou retirer) une consigne prioritaire.');
+  }
+}
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;   // décalage d'horloge des appareils
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -222,6 +230,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request, reply) => {
     const residenceId = residenceOf(request);
     const b = request.body;
+    if (b.isPriority) assertCanMarkPriority(request.user.role);
     const id = await db.transaction().execute(async (trx) => {
       await assertCategory(trx, residenceId, b.categoryId);
       if (b.residentId) await assertResident(trx, residenceId, b.residentId);
@@ -293,7 +302,10 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         const date = parseOccurredAt(b.occurredAt);
         if (date.getTime() !== note.occurred_at.getTime()) changes.occurred_at = date;
       }
-      if (b.isPriority !== undefined && b.isPriority !== note.is_priority) changes.is_priority = b.isPriority;
+      if (b.isPriority !== undefined && b.isPriority !== note.is_priority) {
+        assertCanMarkPriority(request.user.role);
+        changes.is_priority = b.isPriority;
+      }
       if (b.isPositive !== undefined && b.isPositive !== note.is_positive) changes.is_positive = b.isPositive;
 
       const fields = Object.keys(changes);

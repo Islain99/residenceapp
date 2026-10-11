@@ -3,8 +3,8 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type {
-  Account, AccountInput, Category, FollowUp, Handover, Note, NoteDetail, NoteInput, NotePage, Resident,
-  ResidentInput, ResidentSummary, StaffMember,
+  Account, AccountInput, AuditPage, Category, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
+  NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
 } from './types';
 
 export interface NoteFilters {
@@ -23,6 +23,26 @@ export type FollowUpFilter = { status: 'open' | 'closed' | 'all'; assignedTo?: '
 // ---------------------------------------------------------------------
 export const useCategories = () =>
   useQuery({ queryKey: ['categories'], queryFn: () => api<Category[]>('/note-categories'), staleTime: 10 * 60_000 });
+
+// Toutes les catégories, désactivées comprises (responsable)
+export const useManagedCategories = () =>
+  useQuery({ queryKey: ['categories', 'all'], queryFn: () => api<ManagedCategory[]>('/note-categories', { query: { all: true } }) });
+
+export interface AuditFilters {
+  action?: string;
+  entity?: string;
+  userId?: string;
+  from?: string;
+  to?: string;
+}
+
+export const useAudit = (filters: AuditFilters) =>
+  useInfiniteQuery({
+    queryKey: ['audit', filters],
+    queryFn: ({ pageParam }) => api<AuditPage>('/audit', { query: { ...filters, limit: 50, cursor: pageParam } }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
 
 export const useStaff = () =>
   useQuery({ queryKey: ['staff'], queryFn: () => api<StaffMember[]>('/staff'), staleTime: 10 * 60_000 });
@@ -162,6 +182,37 @@ export function useUpdateAccount() {
       api<Account>(`/users/${id}`, { method: 'PATCH', body: input }),
     onSuccess: () => invalidate('accounts', 'staff'),
   });
+}
+
+export function useCreateCategory() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: { label: string }) => api<ManagedCategory>('/note-categories', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('categories', 'audit'),
+  });
+}
+
+export function useUpdateCategory() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string; label?: string; sortOrder?: number; isActive?: boolean }) =>
+      api<ManagedCategory>(`/note-categories/${id}`, { method: 'PATCH', body: input }),
+    onSuccess: () => invalidate('categories', 'audit'),
+  });
+}
+
+// Export complet du dossier d'un résident (Loi 25), téléchargé en JSON
+export async function downloadResidentExport(resident: { id: string; firstName: string; lastName: string }) {
+  const data = await api<unknown>(`/residents/${resident.id}/export`);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const name = `dossier-${resident.lastName}-${resident.firstName}-${new Date().toISOString().slice(0, 10)}`
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').toLowerCase();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${name}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export const forgotPassword = (email: string) =>

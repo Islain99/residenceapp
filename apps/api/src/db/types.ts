@@ -118,6 +118,7 @@ export interface RefreshTokens {
   expires_at: Timestamp;
   id: Generated<string>;
   revoked_at: Timestamp | null;
+  shared_device: Generated<boolean>;
   token_hash: string;
   user_agent: string | null;
   user_id: string;
@@ -153,11 +154,13 @@ export interface Residents {
 export interface Users {
   created_at: Generated<Timestamp>;
   email: string;
+  failed_login_count: Generated<number>;
   first_name: string;
   id: Generated<string>;
   is_active: Generated<boolean>;
   last_login_at: Timestamp | null;
   last_name: string;
+  locked_until: Timestamp | null;
   password_hash: string | null;
   residence_id: string | null;
   role: string;

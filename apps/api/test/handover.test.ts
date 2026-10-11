@@ -8,14 +8,14 @@ let ids: Awaited<ReturnType<typeof seedIds>>;
 
 beforeAll(async () => {
   app = await buildTestApp();
-  call = caller(app, await loginAll(app, ['prepose1', 'prepose2', 'prepose4', 'admin']));
+  call = caller(app, await loginAll(app, ['prepose1', 'prepose2', 'prepose4', 'infirmiere', 'admin']));
   ids = await seedIds(app);
 });
 
 afterAll(async () => { await app.close(); });
 
-async function createNote(extra: object = {}) {
-  const res = await call('prepose1', 'POST', '/notes', {
+async function createNote(extra: object = {}, who = 'prepose1') {
+  const res = await call(who, 'POST', '/notes', {
     occurredAt: new Date().toISOString(), categoryId: ids.categoryId, residentId: ids.residentId,
     description: 'Note pour la relève.', ...extra,
   });
@@ -50,7 +50,8 @@ describe('confirmation de lecture', () => {
 describe('relève', () => {
   it('depuis la dernière relève : nouvelles notes, prioritaires d’abord, suivis qui me concernent', async () => {
     const normal = await createNote();
-    const priority = await createNote({ isPriority: true, description: 'Consigne : ne pas lever seul.' });
+    // Consigne prioritaire : infirmière ou responsable seulement
+    const priority = await createNote({ isPriority: true, description: 'Consigne : ne pas lever seul.' }, 'infirmiere');
     const team = (await call('prepose1', 'POST', `/notes/${normal.id}/follow-ups`, { description: 'Pour l’équipe' })).json();
     const mine = (await call('prepose1', 'POST', `/notes/${normal.id}/follow-ups`,
       { description: 'Pour moi', assignedTo: ids.userId('prepose4') })).json();

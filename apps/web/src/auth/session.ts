@@ -5,8 +5,10 @@ import type { Role, User } from '../api/types';
 export interface AuthState {
   user: User | null;
   ready: boolean;                 // restauration de session terminée
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
+  sharedDevice: boolean;          // appareil partagé : déconnexion après inactivité
+  notice: string | null;          // raison de la dernière déconnexion, affichée à la connexion
+  login: (email: string, password: string, sharedDevice: boolean) => Promise<void>;
+  logout: (notice?: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthState | null>(null);
