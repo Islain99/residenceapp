@@ -37,20 +37,23 @@ Le navigateur ne voit qu'un seul domaine (celui de Vercel) : le cookie de sessio
 ### 1. Railway
 
 1. Nouveau projet → **Deploy from GitHub repo** → ce dépôt. Ajouter **Database → PostgreSQL**.
-2. Service de l'API → **Settings**. Laisser *Root Directory* **vide** : `db:setup` lit `database/migrations` à la racine du dépôt.
+2. Service de l'API → **Settings**. L'API est construite avec `apps/api/Dockerfile`, depuis la racine du dépôt : l'image contient aussi `database/migrations` et `database/seed`, lus par `db:setup`.
 
 | Réglage | Valeur |
 | --- | --- |
-| Build command | `cd apps/api && npm ci --include=dev && npm run build` |
-| Start command | `cd apps/api && npm start` |
-| Pre-deploy command | `cd apps/api && npm run db:setup` |
+| Source → Branch | `main` (ou une branche à tester) |
+| Root Directory | *(vide : la racine du dépôt)* |
+| Variable `RAILWAY_DOCKERFILE_PATH` | `apps/api/Dockerfile` |
+| Pre-deploy command | `npm run db:setup` |
+| Start command | *(vide : celle du Dockerfile, `node dist/server.js`)* |
 | Healthcheck path | `/health` |
 | Watch paths | `/apps/api/**`, `/database/migrations/**`, `/database/seed/**` |
-| Networking | *Generate Domain* (utilisé par Vercel) |
+| Networking | *Generate Domain*, port `3000` (utilisé par Vercel) |
 
 3. Variables du service de l'API (*Raw Editor*). Générer `APP_DB_PASSWORD` et `JWT_SECRET` avec `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` :
 
 ```ini
+RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile
 NODE_ENV=production
 HOST=0.0.0.0
 TRUST_PROXY=2
@@ -65,7 +68,7 @@ SEED_DEMO=true
 SEED_PASSWORD=<mot de passe des comptes fictifs, 12 caractères min.>
 ```
 
-`PORT` est fourni par Railway. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
+`PORT` est fourni par Railway. Sans `SMTP_URL` valide, les comptes fictifs fonctionnent, mais inviter un employé ou « mot de passe oublié » échouent (aucun courriel ne part) : prévoir un service d'envoi (ex. Resend, Brevo, Amazon SES) avant d'inviter de vraies personnes. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
 
 `TRUST_PROXY=2` : Vercel puis le proxy de Railway sont devant l'API. Sans ce réglage, toutes les requêtes sembleraient venir de la même adresse, et la limite de connexions par IP s'appliquerait à toutes les résidences ensemble.
 
