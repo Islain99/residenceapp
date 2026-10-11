@@ -7,6 +7,7 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Suivis** : actions à faire issues d'une note, assignées à quelqu'un ou à toute l'équipe.
 - **Résidents** : fiches, consignes particulières, notes réservées aux infirmières et responsables.
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
+- **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
 
 Chaque résidence ne voit que ses propres données, et chaque action sensible est inscrite dans un journal d'audit.
 
@@ -73,7 +74,7 @@ Mot de passe pour tous : **`Residence2026!`**
 
 | Courriel | Rôle | Peut en plus |
 | --- | --- | --- |
-| `responsable@exemple.test` | Responsable | Gérer l'équipe (inviter, désactiver), tout ce que fait l'infirmière |
+| `responsable@exemple.test` | Responsable | Administration : équipe, catégories, journal d'audit, export d'un dossier (Loi 25) ; tout ce que fait l'infirmière |
 | `infirmiere@exemple.test` | Infirmière | Consignes prioritaires, corriger ou annuler toute note, gérer les résidents, lire les notes réservées |
 | `prepose1@exemple.test` … `prepose4@exemple.test` | Préposé·e | Relève, notes, suivis ; corriger sa propre note pendant 24 h |
 | `admin@exemple.test` | Administrateur plateforme | Aucun accès au journal (pas de résidence), pas encore d'écran |

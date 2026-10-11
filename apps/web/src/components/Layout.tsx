@@ -11,7 +11,8 @@ const LINKS = [
   { to: '/suivis', label: 'Suivis', icon: '✓', end: false },
   { to: '/residents', label: 'Résidents', icon: '⌂', end: false },
 ];
-const TEAM_LINK = { to: '/equipe', label: 'Équipe', icon: '☺', end: false };
+// Responsable : équipe, catégories, journal d'audit
+const ADMIN_LINK = { to: '/administration', label: 'Admin', icon: '⚙', end: false };
 
 function NavBadge() {
   const handover = useHandover();
@@ -27,7 +28,7 @@ function NavBadge() {
 export function Layout() {
   const user = useUser();
   const { logout } = useAuth();
-  const links = user.role === 'responsable' ? [...LINKS, TEAM_LINK] : LINKS;
+  const links = user.role === 'responsable' ? [...LINKS, ADMIN_LINK] : LINKS;
 
   return (
     <div className="min-h-dvh pb-20 md:pb-0">

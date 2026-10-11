@@ -2,6 +2,9 @@ import { createBrowserRouter, Link, Navigate, Outlet, RouterProvider, useLocatio
 import { useAuth, useUser } from './auth/session';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
+import { AdminPage } from './pages/AdminPage';
+import { AuditPage } from './pages/AuditPage';
+import { CategoriesPage } from './pages/CategoriesPage';
 import { FollowUpsPage } from './pages/FollowUpsPage';
 import { HandoverPage } from './pages/HandoverPage';
 import { JournalPage } from './pages/JournalPage';
@@ -50,7 +53,22 @@ const router = createBrowserRouter([
         { path: 'suivis', element: <FollowUpsPage /> },
         { path: 'residents', element: <ResidentsPage /> },
         { path: 'residents/:id', element: <ResidentPage /> },
-        { element: <RequireResponsable />, children: [{ path: 'equipe', element: <TeamPage /> }] },
+        {
+          element: <RequireResponsable />,
+          children: [
+            {
+              path: 'administration',
+              element: <AdminPage />,
+              children: [
+                { index: true, element: <Navigate to="equipe" replace /> },
+                { path: 'equipe', element: <TeamPage /> },
+                { path: 'categories', element: <CategoriesPage /> },
+                { path: 'audit', element: <AuditPage /> },
+              ],
+            },
+            { path: 'equipe', element: <Navigate to="/administration/equipe" replace /> },
+          ],
+        },
         { path: '*', element: <NotFound /> },
       ],
     }],

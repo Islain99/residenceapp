@@ -29,7 +29,10 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 | `/notes/:id` | Note : marquer comme lue, ajouter un suivi, corriger, annuler (avec motif), qui l'a lue, historique des corrections |
 | `/suivis` | Suivis : pour moi, pour l'équipe, tous les ouverts, faits |
 | `/residents`, `/residents/:id` | Résidents et fiche (consignes, suivis ouverts, notes récentes) ; ajout, modification et départ pour infirmière / responsable |
-| `/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver |
+| `/residents/:id` (bouton « Exporter le dossier ») | Responsable : export complet du dossier en JSON (demande d'accès, Loi 25) |
+| `/administration/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver (`/equipe` y redirige) |
+| `/administration/categories` | Responsable : ajouter, renommer, réordonner, désactiver / réactiver les catégories de notes |
+| `/administration/audit` | Responsable : journal d'audit, filtres par type d'élément et par employé |
 | `/mot-de-passe-oublie` | Public : demander un lien de réinitialisation par courriel |
 | `/mot-de-passe#<jeton>` | Public : choisir son mot de passe (lien d'invitation ou de réinitialisation) |
 

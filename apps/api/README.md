@@ -97,6 +97,18 @@ Les heures de relève viennent de l'horloge de la base (même horloge que `creat
 
 Aucune suppression de résident.
 
+## Administration (responsable)
+
+| Route | Rôle |
+| --- | --- |
+| `GET /note-categories?all=true` | Toutes les catégories, désactivées comprises (`sortOrder`, `isActive`) |
+| `POST /note-categories` | `{ label, sortOrder? }` (à la fin par défaut) ; nom en double : 409 `duplicate_label` |
+| `PATCH /note-categories/:id` | `{ label?, sortOrder?, isActive? }`. Jamais supprimées ; une catégorie désactivée n'est plus proposée pour une nouvelle note |
+| `GET /audit` | Journal d'audit de ma résidence, plus récent d'abord. Filtres : `from`, `to`, `userId`, `action`, `entity`, `entityId` ; pagination `limit` (50, max 200) et `cursor` (= `nextCursor`) |
+| `GET /residents/:id/export` | Dossier complet en JSON, en pièce jointe (`Content-Disposition`) : fiche avec champs réservés, toutes les notes (annulées comprises) et leurs corrections, suivis, historique des consultations et modifications. Pour une demande d'accès (Loi 25). L'export est audité (`export`) |
+
+Qui a consulté un dossier : `GET /audit?entity=resident&entityId=<id>&action=view`.
+
 ## Comptes des employés et mot de passe
 
 Personne d'autre que l'employé ne connaît son mot de passe : la responsable l'invite, il le choisit lui-même à partir d'un lien reçu par courriel.

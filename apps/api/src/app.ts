@@ -6,6 +6,7 @@ import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
 import { smtpMailer, type Mailer } from './lib/mailer.js';
+import auditRoutes from './routes/audit.js';
 import authRoutes from './routes/auth.js';
 import categoryRoutes from './routes/categories.js';
 import followUpRoutes from './routes/follow-ups.js';
@@ -81,6 +82,7 @@ export async function buildApp(config: Config, db: Database, mailer: Mailer = sm
   await app.register(staffRoutes);
   await app.register(userRoutes);
   await app.register(passwordRoutes);
+  await app.register(auditRoutes);
 
   return app;
 }
