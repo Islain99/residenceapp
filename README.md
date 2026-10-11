@@ -107,4 +107,5 @@ Pour l'interface : `npm run build` (vérification des types) et `npm run lint` d
 
 - [database/README.md](database/README.md) : sauvegardes, bascule vers le serveur de reprise, restauration à un instant précis, migrations.
 - [apps/api/README.md](apps/api/README.md) : toutes les routes de l'API et les règles d'accès par rôle.
-- [apps/web/README.md](apps/web/README.md) : écrans, gestion de la session, structure du code.
+- [apps/web/README.md](apps/web/README.md) : écrans, gestion de la session, application installable, structure du code.
+- [Déploiement de test (Railway + Vercel)](apps/api/README.md#déploiement-de-test--railway-api--base-et-vercel-interface) et vérification automatique (GitHub Actions).

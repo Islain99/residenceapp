@@ -166,3 +166,34 @@ describe('effet immédiat des changements de compte', () => {
     }
   });
 });
+
+describe('adresse IP derrière un proxy (TRUST_PROXY)', () => {
+  const lastLoginIp = async (behind: App) => {
+    await behind.inject({
+      method: 'POST', url: '/auth/login', payload: { email: 'prepose1@exemple.test', password: PASSWORD },
+      headers: { 'x-forwarded-for': '203.0.113.7, 198.51.100.20', 'x-real-ip': '203.0.113.7' },
+      remoteAddress: '10.0.0.5',
+    });
+    const row = await behind.db.selectFrom('audit_log').select('ip')
+      .where('action', '=', 'login').orderBy('id', 'desc').executeTakeFirstOrThrow();
+    return row.ip;
+  };
+
+  it('0 (défaut) : l’en-tête X-Forwarded-For est ignoré', async () => {
+    const direct = await buildTestApp({ TRUST_PROXY: 0 });
+    try {
+      expect(await lastLoginIp(direct)).toBe('10.0.0.5');
+    } finally {
+      await direct.close();
+    }
+  });
+
+  it('2 (Vercel → Railway) : adresse du client', async () => {
+    const behind = await buildTestApp({ TRUST_PROXY: 2 });
+    try {
+      expect(await lastLoginIp(behind)).toBe('203.0.113.7');
+    } finally {
+      await behind.close();
+    }
+  });
+});

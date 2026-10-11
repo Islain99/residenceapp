@@ -28,6 +28,8 @@ declare module 'fastify' {
 
 export async function buildApp(config: Config, db: Database, mailer: Mailer = smtpMailer(config.SMTP_URL, config.MAIL_FROM)) {
   const app = Fastify({
+    // Les N proxys les plus proches sont de confiance (même règle que « trust proxy = N »)
+    trustProxy: config.TRUST_PROXY > 0 ? (_address: string, hop: number) => hop < config.TRUST_PROXY : false,
     logger: config.NODE_ENV === 'test' ? false : {
       level: 'info',
       redact: ['req.headers.authorization'],

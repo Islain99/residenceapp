@@ -1,0 +1,87 @@
+# Vérification automatique à chaque push et pull request :
+#   * web : lint (Oxlint), types et build de production
+#   * api : types, build, puis tests d'intégration sur la vraie base PostgreSQL
+#     (conteneur pg-primary de database/, comme en local)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Interface web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  api:
+    name: API et base de données
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Valeurs de test seulement (données fictives, conteneur jetable)
+      DATABASE_URL: postgresql://app_user:changer-moi-api@localhost:5432/residence
+      JWT_SECRET: ci-secret-de-test-au-moins-32-caracteres-0123456789
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - name: Démarrer PostgreSQL (pg-primary)
+        working-directory: database
+        run: |
+          cp .env.example .env
+          docker compose up -d --build pg-primary
+          # Attendre la fin de l'initialisation (migrations + données fictives),
+          # puis le redémarrage définitif du serveur
+          for i in $(seq 1 90); do
+            if docker compose logs pg-primary 2>&1 | grep -q "init process complete" && \
+               docker compose exec -T -u postgres pg-primary \
+                 psql -tAq -d residence -c "SELECT 1 FROM residences LIMIT 1" 2>/dev/null | grep -q 1; then
+              echo "Base prête"; exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs pg-primary
+          exit 1
+
+      - name: Installer
+        working-directory: apps/api
+        run: npm ci
+      - name: Types et build
+        working-directory: apps/api
+        run: npm run typecheck && npm run build
+      - name: Tests d'intégration
+        working-directory: apps/api
+        run: npm test
+      - name: Préparation d'une base vide (db:setup, comme sur Railway)
+        working-directory: apps/api
+        run: |
+          docker compose -f ../../database/docker-compose.yml exec -T -u postgres pg-primary \
+            psql -q -c "DROP DATABASE IF EXISTS deploy_check" -c "CREATE DATABASE deploy_check"
+          export DATABASE_ADMIN_URL=postgresql://postgres:changer-moi-superutilisateur@localhost:5432/deploy_check
+          export DATABASE_URL=postgresql://app_user:changer-moi-api@localhost:5432/deploy_check
+          export SEED_DEMO=true SEED_PASSWORD=Demo-CI-Residence-2026
+          npm run db:setup
+          npm run db:setup   # deuxième passage : rien à refaire
+          test "$(psql "$DATABASE_URL" -tAc 'SELECT count(*) FROM residents')" -gt 0

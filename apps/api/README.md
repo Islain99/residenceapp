@@ -21,6 +21,74 @@ npm run dev                   # http://127.0.0.1:3000
 | `npm run typecheck` | Vérification des types |
 | `npm run build` puis `npm start` | Version compilée (`dist/`) |
 | `npm run db:types` | Régénérer `src/db/types.ts` **après chaque migration** |
+| `npm run db:setup` | Préparer une base hébergée (rôles, droits, migrations, données fictives) : voir « Déploiement » |
+
+## Déploiement de test : Railway (API + base) et Vercel (interface)
+
+Phase de test seulement, **avec des données fictives** : Railway n'a pas de région au Canada. Au lancement officiel, migration vers AWS (`ca-central-1`) : le code ne change pas, seules les variables changent.
+
+```
+Navigateur ──► Vercel (apps/web, fichiers statiques)  ── /api/* relayé ──►  Railway : API  ──►  Railway : PostgreSQL
+               même domaine pour l'interface et l'API                       npm start          (réseau privé)
+```
+
+Le navigateur ne voit qu'un seul domaine (celui de Vercel) : le cookie de session reste `SameSite=Strict` et aucune règle CORS n'est nécessaire.
+
+### 1. Railway
+
+1. Nouveau projet → **Deploy from GitHub repo** → ce dépôt. Ajouter **Database → PostgreSQL**.
+2. Service de l'API → **Settings**. Laisser *Root Directory* **vide** : `db:setup` lit `database/migrations` à la racine du dépôt.
+
+| Réglage | Valeur |
+| --- | --- |
+| Build command | `cd apps/api && npm ci --include=dev && npm run build` |
+| Start command | `cd apps/api && npm start` |
+| Pre-deploy command | `cd apps/api && npm run db:setup` |
+| Healthcheck path | `/health` |
+| Watch paths | `/apps/api/**`, `/database/migrations/**`, `/database/seed/**` |
+| Networking | *Generate Domain* (utilisé par Vercel) |
+
+3. Variables du service de l'API (*Raw Editor*). Générer `APP_DB_PASSWORD` et `JWT_SECRET` avec `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` :
+
+```ini
+NODE_ENV=production
+HOST=0.0.0.0
+TRUST_PROXY=2
+APP_DB_PASSWORD=<64 caractères hexadécimaux>
+DATABASE_URL=postgresql://app_user:${{APP_DB_PASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}
+DATABASE_ADMIN_URL=${{Postgres.DATABASE_URL}}
+JWT_SECRET=<64 caractères hexadécimaux, différent>
+APP_URL=https://<projet>.vercel.app
+SMTP_URL=<SMTP du fournisseur de courriels>
+MAIL_FROM=Journal de bord <no-reply@<domaine>>
+SEED_DEMO=true
+SEED_PASSWORD=<mot de passe des comptes fictifs, 12 caractères min.>
+```
+
+`PORT` est fourni par Railway. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
+
+`TRUST_PROXY=2` : Vercel puis le proxy de Railway sont devant l'API. Sans ce réglage, toutes les requêtes sembleraient venir de la même adresse, et la limite de connexions par IP s'appliquerait à toutes les résidences ensemble.
+
+4. Vérifier : `https://<api>.up.railway.app/health` → `{"status":"ok","db":"ok"}`.
+
+### 2. Vercel
+
+1. **Add New → Project** → ce dépôt. *Root Directory* : `apps/web` (framework Vite détecté).
+2. Dans `apps/web/vercel.json`, remplacer `REMPLACER-PAR-L-API.up.railway.app` par le domaine Railway de l'API, puis pousser. (Vercel ne lit pas de variables d'environnement dans `vercel.json`.)
+3. Ouvrir `https://<projet>.vercel.app` et se connecter avec un compte fictif (`SEED_PASSWORD`).
+
+`vercel.json` relaie `/api/*` vers l'API (en retirant `/api`, comme le proxy de Vite en développement), renvoie les autres adresses vers `index.html` (routes de l'interface), et ajoute des en-têtes de sécurité. `sw.js` n'est jamais mis en cache par le navigateur, pour que les mises à jour de l'application arrivent tout de suite.
+
+### 3. Passage à AWS (lancement officiel)
+
+Mêmes commandes : `npm run db:setup` (`DATABASE_ADMIN_URL` = compte maître RDS : pas besoin d'être superutilisateur) puis `npm start`. Ajouter `?sslmode=verify-full` et le certificat RDS à `DATABASE_URL`, mettre `SEED_DEMO=false`, ajuster `TRUST_PROXY` au nombre de proxys devant l'API (ex. 1 derrière un seul équilibreur de charge), et ne garder le compte administrateur que dans l'étape de migration.
+
+## Vérification automatique (GitHub Actions)
+
+`.github/workflows/ci.yml`, à chaque push sur `main` et à chaque pull request :
+
+- **Interface** : `npm run lint`, puis `npm run build` (types + version de production).
+- **API** : démarre `pg-primary` (Docker), types, build, tests d'intégration, puis `db:setup` deux fois sur une base vide (comme un premier déploiement Railway, puis un redéploiement).
 
 ## Authentification
 
