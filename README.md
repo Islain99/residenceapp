@@ -9,6 +9,8 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
 - **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
 
+Sur téléphone et tablette, l'application s'installe comme une application (PWA). Sur un appareil partagé, la session se ferme après 15 minutes sans activité. Aucune donnée de résident n'est gardée hors connexion.
+
 Chaque résidence ne voit que ses propres données, et chaque action sensible est inscrite dans un journal d'audit.
 
 ## Architecture

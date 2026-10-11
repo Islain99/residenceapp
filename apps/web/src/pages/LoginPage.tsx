@@ -4,7 +4,7 @@ import { useAuth } from '../auth/session';
 import { Button, Card, Checkbox, ErrorMessage, TextField } from '../components/ui';
 
 export function LoginPage() {
-  const { user, login } = useAuth();
+  const { user, login, notice } = useAuth();
   const location = useLocation();
   // Arrivée depuis « choisir mon mot de passe » : courriel prérempli et message
   const state = location.state as { from?: string; email?: string; message?: string } | null;
@@ -41,6 +41,9 @@ export function LoginPage() {
           <h1 className="text-xl font-bold">Journal de bord</h1>
           <p className="text-sm text-muted">Connectez-vous avec votre compte de la résidence.</p>
         </div>
+        {notice && !state?.message && (
+          <p role="status" className="mb-4 rounded-lg bg-info-soft px-3 py-2 text-sm text-primary">{notice}</p>
+        )}
         {state?.message && (
           <p role="status" className="mb-4 rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">{state.message}</p>
         )}

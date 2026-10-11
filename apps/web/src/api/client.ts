@@ -20,12 +20,20 @@ export class ApiError extends Error {
 }
 
 let accessToken: string | null = null;
+let sharedDevice = false;           // session ouverte avec « appareil partagé » (selon l'API)
 let refreshing: Promise<boolean> | null = null;
 let onSessionLost: () => void = () => {};
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
+
+export function setSharedDevice(value: boolean) {
+  sharedDevice = value;
+}
+
+// Appareil partagé : déconnexion après une période d'inactivité (IdleLogout)
+export const isSharedDevice = () => sharedDevice;
 
 // Appelé quand la session ne peut pas être renouvelée (retour à la connexion)
 export function onSessionExpired(handler: () => void) {
@@ -43,7 +51,9 @@ async function doRefresh(): Promise<boolean> {
     accessToken = null;
     return false;
   }
-  accessToken = (await res.json()).accessToken;
+  const body = await res.json() as { accessToken: string; sharedDevice?: boolean };
+  accessToken = body.accessToken;
+  sharedDevice = body.sharedDevice ?? false;
   return true;
 }
 

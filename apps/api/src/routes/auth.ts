@@ -33,6 +33,8 @@ const TokensBody = Type.Object({
   accessToken: Type.String(),
   refreshToken: Type.Optional(Type.String()),   // absent en mode cookie
   expiresIn: Type.Integer(),   // durée de vie du jeton d'accès, en secondes
+  // Session ouverte sur un appareil partagé : l'interface déconnecte après 15 min d'inactivité
+  sharedDevice: Type.Boolean(),
 });
 
 // Jeton dans le corps (application mobile) ou, s'il est absent, dans le cookie (navigateur)
@@ -76,6 +78,7 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
       accessToken: app.jwt.sign(payload),
       refreshToken,
       expiresIn: config.ACCESS_TOKEN_TTL_MINUTES * 60,
+      sharedDevice,
     };
   }
 

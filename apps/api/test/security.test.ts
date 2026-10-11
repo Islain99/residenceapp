@@ -110,11 +110,13 @@ describe('session', () => {
 
   it('session normale : cookie de 12 h', async () => {
     const res = await login('prepose2@exemple.test', PASSWORD, { session: 'cookie' });
+    expect(res.json().sharedDevice).toBe(false);
     expect(cookieOf(res)).toContain(`Max-Age=${12 * 60 * 60}`);
   });
 
   it('appareil partagé : cookie de session, aussi après rafraîchissement', async () => {
     const res = await login('prepose2@exemple.test', PASSWORD, { session: 'cookie', sharedDevice: true });
+    expect(res.json().sharedDevice).toBe(true);
     const cookie = cookieOf(res);
     expect(cookie).not.toContain('Max-Age');
     expect(cookie).not.toContain('Expires');
@@ -124,6 +126,7 @@ describe('session', () => {
       method: 'POST', url: '/auth/refresh', payload: {}, headers: { cookie: value },
     });
     expect(refreshed.statusCode).toBe(200);
+    expect(refreshed.json().sharedDevice).toBe(true);
     expect(cookieOf(refreshed)).not.toContain('Max-Age');
   });
 
