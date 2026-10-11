@@ -49,11 +49,11 @@ describe('catégories', () => {
 
 describe('création', () => {
   it('crée une note signée par l’utilisateur connecté, et l’audite', async () => {
-    const note = await createNote('prepose1', { isPriority: true, intervention: '  Infirmière avisée.  ' });
+    const note = await createNote('infirmiere', { isPriority: true, intervention: '  Infirmière avisée.  ' });
     expect(note).toMatchObject({
       status: 'active', isPriority: true, isPositive: false, versionCount: 0,
       intervention: 'Infirmière avisée.',
-      author: { firstName: 'Marc', lastName: 'Tremblay' },
+      author: { firstName: 'Nadia', lastName: 'Belkacem' },
       resident: { id: residentId },
       category: { id: categoryId },
     });

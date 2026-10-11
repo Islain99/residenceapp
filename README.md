@@ -74,7 +74,7 @@ Mot de passe pour tous : **`Residence2026!`**
 | Courriel | Rôle | Peut en plus |
 | --- | --- | --- |
 | `responsable@exemple.test` | Responsable | Gérer l'équipe (inviter, désactiver), tout ce que fait l'infirmière |
-| `infirmiere@exemple.test` | Infirmière | Corriger ou annuler toute note, gérer les résidents, lire les notes réservées |
+| `infirmiere@exemple.test` | Infirmière | Consignes prioritaires, corriger ou annuler toute note, gérer les résidents, lire les notes réservées |
 | `prepose1@exemple.test` … `prepose4@exemple.test` | Préposé·e | Relève, notes, suivis ; corriger sa propre note pendant 24 h |
 | `admin@exemple.test` | Administrateur plateforme | Aucun accès au journal (pas de résidence), pas encore d'écran |
 

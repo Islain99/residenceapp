@@ -14,9 +14,16 @@ const ConfigSchema = Type.Object({
   // Secret de signature des jetons d'accès (HS256) : 32 caractères minimum
   JWT_SECRET: Type.String({ minLength: 32 }),
   ACCESS_TOKEN_TTL_MINUTES: Type.Integer({ minimum: 1, maximum: 60, default: 15 }),
-  REFRESH_TOKEN_TTL_DAYS: Type.Integer({ minimum: 1, maximum: 90, default: 30 }),
-  // Tentatives de connexion par minute et par adresse IP
-  LOGIN_RATE_LIMIT_MAX: Type.Integer({ minimum: 1, default: 10 }),
+  // Durée d'une session (jeton de rafraîchissement) : un quart de travail + marge.
+  // Avec « appareil partagé », le cookie disparaît en plus à la fermeture du navigateur.
+  REFRESH_TOKEN_TTL_HOURS: Type.Integer({ minimum: 1, maximum: 24 * 90, default: 12 }),
+  // Requêtes de connexion par minute et par adresse IP. Large : tout le
+  // personnel d'une résidence partage souvent la même adresse (Wi-Fi).
+  LOGIN_RATE_LIMIT_MAX: Type.Integer({ minimum: 1, default: 30 }),
+  // Blocage par compte : après LOGIN_MAX_ATTEMPTS mauvais mots de passe
+  // d'affilée, le compte est bloqué LOGIN_LOCK_MINUTES, quelle que soit l'adresse IP.
+  LOGIN_MAX_ATTEMPTS: Type.Integer({ minimum: 1, default: 5 }),
+  LOGIN_LOCK_MINUTES: Type.Integer({ minimum: 1, default: 15 }),
   // Adresse de l'interface web : liens des courriels (invitation, mot de passe oublié)
   APP_URL: Type.String({ default: 'http://localhost:5173' }),
   // Serveur d'envoi des courriels. Développement : Mailpit (database/docker-compose.yml)

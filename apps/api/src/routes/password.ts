@@ -11,7 +11,7 @@ import { audit } from '../lib/audit.js';
 import { badRequest } from '../lib/errors.js';
 import { hashPassword } from '../lib/passwords.js';
 
-export const PASSWORD_MIN_LENGTH = 10;
+export const PASSWORD_MIN_LENGTH = 12;
 
 const TokenInput = Type.String({ minLength: 20, maxLength: 200 });
 const invalidLink = () => badRequest('invalid_token', 'Ce lien est invalide ou a expiré. Demandez-en un nouveau.');
@@ -81,7 +81,10 @@ const passwordRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw badRequest('weak_password', 'Le mot de passe ne peut pas être votre courriel.');
       }
 
-      await trx.updateTable('users').set({ password_hash: passwordHash }).where('id', '=', row.user_id).execute();
+      // Nouveau mot de passe : le blocage éventuel du compte est levé
+      await trx.updateTable('users')
+        .set({ password_hash: passwordHash, failed_login_count: 0, locked_until: null })
+        .where('id', '=', row.user_id).execute();
       await invalidateAccountTokens(trx, row.user_id);       // ce lien et tout autre lien ouvert
       // Toutes les sessions ouvertes sont fermées (ex. : appareil perdu ou volé)
       await trx.updateTable('refresh_tokens').set({ revoked_at: new Date() })

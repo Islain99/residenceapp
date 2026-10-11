@@ -26,7 +26,7 @@ npm run dev                   # http://127.0.0.1:3000
 
 | Route | Corps | Réponse |
 | --- | --- | --- |
-| `POST /auth/login` | `{ email, password, session? }` | `{ accessToken, refreshToken, expiresIn, user }` |
+| `POST /auth/login` | `{ email, password, session?, sharedDevice? }` | `{ accessToken, refreshToken, expiresIn, user }` |
 | `POST /auth/refresh` | `{ refreshToken }` (ou `{}` + cookie) | `{ accessToken, refreshToken, expiresIn }` |
 | `POST /auth/logout` | `{ refreshToken }` (ou `{}` + cookie) | 204 |
 | `GET /staff` | — | Employés actifs de ma résidence (`id`, nom, rôle), pour assigner un suivi |
@@ -35,10 +35,13 @@ npm run dev                   # http://127.0.0.1:3000
 
 - **Mots de passe** : Argon2id. Un courriel inconnu, un mauvais mot de passe ou un compte désactivé donnent la même réponse 401, dans le même temps.
 - **Jeton d'accès** : JWT HS256 de 15 min, contient `sub` (utilisateur), `rid` (résidence) et `role`. Sans jeton ou jeton invalide : 401 `unauthorized` ; jeton expiré : 401 `token_expired` (le client appelle alors `/auth/refresh`).
-- **Jeton de rafraîchissement** : 30 jours, à usage unique (remplacé à chaque `/auth/refresh`), stocké haché. Un jeton déjà utilisé présenté de nouveau révoque toutes les sessions de l'utilisateur (vol probable).
+- **Jeton de rafraîchissement** : 12 h (`REFRESH_TOKEN_TTL_HOURS`), à usage unique (remplacé à chaque `/auth/refresh`), stocké haché. Un jeton déjà utilisé présenté de nouveau révoque toutes les sessions de l'utilisateur (vol probable).
 - **Mode cookie (navigateur)** : `session: "cookie"` à la connexion → le jeton de rafraîchissement est posé dans un cookie `httpOnly`, `SameSite=Strict` (`Secure` en production) et n'apparaît pas dans la réponse ; `/auth/refresh` et `/auth/logout` le lisent dans le cookie. Le site doit être servi sur la même origine que l'API (proxy `/api`). Sans `session` (mode `token`, application mobile) : jeton dans le corps, comme avant.
-- **Limite** : 10 tentatives de connexion par minute et par adresse IP (429 au-delà).
-- **Audit** : `login`, `login_failed` (avec le motif), `logout`, `refresh_reuse` dans `audit_log`.
+- **Appareil partagé** : `sharedDevice: true` à la connexion → le cookie est un cookie de session (effacé à la fermeture du navigateur), y compris après chaque `/auth/refresh`.
+- **Blocage par compte** : 5 mauvais mots de passe d'affilée (`LOGIN_MAX_ATTEMPTS`) bloquent le compte 15 min (`LOGIN_LOCK_MINUTES`), quelle que soit l'adresse IP : 429 `account_locked`, même avec le bon mot de passe. Une connexion réussie ou un nouveau mot de passe (lien « mot de passe oublié ») remet le compteur à zéro. Un courriel inconnu ne bloque rien et répond toujours 401. Seul effet visible de l'extérieur : après 5 essais, un compte existant répond 429 au lieu de 401.
+- **Limite par adresse IP** : 30 requêtes de connexion par minute (`LOGIN_RATE_LIMIT_MAX`, 429 `too_many_requests`). Large exprès : tout le personnel d'une résidence passe souvent par le même Wi-Fi.
+- **Compte relu à chaque requête** : un compte désactivé perd l'accès immédiatement (401 `inactive_account`), sans attendre la fin du jeton d'accès ; un changement de rôle s'applique aussi tout de suite.
+- **Audit** : `login`, `login_failed` (avec le motif : `bad_password`, `locked`…), `logout`, `refresh_reuse` dans `audit_log`.
 
 ## Journal de bord
 
@@ -57,6 +60,7 @@ Toutes les routes exigent un jeton et ne voient que **la résidence de l'utilisa
 Règles :
 
 - Tous les rôles écrivent des notes ; l'auteur est l'utilisateur connecté.
+- **Consigne prioritaire** (`isPriority`) : seulement une infirmière ou une responsable peut la marquer ou la retirer, à la création comme en correction (403 sinon). Un préposé peut corriger sa note si `isPriority` ne change pas.
 - Corriger ou annuler : **l'auteur pendant 24 h**, une **infirmière ou responsable** en tout temps. Une note annulée ne change plus (409).
 - Rien n'est supprimé. Création, correction, annulation et consultation d'une note sont inscrites dans `audit_log`.
 - `occurredAt` ne peut pas être dans le futur (5 min de tolérance).
@@ -105,7 +109,7 @@ Personne d'autre que l'employé ne connaît son mot de passe : la responsable l'
 | `PATCH /users/:id` | Responsable : `firstName`, `lastName`, `role`, `isActive`. Désactiver ferme ses sessions tout de suite. Pas sur son propre rôle ni sa propre désactivation |
 | `POST /auth/password/forgot` | `{ email }` → 204 **dans tous les cas** (ne révèle pas qui a un compte) ; lien valable 1 h si le compte existe et est actif. 5 demandes / minute / IP |
 | `POST /auth/password/check` | `{ token }` → `{ purpose, email, firstName }` ou 400 `invalid_token` |
-| `POST /auth/password/reset` | `{ token, password }` (10 caractères minimum, pas le courriel) → 204 ; toutes les sessions de l'employé sont fermées |
+| `POST /auth/password/reset` | `{ token, password }` (12 caractères minimum, pas le courriel) → 204 ; toutes les sessions de l'employé sont fermées |
 
 - Liens à usage unique : un nouveau lien annule les précédents ; seul le SHA-256 est stocké (`account_tokens`).
 - Le lien est `APP_URL/mot-de-passe#<jeton>` : le jeton est dans le fragment, jamais envoyé à un serveur ni noté dans un journal.

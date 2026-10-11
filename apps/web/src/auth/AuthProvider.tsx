@@ -35,9 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [clear]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, sharedDevice: boolean) => {
     const res = await api<{ accessToken: string; user: User }>('/auth/login', {
-      method: 'POST', body: { email, password, session: 'cookie' },
+      method: 'POST', body: { email, password, session: 'cookie', sharedDevice },
     });
     setAccessToken(res.accessToken);
     if (!res.user.residenceId) {

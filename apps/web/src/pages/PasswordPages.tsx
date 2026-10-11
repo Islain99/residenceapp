@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router';
 import { checkPasswordToken, forgotPassword, setPassword } from '../api/hooks';
 import { Button, Card, ErrorMessage, Loading, TextField } from '../components/ui';
 
-const MIN_LENGTH = 10;   // même règle que l'API
+const MIN_LENGTH = 12;   // même règle que l'API
 
 function PublicCard({ title, children }: { title: string; children: ReactNode }) {
   return (

@@ -1,6 +1,6 @@
 // Contrôle d'accès : jeton valide (authenticate), puis rôle (requireRole).
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { forbidden } from './lib/errors.js';
+import { forbidden, HttpError } from './lib/errors.js';
 
 export const ROLES = ['prepose', 'infirmiere', 'responsable', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
@@ -24,8 +24,22 @@ declare module '@fastify/jwt' {
   }
 }
 
+// Jeton valide, puis compte relu dans la base à chaque requête : un compte
+// désactivé (ou dont la résidence est désactivée) perd l'accès tout de suite,
+// sans attendre l'expiration du jeton d'accès (15 min). Un changement de rôle
+// s'applique aussi immédiatement.
 export async function authenticate(request: FastifyRequest): Promise<void> {
   await request.jwtVerify();   // 401 si absent, invalide ou expiré
+  const account = await request.server.db.selectFrom('users as u')
+    .leftJoin('residences as r', 'r.id', 'u.residence_id')
+    .select(['u.role', 'u.residence_id', 'u.is_active', 'r.is_active as residence_active'])
+    .where('u.id', '=', request.user.sub)
+    .executeTakeFirst();
+  const active = account?.is_active && (account.residence_id === null || account.residence_active !== false);
+  if (!account || !active || account.residence_id !== request.user.rid) {
+    throw new HttpError(401, 'inactive_account', 'Compte désactivé.');
+  }
+  request.user.role = account.role as Role;
 }
 
 // Résidence de l'utilisateur connecté : toute donnée métier est filtrée

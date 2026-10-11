@@ -5,7 +5,7 @@ import type { Role, User } from '../api/types';
 export interface AuthState {
   user: User | null;
   ready: boolean;                 // restauration de session terminée
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, sharedDevice: boolean) => Promise<void>;
   logout: () => Promise<void>;
 }
 
