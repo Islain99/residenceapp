@@ -32,7 +32,9 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 | `/residents`, `/residents/:id` | Résidents et fiche (consignes, suivis ouverts, notes récentes) ; ajout, modification et départ pour infirmière / responsable |
 | `/residents/:id` (bouton « Exporter le dossier ») | Responsable : export complet du dossier en JSON (demande d'accès, Loi 25) |
 | `/administration/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver (`/equipe` y redirige) |
+| `/horaires` | Horaires (`?semaine=`, `?vue=moi\|equipe`) : « Mon horaire » (jours, congés, total d'heures) ou grille de l'équipe avec la couverture par quart. Responsable : ajouter, ajuster les heures, retirer, copier la semaine précédente |
 | `/administration/categories` | Responsable : ajouter, renommer, réordonner, désactiver / réactiver les catégories de notes |
+| `/administration/quarts` | Responsable : quarts types (nom, heures), désactiver / réactiver |
 | `/administration/audit` | Responsable : journal d'audit, filtres par type d'élément et par employé |
 | `/mot-de-passe-oublie` | Public : demander un lien de réinitialisation par courriel |
 | `/mot-de-passe#<jeton>` | Public : choisir son mot de passe (lien d'invitation ou de réinitialisation) |

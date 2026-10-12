@@ -170,6 +170,32 @@ export interface Residents {
   updated_at: Generated<Timestamp>;
 }
 
+export interface Shifts {
+  cancelled_at: Timestamp | null;
+  cancelled_by: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  end_time: string;
+  id: Generated<string>;
+  notes: string | null;
+  residence_id: string;
+  shift_type_id: string;
+  start_time: string;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+  work_date: string;
+}
+
+export interface ShiftTypes {
+  end_time: string;
+  id: Generated<string>;
+  is_active: Generated<boolean>;
+  label: string;
+  residence_id: string;
+  sort_order: Generated<number>;
+  start_time: string;
+}
+
 export interface Users {
   created_at: Generated<Timestamp>;
   email: string;
@@ -199,5 +225,7 @@ export interface DB {
   refresh_tokens: RefreshTokens;
   residences: Residences;
   residents: Residents;
+  shift_types: ShiftTypes;
+  shifts: Shifts;
   users: Users;
 }

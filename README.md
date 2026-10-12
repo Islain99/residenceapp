@@ -6,6 +6,7 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Journal de bord** : notes par résident, recherche, corrections avec historique, annulation avec motif. Rien n'est jamais supprimé.
 - **Suivis** : actions à faire issues d'une note, assignées à quelqu'un ou à toute l'équipe.
 - **Agenda** : rendez-vous des résidents (médecin, transport, visite…) et de la résidence (activités, réunions) ; ceux des prochaines 24 h apparaissent dans la relève.
+- **Horaires** : la responsable place les quarts de l'équipe (Jour, Soir, Nuit…) semaine par semaine ; chacun voit son horaire.
 - **Résidents** : fiches, consignes particulières, notes réservées aux infirmières et responsables.
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
 - **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).

@@ -36,6 +36,30 @@ SELECT '00000000-0000-4000-8000-000000000001', label, ord
 FROM unnest(ARRAY['Comportement','Alimentation','Sommeil','Chute','Visite','Santé','Hygiène','Activité'])
      WITH ORDINALITY AS t(label, ord);
 
+-- Quarts types (sur une base neuve, la migration 0007 passe avant la résidence)
+INSERT INTO shift_types (residence_id, label, start_time, end_time, sort_order) VALUES
+  ('00000000-0000-4000-8000-000000000001', 'Jour', '07:00', '15:00', 1),
+  ('00000000-0000-4000-8000-000000000001', 'Soir', '15:00', '23:00', 2),
+  ('00000000-0000-4000-8000-000000000001', 'Nuit', '23:00', '07:00', 3);
+
+-- Horaire de démonstration : semaine en cours et suivante. Chaque préposé
+-- a un quart fixe, 5 jours sur 7 (rotation des congés) ; l'infirmière est
+-- de jour en semaine.
+INSERT INTO shifts (residence_id, user_id, shift_type_id, work_date, start_time, end_time, created_by)
+SELECT st.residence_id, u.id, st.id, d::date, st.start_time, st.end_time,
+       (SELECT id FROM users WHERE email = 'responsable@exemple.test')
+FROM generate_series(date_trunc('week', now())::date, date_trunc('week', now())::date + 13, interval '1 day') AS d
+JOIN users u ON u.email IN ('prepose1@exemple.test', 'prepose2@exemple.test', 'prepose3@exemple.test',
+                            'prepose4@exemple.test', 'infirmiere@exemple.test')
+JOIN shift_types st ON st.residence_id = u.residence_id
+ AND st.label = CASE u.email WHEN 'prepose1@exemple.test' THEN 'Jour' WHEN 'prepose2@exemple.test' THEN 'Jour'
+                             WHEN 'prepose3@exemple.test' THEN 'Soir' WHEN 'prepose4@exemple.test' THEN 'Nuit'
+                             ELSE 'Jour' END
+WHERE CASE u.email
+        WHEN 'infirmiere@exemple.test' THEN extract(isodow FROM d) <= 5
+        ELSE (extract(isodow FROM d)::int + right(split_part(u.email, '@', 1), 1)::int) % 7 NOT IN (0, 1)
+      END;
+
 INSERT INTO residents (residence_id, first_name, last_name, room, birth_date, emergency_contact, special_instructions, admitted_at)
 SELECT '00000000-0000-4000-8000-000000000001', fn, ln, (100 + i)::text,
        date '1935-01-01' + (random() * 6000)::int,

@@ -169,6 +169,22 @@ Rendez-vous d'un résident (médecin, transport, visite…) ou de la résidence 
 - Tout le personnel consulte et ajoute. Modifier ou annuler : l'auteur, ou une infirmière / responsable. Un rendez-vous annulé ne change plus (409). Aucune suppression.
 - Création, modification et annulation sont inscrites dans `audit_log` (`entity` : `appointment`).
 
+## Horaires du personnel
+
+Heures locales `HH:MM` (pas de fuseau) ; une fin ≤ début signifie que le quart finit le lendemain (nuit).
+
+| Route | Rôle |
+| --- | --- |
+| `GET /shift-types` | Quarts types actifs (Jour, Soir, Nuit… par défaut). `?all=true` : responsable, aussi les désactivés |
+| `POST /shift-types` / `PATCH /shift-types/:id` | Responsable : `{ label, startTime, endTime, sortOrder?, isActive? }`. Changer les heures ne modifie pas les quarts déjà planifiés |
+| `GET /shifts` | Tous : quarts de `[from, to]` (dates `AAAA-MM-JJ`, 62 jours au plus), `?userId=` pour un employé. Chaque quart indique `overnight` et `adjusted` (heures différentes du quart type) |
+| `POST /shifts` | Responsable : `{ userId, workDate, shiftTypeId, startTime?, endTime?, notes? }` (sans heures : celles du quart type). Même quart, même jour, même employé : 409 |
+| `PATCH /shifts/:id` | Responsable : quart type (et ses heures), heures ajustées, note |
+| `POST /shifts/:id/cancel` | Responsable : retirer de l'horaire (204, rien n'est supprimé) |
+| `POST /shifts/copy-week` | Responsable : `{ fromWeek, toWeek }` (lundis) → `{ created, skipped }` ; les quarts déjà présents sont gardés |
+
+Toutes les écritures sont inscrites dans `audit_log` (`entity` : `shift_type`, `shift`).
+
 ## Résidents
 
 | Route | Rôle |

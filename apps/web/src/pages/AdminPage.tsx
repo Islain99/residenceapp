@@ -1,10 +1,11 @@
-// Administration (responsable) : onglets Équipe, Catégories, Journal d'audit.
+// Administration (responsable) : onglets Équipe, Catégories, Quarts, Journal d'audit.
 import { NavLink, Outlet } from 'react-router';
 import { cx } from '../lib/cx';
 
 const TABS = [
   { to: 'equipe', label: 'Équipe' },
   { to: 'categories', label: 'Catégories' },
+  { to: 'quarts', label: 'Quarts' },
   { to: 'audit', label: "Journal d'audit" },
 ];
 

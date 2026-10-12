@@ -208,3 +208,24 @@ export interface AppointmentInput {
   endsAt: string | null;
   details: string | null;
 }
+
+export interface ShiftType {
+  id: string;
+  label: string;
+  startTime: string;   // HH:MM, heure locale
+  endTime: string;     // ≤ startTime : finit le lendemain
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface Shift {
+  id: string;
+  workDate: string;    // AAAA-MM-JJ, jour où le quart commence
+  startTime: string;
+  endTime: string;
+  overnight: boolean;
+  adjusted: boolean;   // heures différentes du quart type
+  notes: string | null;
+  shiftType: { id: string; label: string };
+  user: Person & { role: Role };
+}
