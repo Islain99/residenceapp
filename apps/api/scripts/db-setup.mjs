@@ -130,6 +130,9 @@ try {
       await client.query('SET ROLE app_migrator');
       try {
         await client.query(await readFile(SEED_FILE, 'utf8'));
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});   // sinon la vraie erreur serait masquée
+        throw new Error(`données fictives : ${err.message}`);
       } finally {
         await client.query('RESET ROLE');
       }
