@@ -149,10 +149,25 @@ Actions à faire issues d'une note. Tous les rôles les créent, modifient et fe
 
 | Route | Rôle |
 | --- | --- |
-| `GET /handover` | Notes actives écrites depuis ma dernière relève (24 h si aucune), prioritaires d'abord, compteurs (`notes`, `priority`, `unread`) et suivis ouverts assignés à moi ou à l'équipe |
+| `GET /handover` | Notes actives écrites depuis ma dernière relève (24 h si aucune), prioritaires d'abord, compteurs (`notes`, `priority`, `unread`), suivis ouverts assignés à moi ou à l'équipe, et rendez-vous prévus des prochaines 24 h (`appointments`, y compris ceux commencés depuis moins d'une heure) |
 | `POST /handover/ack` | `{ seenUntil }` = le `generatedAt` reçu du `GET` : la relève suivante part de là, une note écrite entre la lecture et la confirmation n'est pas perdue |
 
 Les heures de relève viennent de l'horloge de la base (même horloge que `created_at` des notes).
+
+## Agenda
+
+Rendez-vous d'un résident (médecin, transport, visite…) ou de la résidence (`residentId` absent : activité, réunion…).
+
+| Route | Rôle |
+| --- | --- |
+| `GET /appointments` | Rendez-vous qui commencent dans `[from, to[` (92 jours au plus), du plus tôt au plus tard. Filtres : `residentId`, `kind`, `status` (`prevu` par défaut, `annule`, `all`) |
+| `GET /appointments/:id` | Un rendez-vous |
+| `POST /appointments` | `{ kind, title, startsAt, endsAt?, residentId?, location?, details? }`. `kind` : `medical`, `transport`, `visite`, `activite`, `reunion`, `autre` |
+| `PATCH /appointments/:id` | Champs envoyés seulement |
+| `POST /appointments/:id/cancel` | `{ reason }` : reste visible, statut `annule` |
+
+- Tout le personnel consulte et ajoute. Modifier ou annuler : l'auteur, ou une infirmière / responsable. Un rendez-vous annulé ne change plus (409). Aucune suppression.
+- Création, modification et annulation sont inscrites dans `audit_log` (`entity` : `appointment`).
 
 ## Résidents
 

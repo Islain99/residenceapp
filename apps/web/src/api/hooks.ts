@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type {
-  Account, AccountInput, AuditPage, Category, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
+  Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
 } from './types';
 
@@ -223,3 +223,36 @@ export const checkPasswordToken = (token: string) =>
 
 export const setPassword = (token: string, password: string) =>
   api<void>('/auth/password/reset', { method: 'POST', body: { token, password } });
+
+// ---------------------------------------------------------------------
+// Agenda
+// ---------------------------------------------------------------------
+export interface AppointmentFilters {
+  from: string;
+  to: string;
+  residentId?: string;
+  kind?: AppointmentKind;
+  status?: 'prevu' | 'annule' | 'all';
+}
+
+export const useAppointments = (filters: AppointmentFilters) =>
+  useQuery({ queryKey: ['appointments', filters], queryFn: () => api<Appointment[]>('/appointments', { query: { ...filters } }) });
+
+export function useSaveAppointment(id?: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: Partial<AppointmentInput>) =>
+      id
+        ? api<Appointment>(`/appointments/${id}`, { method: 'PATCH', body: input })
+        : api<Appointment>('/appointments', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('appointments', 'handover'),
+  });
+}
+
+export function useCancelAppointment(id: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (reason: string) => api<Appointment>(`/appointments/${id}/cancel`, { method: 'POST', body: { reason } }),
+    onSuccess: () => invalidate('appointments', 'handover'),
+  });
+}

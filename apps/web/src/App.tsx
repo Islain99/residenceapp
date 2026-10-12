@@ -3,6 +3,7 @@ import { useAuth, useUser } from './auth/session';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
 import { AdminPage } from './pages/AdminPage';
+import { AgendaPage } from './pages/AgendaPage';
 import { AuditPage } from './pages/AuditPage';
 import { CategoriesPage } from './pages/CategoriesPage';
 import { FollowUpsPage } from './pages/FollowUpsPage';
@@ -51,6 +52,7 @@ const router = createBrowserRouter([
         { path: 'journal', element: <JournalPage /> },
         { path: 'notes/:id', element: <NoteDetailPage /> },
         { path: 'suivis', element: <FollowUpsPage /> },
+        { path: 'agenda', element: <AgendaPage /> },
         { path: 'residents', element: <ResidentsPage /> },
         { path: 'residents/:id', element: <ResidentPage /> },
         {

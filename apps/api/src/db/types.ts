@@ -36,6 +36,25 @@ export interface AccountTokens {
   user_id: string;
 }
 
+export interface Appointments {
+  cancel_reason: string | null;
+  cancelled_at: Timestamp | null;
+  cancelled_by: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  details: string | null;
+  ends_at: Timestamp | null;
+  id: Generated<string>;
+  kind: string;
+  location: string | null;
+  residence_id: string;
+  resident_id: string | null;
+  starts_at: Timestamp;
+  status: Generated<string>;
+  title: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface AuditLog {
   action: string;
   at: Generated<Timestamp>;
@@ -169,6 +188,7 @@ export interface Users {
 
 export interface DB {
   account_tokens: AccountTokens;
+  appointments: Appointments;
   audit_log: AuditLog;
   follow_ups: FollowUps;
   handovers: Handovers;
