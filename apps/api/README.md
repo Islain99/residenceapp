@@ -48,14 +48,14 @@ Le navigateur ne voit qu'un seul domaine (celui de Vercel) : le cookie de sessio
 | Start command | *(vide : celle du Dockerfile, `node dist/server.js`)* |
 | Healthcheck path | `/health` |
 | Watch paths | `/apps/api/**`, `/database/migrations/**`, `/database/seed/**` |
-| Networking | *Generate Domain*, port `3000` (utilisé par Vercel) |
+| Networking | *Generate Domain*, sur le port où l'API écoute : celui de la ligne `Server listening at http://[::]:<port>` des journaux (Railway fournit `PORT`, souvent 8080) |
 
 3. Variables du service de l'API (*Raw Editor*). Générer `APP_DB_PASSWORD` et `JWT_SECRET` avec `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` :
 
 ```ini
 RAILWAY_DOCKERFILE_PATH=apps/api/Dockerfile
 NODE_ENV=production
-HOST=0.0.0.0
+HOST=::
 TRUST_PROXY=2
 APP_DB_PASSWORD=<64 caractères hexadécimaux>
 DATABASE_URL=postgresql://app_user:${{APP_DB_PASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}
@@ -68,7 +68,7 @@ SEED_DEMO=true
 SEED_PASSWORD=<mot de passe des comptes fictifs, 12 caractères min.>
 ```
 
-`PORT` est fourni par Railway. Sans `SMTP_URL` valide, les comptes fictifs fonctionnent, mais inviter un employé ou « mot de passe oublié » échouent (aucun courriel ne part) : prévoir un service d'envoi (ex. Resend, Brevo, Amazon SES) avant d'inviter de vraies personnes. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
+`PORT` est fourni par Railway. `HOST=::` : l'API écoute en IPv6 et en IPv4 ; avec `0.0.0.0` (IPv4 seulement), le test de santé de Railway échoue. Sans `SMTP_URL` valide, les comptes fictifs fonctionnent, mais inviter un employé ou « mot de passe oublié » échouent (aucun courriel ne part) : prévoir un service d'envoi (ex. Resend, Brevo, Amazon SES) avant d'inviter de vraies personnes. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
 
 `TRUST_PROXY=2` : Vercel puis le proxy de Railway sont devant l'API. Sans ce réglage, toutes les requêtes sembleraient venir de la même adresse, et la limite de connexions par IP s'appliquerait à toutes les résidences ensemble.
 

@@ -8,7 +8,7 @@ const ConfigSchema = Type.Object({
     [Type.Literal('development'), Type.Literal('test'), Type.Literal('production')],
     { default: 'development' },
   ),
-  HOST: Type.String({ default: '127.0.0.1' }),   // 0.0.0.0 sur un hébergeur (Railway, AWS)
+  HOST: Type.String({ default: '127.0.0.1' }),   // :: sur un hébergeur (IPv6 + IPv4 ; Railway l'exige)
   // Nombre de proxys de confiance devant l'API, pour lire la vraie adresse IP
   // du client (X-Forwarded-For) : limites de connexion et journal d'audit.
   // 0 en local ; Vercel → Railway : 2. Trop élevé, un client pourrait falsifier son adresse.

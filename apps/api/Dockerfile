@@ -15,7 +15,7 @@ RUN npm run build && npm prune --omit=dev
 # --- Exécution : seulement ce qui sert en production ---
 FROM node:22-slim
 ENV NODE_ENV=production \
-    HOST=0.0.0.0 \
+    HOST=:: \
     PORT=3000
 WORKDIR /app/apps/api
 COPY --from=build /app/apps/api/node_modules ./node_modules
