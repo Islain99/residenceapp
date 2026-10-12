@@ -15,7 +15,7 @@ function PublicCard({ title, children }: { title: string; children: ReactNode })
     <main className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <Logo className="size-20" />
+          <Logo className="size-28" />
           <h1 className="text-xl font-bold">{title}</h1>
         </div>
         {children}

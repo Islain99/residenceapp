@@ -59,8 +59,12 @@ L'interface masque les actions non permises (ex. « Corriger » après 24 h pour
 ## Logo
 
 - Source : `brand/logo-original.png` (grand format, hors de `public/` : il n'est pas servi aux navigateurs).
-- `npm run icons` génère à partir de cette source `public/logo.png` (interface) et `public/icons/` (onglet du navigateur, icônes de l'application installée, dont la version « maskable » avec plus de marge). Après un changement de logo : remplacer la source, lancer `npm run icons`, puis changer `VERSION` dans `public/sw.js`.
-- Le logo a un fond blanc : il est affiché sur une tuile blanche arrondie (`components/Logo.tsx`), lisible aussi en thème sombre.
+- `npm run icons` (script `scripts/build-icons.mjs`) génère à partir de cette source :
+  - `public/logo.png` et `public/logo-dark.png` : interface, **fond transparent** (le blanc est converti en transparence, sans liseré). Version sombre : le bleu marine est éclairci pour rester lisible ;
+  - `public/icons/favicon-64.png` : onglet du navigateur, fond transparent ;
+  - `public/icons/` (192, 512, maskable, Apple) : application installée, **fond blanc** opaque, car Android et iPhone découpent eux-mêmes l'icône.
+- `components/Logo.tsx` affiche la bonne version selon le thème de l'appareil.
+- Après un changement de logo : remplacer la source, lancer `npm run icons`, puis changer `VERSION` dans `public/sw.js`.
 
 ## Structure
 

@@ -38,7 +38,7 @@ export function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <Logo className="size-20" />
+          <Logo className="size-28" />
           <h1 className="text-xl font-bold">Journal de bord</h1>
           <p className="text-sm text-muted">Connectez-vous avec votre compte de la résidence.</p>
         </div>

@@ -42,7 +42,7 @@ export function Layout() {
         <OfflineBanner />
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4">
           <span className="flex items-center gap-2 font-bold">
-            <Logo className="size-8" />
+            <Logo className="size-10" />
             Journal de bord
           </span>
           <nav aria-label="Navigation principale" className="hidden gap-1 md:flex">
