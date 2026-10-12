@@ -33,7 +33,7 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 | `/residents/:id` (bouton « Exporter le dossier ») | Responsable : export complet du dossier en JSON (demande d'accès, Loi 25) |
 | `/administration/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver (`/equipe` y redirige) |
 | `/residents/:id/statistiques` | Infirmière, responsable : statistiques du résident par mois ou par année (`?periode=mois|annee&date=`) : chiffres clés comparés à la période précédente, « À surveiller » (hausses nettes, moment dominant), notes dans le temps (filtrables par catégorie, info-bulle au survol), par catégorie, par moment de la journée, données en tableau |
-| `/horaires` | Horaires (`?semaine=`, `?vue=moi\|equipe`) : « Mon horaire » (jours, congés, total d'heures) ou grille de l'équipe avec la couverture par quart. Responsable : ajouter, ajuster les heures, retirer, copier la semaine précédente |
+| `/horaires` | Horaires par semaine (`?semaine=`) ou par mois (`?periode=mois&mois=AAAA-MM`), `?vue=moi\|equipe`. Semaine : « Mon horaire » (jours, congés, total d'heures) ou grille de l'équipe avec la couverture par quart ; responsable : ajouter, ajuster les heures, retirer, copier la semaine précédente. Mois : calendrier (mon quart et ses heures chaque jour, total du mois ; ou qui travaille sur chaque quart, un clic ouvre la semaine) |
 | `/administration/categories` | Responsable : ajouter, renommer, réordonner, désactiver / réactiver les catégories de notes |
 | `/administration/quarts` | Responsable : quarts types (nom, heures), désactiver / réactiver |
 | `/administration/audit` | Responsable : journal d'audit, filtres par type d'élément et par employé |
