@@ -25,3 +25,10 @@ export function shortTime(hhmm: string): string {
 }
 
 export const formatShiftTimes = (start: string, end: string) => `${shortTime(start)} – ${shortTime(end)}`;
+
+// Calendrier du mois (petites cases) : « 7–15 », « 9 h 30–15 »
+const compact = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number) as [number, number];
+  return m ? `${h} h ${String(m).padStart(2, '0')}` : String(h);
+};
+export const compactShiftTimes = (start: string, end: string) => `${compact(start)}–${compact(end)}`;

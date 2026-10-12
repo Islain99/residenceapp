@@ -11,9 +11,11 @@ import { cx } from '../lib/cx';
 import {
   addDays, formatDayHeading, formatRange, fromDateParam, fullName, sameDay, startOfWeek, toDateParam,
 } from '../lib/format';
-import { formatDuration, formatShiftTimes, shiftMinutes } from '../lib/schedule';
+import { compactShiftTimes, formatDuration, formatShiftTimes, shiftMinutes } from '../lib/schedule';
 
 const dayShort = new Intl.DateTimeFormat('fr-CA', { weekday: 'short', day: 'numeric' });
+const monthTitle = new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' });
+const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
 
 type Editing = { shift?: Shift; userId: string; workDate: string };
 
@@ -26,22 +28,43 @@ export function SchedulePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const copyWeek = useCopyWeek();
 
+  // Période affichée : une semaine (?semaine=AAAA-MM-JJ) ou un mois (?periode=mois&mois=AAAA-MM)
+  const monthly = params.get('periode') === 'mois';
   const weekStart = startOfWeek(fromDateParam(params.get('semaine')) ?? today);
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const from = toDateParam(weekStart);
-  const to = toDateParam(days[6]!);
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(params.get('mois') ?? '');
+  const monthStart = monthMatch
+    ? new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1)
+    : new Date(today.getFullYear(), today.getMonth(), 1);
+  const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+  // Mois : semaines complètes du lundi au dimanche (35 ou 42 jours, sous la limite de l'API)
+  const firstDay = monthly ? startOfWeek(monthStart) : weekStart;
+  const lastDay = monthly ? addDays(startOfWeek(monthEnd), 6) : addDays(weekStart, 6);
+  const days = Array.from({ length: Math.round((lastDay.getTime() - firstDay.getTime()) / 86_400_000) + 1 },
+    (_, i) => addDays(firstDay, i));
+  const from = toDateParam(firstDay);
+  const to = toDateParam(lastDay);
   const view = params.get('vue') ?? (responsable ? 'equipe' : 'moi');
   const shifts = useShifts(from, to, view === 'moi' ? user.id : undefined);
 
-  const setParam = (key: string, value: string | null) => {
+  const update = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value); else next.delete(key);
+    for (const [key, value] of Object.entries(changes)) { if (value) next.set(key, value); else next.delete(key); }
     setParams(next, { replace: true });
   };
+  const setParam = (key: string, value: string | null) => update({ [key]: value });
   const goToWeek = (d: Date) => {
     setNotice(null);
     setParam('semaine', sameDay(startOfWeek(d), startOfWeek(today)) ? null : toDateParam(startOfWeek(d)));
   };
+  const goToMonth = (d: Date) => {
+    const current = d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth();
+    setParam('mois', current ? null : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  };
+  const move = (direction: -1 | 1) => monthly
+    ? goToMonth(new Date(monthStart.getFullYear(), monthStart.getMonth() + direction, 1))
+    : goToWeek(addDays(weekStart, 7 * direction));
+  // Calendrier de l'équipe : un jour ouvre sa semaine, où se font les modifications
+  const openWeek = (day: Date) => update({ periode: null, mois: null, semaine: toDateParam(startOfWeek(day)) });
 
   async function copyPreviousWeek() {
     if (!window.confirm('Copier les quarts de la semaine précédente dans cette semaine ? Les quarts déjà placés sont gardés.')) return;
@@ -56,35 +79,133 @@ export function SchedulePage() {
     <>
       <PageHeader
         title="Horaires"
-        subtitle={responsable ? 'Placez les quarts de l’équipe. Cliquez sur une case pour ajouter, sur un quart pour le modifier.' : undefined}
-        actions={responsable && view === 'equipe' && (
+        subtitle={responsable && !monthly ? 'Placez les quarts de l’équipe. Cliquez sur une case pour ajouter, sur un quart pour le modifier.' : undefined}
+        actions={responsable && view === 'equipe' && !monthly && (
           <Button busy={copyWeek.isPending} onClick={() => void copyPreviousWeek()}>Copier la semaine précédente</Button>
         )}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button aria-label="Semaine précédente" onClick={() => goToWeek(addDays(weekStart, -7))}>←</Button>
-        <Button aria-label="Semaine suivante" onClick={() => goToWeek(addDays(weekStart, 7))}>→</Button>
-        <Button variant="ghost" onClick={() => goToWeek(today)}>Cette semaine</Button>
-        <h2 className="ml-1 text-lg font-semibold">{formatRange(weekStart, days[6]!)}</h2>
-        <div className="ml-auto flex gap-2" role="group" aria-label="Vue">
-          <Chip active={view === 'moi'} onClick={() => setParam('vue', 'moi')}>Mon horaire</Chip>
-          <Chip active={view === 'equipe'} onClick={() => setParam('vue', 'equipe')}>Équipe</Chip>
+        <Button aria-label={monthly ? 'Mois précédent' : 'Semaine précédente'} onClick={() => move(-1)}>←</Button>
+        <Button aria-label={monthly ? 'Mois suivant' : 'Semaine suivante'} onClick={() => move(1)}>→</Button>
+        <Button variant="ghost" onClick={() => (monthly ? goToMonth(today) : goToWeek(today))}>
+          {monthly ? 'Ce mois-ci' : 'Cette semaine'}
+        </Button>
+        <h2 className="ml-1 text-lg font-semibold first-letter:uppercase">
+          {monthly ? monthTitle.format(monthStart) : formatRange(weekStart, addDays(weekStart, 6))}
+        </h2>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <div className="flex gap-2" role="group" aria-label="Période">
+            <Chip active={!monthly} onClick={() => setParam('periode', null)}>Semaine</Chip>
+            <Chip active={monthly} onClick={() => setParam('periode', 'mois')}>Mois</Chip>
+          </div>
+          <div className="flex gap-2" role="group" aria-label="Vue">
+            <Chip active={view === 'moi'} onClick={() => setParam('vue', 'moi')}>Mon horaire</Chip>
+            <Chip active={view === 'equipe'} onClick={() => setParam('vue', 'equipe')}>Équipe</Chip>
+          </div>
         </div>
       </div>
 
       {notice && <p role="status" className="mb-4 rounded-lg bg-positive-soft px-4 py-3 text-sm text-positive">{notice}</p>}
       <ErrorMessage error={copyWeek.error} />
 
-      {shifts.isPending ? <Loading /> : shifts.isError ? <ErrorMessage error={shifts.error} /> : view === 'moi'
-        ? <MySchedule days={days} shifts={shifts.data} today={today} />
-        : <TeamGrid days={days} shifts={shifts.data} today={today} editable={responsable}
-            onEdit={(e) => setEditing(e)} />}
+      {shifts.isPending ? <Loading /> : shifts.isError ? <ErrorMessage error={shifts.error} /> : monthly
+        ? <MonthCalendar days={days} monthStart={monthStart} shifts={shifts.data} today={today} mine={view === 'moi'}
+            onOpenWeek={view === 'equipe' ? openWeek : undefined} />
+        : view === 'moi'
+          ? <MySchedule days={days} shifts={shifts.data} today={today} />
+          : <TeamGrid days={days} shifts={shifts.data} today={today} editable={responsable}
+              onEdit={(e) => setEditing(e)} />}
 
       <Dialog open={editing !== null} onClose={() => setEditing(null)}
         title={editing?.shift ? 'Modifier le quart' : 'Ajouter un quart'}>
         {editing && <ShiftForm editing={editing} onDone={() => setEditing(null)} />}
       </Dialog>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------
+// Calendrier du mois : mon horaire (quart et heures, ou congé) ou l'équipe
+// (qui travaille sur chaque quart). Semaines complètes du lundi au dimanche ;
+// les jours des mois voisins sont grisés et ne comptent pas dans le total.
+// ---------------------------------------------------------------------
+function MonthCalendar({ days, monthStart, shifts, today, mine, onOpenWeek }: {
+  days: Date[]; monthStart: Date; shifts: Shift[]; today: Date; mine: boolean; onOpenWeek?: (day: Date) => void;
+}) {
+  const types = useShiftTypes();
+  const inMonth = (d: Date) => d.getMonth() === monthStart.getMonth();
+  const monthShifts = shifts.filter((s) => inMonth(fromDateParam(s.workDate)!));
+  const total = monthShifts.reduce((sum, s) => sum + shiftMinutes(s.startTime, s.endTime), 0);
+  const order = (s: Shift) => types.data?.findIndex((t) => t.id === s.shiftType.id) ?? 0;
+  // « Congé » seulement dans une semaine où j'ai au moins un quart : une semaine
+  // vide n'est probablement pas encore planifiée, ce n'est pas un congé.
+  const plannedWeeks = new Set(shifts.map((s) => toDateParam(startOfWeek(fromDateParam(s.workDate)!))));
+  const planned = (d: Date) => plannedWeeks.has(toDateParam(startOfWeek(d)));
+
+  return (
+    <>
+      {mine && (
+        <p className="mb-4 text-sm text-muted">
+          {monthShifts.length} quart{monthShifts.length > 1 ? 's' : ''} ce mois-ci · {formatDuration(total)}
+        </p>
+      )}
+      {!mine && onOpenWeek && <p className="mb-4 text-sm text-muted">Cliquez sur un jour pour ouvrir sa semaine.</p>}
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+        <div className="grid grid-cols-7 border-b border-line text-center text-xs font-semibold text-muted" aria-hidden>
+          {WEEKDAYS.map((d) => <span key={d} className="py-2">{d}</span>)}
+        </div>
+        <ol className="grid grid-cols-7">
+          {days.map((day) => {
+            const items = shifts.filter((s) => s.workDate === toDateParam(day)).sort((a, b) => order(a) - order(b));
+            const isToday = sameDay(day, today);
+            const outside = !inMonth(day);
+            const label = formatDayHeading(day);
+            const content = mine ? (
+              items.length === 0
+                ? !outside && planned(day) && <span className="text-[10px] text-muted sm:text-xs">Congé</span>
+                : items.map((s) => (
+                  <span key={s.id} className={cx('block rounded px-1 py-0.5 text-[10px] leading-tight sm:text-xs',
+                    s.adjusted ? 'bg-priority-soft text-priority' : 'bg-info-soft text-primary')}>
+                    <span className="block font-semibold">{s.shiftType.label}</span>
+                    <span className="tabular-nums">{compactShiftTimes(s.startTime, s.endTime)}</span>
+                  </span>
+                ))
+            ) : (
+              types.data?.map((t) => {
+                const people = items.filter((s) => s.shiftType.id === t.id);
+                if (people.length === 0) return null;
+                return (
+                  <span key={t.id} className="block text-[10px] leading-tight sm:text-xs">
+                    <span className="font-semibold">{t.label}</span>
+                    <span className="sm:hidden"> {people.length}</span>
+                    <span className="hidden text-muted sm:inline"> {people.map((s) => s.user.firstName).join(', ')}</span>
+                  </span>
+                );
+              })
+            );
+            const cell = (
+              <>
+                <span className={cx('mb-1 inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold',
+                  isToday && 'bg-primary text-on-primary')}>
+                  {day.getDate()}
+                </span>
+                <span className="flex flex-col gap-0.5">{content}</span>
+              </>
+            );
+            const classes = cx('flex min-h-20 flex-col border-b border-r border-line p-1 text-left sm:min-h-24 sm:p-1.5',
+              outside && 'bg-sunken/60 opacity-60');
+            return (
+              <li key={day.toISOString()} aria-label={label} aria-current={isToday ? 'date' : undefined}>
+                {onOpenWeek ? (
+                  <button type="button" onClick={() => onOpenWeek(day)} aria-label={`${label} : ouvrir la semaine`}
+                    className={cx(classes, 'h-full w-full hover:bg-info-soft/40')}>{cell}</button>
+                ) : <div className={cx(classes, 'h-full')}>{cell}</div>}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
     </>
   );
 }
