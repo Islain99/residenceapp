@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type {
-  Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, Shift, ShiftType, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
+  Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, ResidentStats, Shift, ShiftType, StatsPeriod, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
 } from './types';
 
@@ -313,3 +313,13 @@ export function useCopyWeek() {
     onSuccess: () => invalidate('shifts'),
   });
 }
+
+// ---------------------------------------------------------------------
+// Statistiques d'un résident (infirmière, responsable)
+// ---------------------------------------------------------------------
+export const useResidentStats = (id: string, period: StatsPeriod, date?: string) =>
+  useQuery({
+    queryKey: ['resident-stats', id, period, date],
+    queryFn: () => api<ResidentStats>(`/residents/${id}/stats`, { query: { period, date } }),
+    placeholderData: (previous) => previous,   // garde le graphique affiché pendant le changement de période
+  });

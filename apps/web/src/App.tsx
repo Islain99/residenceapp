@@ -13,6 +13,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NoteDetailPage } from './pages/NoteDetailPage';
 import { ForgotPasswordPage, SetPasswordPage } from './pages/PasswordPages';
 import { ResidentPage } from './pages/ResidentPage';
+import { ResidentStatsPage } from './pages/ResidentStatsPage';
 import { ResidentsPage } from './pages/ResidentsPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { ShiftTypesPage } from './pages/ShiftTypesPage';
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
         { path: 'horaires', element: <SchedulePage /> },
         { path: 'residents', element: <ResidentsPage /> },
         { path: 'residents/:id', element: <ResidentPage /> },
+        { path: 'residents/:id/statistiques', element: <ResidentStatsPage /> },
         {
           element: <RequireResponsable />,
           children: [

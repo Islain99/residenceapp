@@ -69,6 +69,12 @@ function ResidentView({ resident }: { resident: Resident }) {
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" onClick={() => setDialog('note')}>+ Note</Button>
             <Button onClick={() => setDialog('appointment')}>+ Rendez-vous</Button>
+            {supervisor && (
+              <Link to={`/residents/${resident.id}/statistiques`}
+                className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium hover:bg-sunken">
+                Statistiques
+              </Link>
+            )}
             {supervisor && <Button onClick={() => setDialog('edit')}>Modifier</Button>}
             {supervisor && resident.status === 'actif' && <Button variant="ghost" onClick={() => setDialog('leave')}>Départ</Button>}
             {supervisor && resident.status === 'parti' && (
