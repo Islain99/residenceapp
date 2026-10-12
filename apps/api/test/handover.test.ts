@@ -36,7 +36,8 @@ describe('confirmation de lecture', () => {
     const forOther = (await call('prepose4', 'GET', `/notes/${note.id}`)).json();
     expect(forReader.readByMe).toBe(true);
     expect(forOther.readByMe).toBe(false);
-    expect(forReader.reads.map((r: { user: { firstName: string } }) => r.user.firstName)).toEqual(['Fatou']);
+    // L'auteur (Marc) a lu sa propre note, puis Fatou
+    expect(forReader.reads.map((r: { user: { firstName: string } }) => r.user.firstName)).toEqual(['Marc', 'Fatou']);
 
     expect(noteIds((await call('prepose2', 'GET', '/notes?unread=true&limit=100')).json())).not.toContain(note.id);
     expect(noteIds((await call('prepose4', 'GET', '/notes?unread=true&limit=100')).json())).toContain(note.id);
@@ -83,6 +84,10 @@ describe('relève', () => {
     expect(noteIds(first)).toContain(before.id);
 
     const during = await createNote();   // écrite après la lecture, avant la confirmation
+    // Les consignes prioritaires se confirment une à une avant la relève
+    for (const n of first.notes.filter((x: { isPriority: boolean; readByMe: boolean }) => x.isPriority && !x.readByMe)) {
+      await call('prepose4', 'POST', `/notes/${n.id}/read`);
+    }
     const ack = await call('prepose4', 'POST', '/handover/ack', { seenUntil: first.generatedAt });
     expect(ack.statusCode).toBe(201);
     expect(ack.json().acknowledgedAt).toBe(first.generatedAt);

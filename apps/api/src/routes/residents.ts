@@ -5,7 +5,8 @@
 //     (restricted_notes) ne sont lues et écrites que par une infirmière
 //     ou une responsable.
 //   * Créer ou modifier un résident : infirmière ou responsable.
-//   * Aucune suppression : un départ = statut « parti » + date de départ.
+//   * Aucune suppression : un départ = statut « parti » + date de départ ;
+//     ses suivis encore ouverts sont alors fermés (« Départ du résident. »).
 //   * Consultation de la fiche, création et modification sont auditées.
 //   * Export complet d'un dossier (Loi 25, droit d'accès) : responsable
 //     seulement, audité. GET /residents/:id/export
@@ -20,6 +21,7 @@ import { badRequest, notFound } from '../lib/errors.js';
 import { DateOnly, IdParams, Nullable, optionalText, Text } from '../lib/schemas.js';
 
 const Status = Type.Union([Type.Literal('actif'), Type.Literal('parti')]);
+export const DEPARTURE_CLOSING_NOTE = 'Départ du résident.';
 
 const ResidentSummary = Type.Object({
   id: Type.String(),
@@ -211,6 +213,23 @@ const residentRoutes: FastifyPluginAsyncTypebox = async (app) => {
         action: 'update', entity: 'resident', entityId: current.id, userId: request.user.sub, residenceId,
         details: { fields: Object.keys(b) }, ip: request.ip,
       });
+      // Départ : ses suivis encore ouverts n'ont plus d'objet, ils sont fermés
+      if (current.status !== 'parti' && row.status === 'parti') {
+        const closed = await trx.updateTable('follow_ups')
+          .set({ closed_at: new Date(), closed_by: request.user.sub, closing_note: DEPARTURE_CLOSING_NOTE })
+          .where('residence_id', '=', residenceId)
+          .where('closed_at', 'is', null)
+          .where('note_id', 'in', (eb) => eb.selectFrom('notes').select('id')
+            .where('residence_id', '=', residenceId).where('resident_id', '=', current.id))
+          .returning('id')
+          .execute();
+        for (const f of closed) {
+          await audit(trx, {
+            action: 'close', entity: 'follow_up', entityId: f.id, userId: request.user.sub, residenceId,
+            details: { reason: 'resident_departure' }, ip: request.ip,
+          });
+        }
+      }
       return row;
     });
     return toDetail(row, true);

@@ -16,7 +16,7 @@ import type { Notes } from '../db/types.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
 import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
-import { findNote, NoteBody, noteQuery, toNote, type Db, type NoteRow } from '../lib/note-view.js';
+import { findNote, NoteBody, noteQuery, toNote, validReadSql, type Db, type NoteRow } from '../lib/note-view.js';
 import { IdParams, Nullable, optionalText, Person, Text, Uuid } from '../lib/schemas.js';
 
 const AUTHOR_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -133,7 +133,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (f.to) query = query.where('n.occurred_at', '<', new Date(f.to));
     if (f.priority !== undefined) query = query.where('n.is_priority', '=', f.priority);
     if (f.unread !== undefined) {
-      const read = sql<boolean>`EXISTS (SELECT 1 FROM note_reads nr WHERE nr.note_id = n.id AND nr.user_id = ${userId})`;
+      const read = validReadSql(userId);   // une consigne prioritaire corrigée depuis ma lecture compte comme non lue
       query = query.where(f.unread ? sql<boolean>`NOT ${read}` : read);
     }
     if (f.status !== 'all') query = query.where('n.status', '=', f.status);
@@ -162,13 +162,17 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
           versions: Type.Array(VersionBody),
           followUps: Type.Array(FollowUpBody),
           reads: Type.Array(ReadBody),
+          // Consigne prioritaire active : employés actifs qui ne l'ont pas encore
+          // lue (ou pas depuis sa dernière correction). Vide pour une note ordinaire.
+          unreadBy: Type.Array(Person),
         })]),
       },
     },
   }, async (request) => {
     const residenceId = residenceOf(request);
     const note = await findNote(db, residenceId, request.user.sub, request.params.id);
-    const [versions, followUps, reads] = await Promise.all([
+    const priorityActive = note.isPriority && note.status === 'active';
+    const [versions, followUps, reads, unreadBy] = await Promise.all([
       db.selectFrom('note_versions as v')
         .innerJoin('users as e', 'e.id', 'v.edited_by')
         .select(['v.edited_at', 'v.previous', 'e.id', 'e.first_name', 'e.last_name'])
@@ -181,6 +185,20 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         .select(['nr.read_at', 'u.id', 'u.first_name', 'u.last_name'])
         .where('nr.note_id', '=', note.id)
         .orderBy('nr.read_at')
+        .execute(),
+      !priorityActive ? [] : db.selectFrom('users as u')
+        .select(['u.id', 'u.first_name', 'u.last_name'])
+        .where('u.residence_id', '=', residenceId)
+        .where('u.is_active', '=', true)
+        .where('u.password_hash', 'is not', null)   // invitation pas encore acceptée : pas concerné
+        .where(({ not, exists, selectFrom }) => not(exists(selectFrom('note_reads as nr')
+          .select(sql`1`.as('one'))
+          .whereRef('nr.user_id', '=', 'u.id')
+          .where('nr.note_id', '=', note.id)
+          .where((eb) => note.contentEditedAt
+            ? eb('nr.read_at', '>=', new Date(note.contentEditedAt))
+            : sql<boolean>`true`))))
+        .orderBy('u.last_name').orderBy('u.first_name')
         .execute(),
     ]);
     await audit(db, {
@@ -210,6 +228,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         user: { id: r.id, firstName: r.first_name, lastName: r.last_name },
         readAt: r.read_at.toISOString(),
       })),
+      unreadBy: unreadBy.map((u) => ({ id: u.id, firstName: u.first_name, lastName: u.last_name })),
     };
   });
 
@@ -245,6 +264,10 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         is_priority: b.isPriority,
         is_positive: b.isPositive,
       }).returning('id').executeTakeFirstOrThrow();
+      // L'auteur a lu sa propre note
+      await trx.insertInto('note_reads')
+        .values({ residence_id: residenceId, note_id: id, user_id: request.user.sub })
+        .execute();
       await audit(trx, {
         action: 'create', entity: 'note', entityId: id, userId: request.user.sub, residenceId,
         details: { resident_id: b.residentId ?? null, category_id: b.categoryId, is_priority: b.isPriority },
@@ -325,7 +348,22 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
           is_positive: note.is_positive,
         },
       }).execute();
-      await trx.updateTable('notes').set(changes).where('id', '=', note.id).execute();
+      // Correction de fond : les lectures antérieures ne valent plus pour une
+      // consigne prioritaire (à relire) ; une note ordinaire est signalée
+      // « modifiée depuis votre lecture ». Classer autrement (catégorie,
+      // « positif ») ou retirer la priorité n'oblige personne à relire.
+      const substantive = ['description', 'intervention', 'resident_id', 'occurred_at']
+        .some((f) => f in changes) || changes.is_priority === true;
+      await trx.updateTable('notes')
+        .set({ ...changes, ...(substantive ? { content_edited_at: sql<Date>`clock_timestamp()` } : {}) })
+        .where('id', '=', note.id).execute();
+      if (substantive) {
+        // Celui qui corrige a lu la nouvelle version
+        await trx.insertInto('note_reads')
+          .values({ residence_id: residenceId, note_id: note.id, user_id: request.user.sub, read_at: sql<Date>`clock_timestamp()` })
+          .onConflict((oc) => oc.columns(['note_id', 'user_id']).doUpdateSet({ read_at: sql<Date>`clock_timestamp()` }))
+          .execute();
+      }
       await audit(trx, {
         action: 'update', entity: 'note', entityId: note.id, userId: request.user.sub, residenceId,
         details: { fields }, ip: request.ip,
@@ -365,7 +403,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     return findNote(db, residenceId, request.user.sub, request.params.id);
   });
 
-  // Confirmation de lecture (idempotente : la première lecture fait foi)
+  // Confirmation de lecture (idempotente ; après une correction de fond, la relecture est enregistrée)
   app.post('/notes/:id/read', {
     schema: { params: IdParams },
   }, async (request, reply) => {
@@ -376,7 +414,10 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (!note) throw notFound('Note introuvable.');
     await db.insertInto('note_reads')
       .values({ residence_id: residenceId, note_id: note.id, user_id: request.user.sub })
-      .onConflict((oc) => oc.columns(['note_id', 'user_id']).doNothing())
+      // Déjà lue : seule une relecture après une correction de fond met à jour la date
+      .onConflict((oc) => oc.columns(['note_id', 'user_id'])
+        .doUpdateSet({ read_at: sql<Date>`now()` })
+        .where(sql<boolean>`note_reads.read_at < (SELECT content_edited_at FROM notes WHERE id = note_reads.note_id)`))
       .execute();
     return reply.code(204).send();
   });

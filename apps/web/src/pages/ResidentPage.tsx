@@ -25,6 +25,8 @@ function ResidentView({ resident }: { resident: Resident }) {
   const navigate = useNavigate();
   const notes = useNotes({ residentId: resident.id }, 10);
   const followUps = useFollowUps({ status: 'open', residentId: resident.id });
+  // Suivis terminés : ce qui a été fait, avec la note de clôture
+  const doneFollowUps = useFollowUps({ status: 'closed', residentId: resident.id });
   // Rendez-vous des trois prochains mois. 90 jours et non 92 (limite de l'API) :
   // un changement d'heure ajoute une heure à la période.
   const [today] = useState(() => startOfDay(new Date()));
@@ -126,6 +128,15 @@ function ResidentView({ resident }: { resident: Resident }) {
           <ul className="flex flex-col gap-3">{followUps.data.map((f) => <FollowUpItem key={f.id} followUp={f} />)}</ul>
         )}
       </section>
+
+      {!!doneFollowUps.data?.length && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold">Suivis terminés récemment</h2>
+          <ul className="flex flex-col gap-3">
+            {doneFollowUps.data.slice(0, 5).map((f) => <FollowUpItem key={f.id} followUp={f} />)}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">

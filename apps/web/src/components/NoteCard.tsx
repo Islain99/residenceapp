@@ -12,7 +12,10 @@ export function NoteBadges({ note }: { note: Note }) {
       {note.isPriority && <Badge tone="priority">Prioritaire</Badge>}
       {note.isPositive && <Badge tone="positive">Positif</Badge>}
       {note.status === 'annulee' && <Badge tone="danger">Annulée</Badge>}
-      {note.versionCount > 0 && <Badge>Corrigée</Badge>}
+      {note.isPriority && !note.readByMe && note.contentEditedAt && note.status === 'active'
+        ? <Badge tone="priority">Corrigée — à relire</Badge>
+        : note.modifiedSinceRead ? <Badge tone="info">Modifiée depuis votre lecture</Badge>
+          : note.versionCount > 0 && <Badge>Corrigée</Badge>}
     </>
   );
 }
@@ -59,11 +62,16 @@ export function NoteCard({ note, showRead = true }: { note: Note; showRead?: boo
 
       <footer className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
         <span>{fullName(note.author)}</span>
-        {showRead && !note.readByMe && !cancelled && (
+        {showRead && !note.readByMe && !cancelled && (note.isPriority ? (
+          // Consigne prioritaire : à confirmer une à une (la relève ne le fait pas)
+          <Button variant="primary" className="min-h-9 px-3 text-xs" busy={markRead.isPending} onClick={() => markRead.mutate(note.id)}>
+            J'ai lu cette consigne
+          </Button>
+        ) : (
           <Button variant="ghost" className="min-h-9 px-3 text-xs" busy={markRead.isPending} onClick={() => markRead.mutate(note.id)}>
             Marquer comme lue
           </Button>
-        )}
+        ))}
       </footer>
     </article>
   );
