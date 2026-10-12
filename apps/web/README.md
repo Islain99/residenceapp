@@ -56,6 +56,12 @@ L'interface masque les actions non permises (ex. « Corriger » après 24 h pour
 - Sans réseau : bandeau « Hors connexion » dans l'application, et page `offline.html` si on ouvre une page. Tout se recharge au retour du réseau.
 - Après une modification de `sw.js`, changer `VERSION` dans le fichier : l'ancien cache est supprimé.
 
+## Logo
+
+- Source : `brand/logo-original.png` (grand format, hors de `public/` : il n'est pas servi aux navigateurs).
+- `npm run icons` génère à partir de cette source `public/logo.png` (interface) et `public/icons/` (onglet du navigateur, icônes de l'application installée, dont la version « maskable » avec plus de marge). Après un changement de logo : remplacer la source, lancer `npm run icons`, puis changer `VERSION` dans `public/sw.js`.
+- Le logo a un fond blanc : il est affiché sur une tuile blanche arrondie (`components/Logo.tsx`), lisible aussi en thème sombre.
+
 ## Structure
 
 ```

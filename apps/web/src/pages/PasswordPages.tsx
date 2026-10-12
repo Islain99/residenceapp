@@ -5,6 +5,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { checkPasswordToken, forgotPassword, setPassword } from '../api/hooks';
+import { Logo } from '../components/Logo';
 import { Button, Card, ErrorMessage, Loading, TextField } from '../components/ui';
 
 const MIN_LENGTH = 12;   // même règle que l'API
@@ -14,7 +15,7 @@ function PublicCard({ title, children }: { title: string; children: ReactNode })
     <main className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <img src="/favicon.svg" alt="" className="size-12" />
+          <Logo className="size-20" />
           <h1 className="text-xl font-bold">{title}</h1>
         </div>
         {children}

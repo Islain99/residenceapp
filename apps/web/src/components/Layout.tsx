@@ -5,6 +5,7 @@ import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
 import { fullName } from '../lib/format';
 import { cx } from '../lib/cx';
 import { IdleLogout } from './IdleLogout';
+import { Logo } from './Logo';
 import { OfflineBanner } from './OfflineBanner';
 
 const LINKS = [
@@ -41,7 +42,7 @@ export function Layout() {
         <OfflineBanner />
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-6 px-4">
           <span className="flex items-center gap-2 font-bold">
-            <img src="/favicon.svg" alt="" className="size-7" />
+            <Logo className="size-8" />
             Journal de bord
           </span>
           <nav aria-label="Navigation principale" className="hidden gap-1 md:flex">
