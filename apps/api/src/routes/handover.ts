@@ -2,7 +2,8 @@
 //
 //   GET  /handover      notes écrites depuis la dernière relève confirmée
 //                       (prioritaires d'abord) + suivis ouverts qui me
-//                       concernent (assignés à moi ou à toute l'équipe).
+//                       concernent (assignés à moi ou à toute l'équipe)
+//                       + rendez-vous de l'agenda des prochaines 24 h.
 //   POST /handover/ack  « j'ai pris connaissance » : enregistre l'instant
 //                       generatedAt reçu du GET, pour qu'une note écrite
 //                       entre la lecture et la confirmation ne soit pas perdue.
@@ -10,6 +11,7 @@ import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typ
 import { sql } from 'kysely';
 import { authenticate, residenceOf } from '../auth.js';
 import type { Database } from '../db/index.js';
+import { AppointmentBody, appointmentQuery, toAppointment } from '../lib/appointment-view.js';
 import { audit } from '../lib/audit.js';
 import { badRequest } from '../lib/errors.js';
 import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
@@ -18,6 +20,8 @@ import { Nullable } from '../lib/schemas.js';
 
 const FIRST_HANDOVER_LOOKBACK_MS = 24 * 60 * 60 * 1000;   // aucune relève encore : dernières 24 h
 const MAX_NOTES = 200;
+const APPOINTMENTS_AHEAD_MS = 24 * 60 * 60 * 1000;      // rendez-vous des prochaines 24 h
+const APPOINTMENTS_BEHIND_MS = 60 * 60 * 1000;          // … et ceux commencés depuis moins d'une heure
 
 // Heure de la base : notes.created_at vient de son horloge. Comparer avec
 // l'horloge de l'API (autre machine, autre conteneur) pourrait perdre une note.
@@ -41,6 +45,7 @@ const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
           truncated: Type.Boolean(),            // plus de 200 notes : voir le journal
           counts: Type.Object({ notes: Type.Integer(), priority: Type.Integer(), unread: Type.Integer() }),
           followUps: Type.Array(FollowUpBody),
+          appointments: Type.Array(AppointmentBody),
         }),
       },
     },
@@ -54,7 +59,7 @@ const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
       .orderBy('acknowledged_at', 'desc').limit(1).executeTakeFirst();
     const since = last?.acknowledged_at ?? new Date(generatedAt.getTime() - FIRST_HANDOVER_LOOKBACK_MS);
 
-    const [rows, followUps] = await Promise.all([
+    const [rows, followUps, appointments] = await Promise.all([
       noteQuery(db, residenceId, userId)
         .where('n.status', '=', 'active')
         .where('n.created_at', '>', since)
@@ -65,6 +70,12 @@ const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
       orderFollowUps(followUpQuery(db, residenceId)
         .where('f.closed_at', 'is', null)
         .where((eb) => eb.or([eb('f.assigned_to', '=', userId), eb('f.assigned_to', 'is', null)])))
+        .execute(),
+      appointmentQuery(db, residenceId)
+        .where('a.status', '=', 'prevu')
+        .where('a.starts_at', '>=', new Date(generatedAt.getTime() - APPOINTMENTS_BEHIND_MS))
+        .where('a.starts_at', '<', new Date(generatedAt.getTime() + APPOINTMENTS_AHEAD_MS))
+        .orderBy('a.starts_at')
         .execute(),
     ]);
 
@@ -81,6 +92,7 @@ const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
         unread: notes.filter((n) => !n.readByMe).length,
       },
       followUps: followUps.map((f) => toFollowUp(f, generatedAt)),
+      appointments: appointments.map(toAppointment),
     };
   });
 

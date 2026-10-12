@@ -176,4 +176,35 @@ export interface Handover {
   truncated: boolean;
   counts: { notes: number; priority: number; unread: number };
   followUps: FollowUp[];
+  appointments: Appointment[];   // prochaines 24 h
+}
+
+export type AppointmentKind = 'medical' | 'transport' | 'visite' | 'activite' | 'reunion' | 'autre';
+
+export interface Appointment {
+  id: string;
+  kind: AppointmentKind;
+  title: string;
+  location: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  details: string | null;
+  status: 'prevu' | 'annule';
+  cancelReason: string | null;
+  cancelledAt: string | null;
+  cancelledBy: Person | null;
+  resident: ResidentRef | null;
+  createdBy: Person;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppointmentInput {
+  kind: AppointmentKind;
+  title: string;
+  residentId: string | null;
+  location: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  details: string | null;
 }

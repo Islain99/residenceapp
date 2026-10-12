@@ -28,6 +28,7 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 | `/journal` | Journal : recherche (sans accents), filtres (résident, catégorie, statut, prioritaires, non lues) conservés dans l'adresse, nouvelle note |
 | `/notes/:id` | Note : marquer comme lue, ajouter un suivi, corriger, annuler (avec motif), qui l'a lue, historique des corrections |
 | `/suivis` | Suivis : pour moi, pour l'équipe, tous les ouverts, faits |
+| `/agenda` | Agenda de la semaine, jour par jour (`?semaine=AAAA-MM-JJ`) : rendez-vous des résidents et de la résidence, filtres résident / type / annulés, ajout, modification, annulation avec motif. Les rendez-vous des prochaines 24 h apparaissent aussi dans la relève, ceux d'un résident sur sa fiche |
 | `/residents`, `/residents/:id` | Résidents et fiche (consignes, suivis ouverts, notes récentes) ; ajout, modification et départ pour infirmière / responsable |
 | `/residents/:id` (bouton « Exporter le dossier ») | Responsable : export complet du dossier en JSON (demande d'accès, Loi 25) |
 | `/administration/equipe` | Responsable seulement : inviter un employé, renvoyer l'invitation, changer le rôle, désactiver / réactiver (`/equipe` y redirige) |

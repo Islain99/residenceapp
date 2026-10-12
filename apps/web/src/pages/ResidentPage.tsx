@@ -1,15 +1,16 @@
-// Fiche d'un résident : informations, consignes, suivis ouverts et notes récentes.
+// Fiche d'un résident : informations, consignes, rendez-vous à venir, suivis ouverts et notes récentes.
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { downloadResidentExport, useCreateNote, useFollowUps, useNotes, useResident, useSaveResident } from '../api/hooks';
+import { downloadResidentExport, useAppointments, useCreateNote, useFollowUps, useNotes, useResident, useSaveResident } from '../api/hooks';
 import type { Resident } from '../api/types';
 import { isSupervisor, useUser } from '../auth/session';
+import { AppointmentForm, AppointmentItem } from '../components/Appointments';
 import { FollowUpItem } from '../components/FollowUps';
 import { NoteCard } from '../components/NoteCard';
 import { NoteForm } from '../components/NoteForm';
 import { ResidentForm } from '../components/ResidentForm';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorMessage, Loading, TextField } from '../components/ui';
-import { ageFrom, formatDate, fullName } from '../lib/format';
+import { addDays, ageFrom, formatDate, fullName, startOfDay } from '../lib/format';
 
 export function ResidentPage() {
   const { id = '' } = useParams();
@@ -24,8 +25,14 @@ function ResidentView({ resident }: { resident: Resident }) {
   const navigate = useNavigate();
   const notes = useNotes({ residentId: resident.id }, 10);
   const followUps = useFollowUps({ status: 'open', residentId: resident.id });
+  // Rendez-vous des trois prochains mois. 90 jours et non 92 (limite de l'API) :
+  // un changement d'heure ajoute une heure à la période.
+  const [today] = useState(() => startOfDay(new Date()));
+  const appointments = useAppointments({
+    from: today.toISOString(), to: addDays(today, 90).toISOString(), residentId: resident.id,
+  });
   const createNote = useCreateNote();
-  const [dialog, setDialog] = useState<'note' | 'edit' | 'leave' | null>(null);
+  const [dialog, setDialog] = useState<'note' | 'appointment' | 'edit' | 'leave' | null>(null);
   const close = () => setDialog(null);
   const save = useSaveResident(resident.id);
   const supervisor = isSupervisor(user.role);
@@ -61,6 +68,7 @@ function ResidentView({ resident }: { resident: Resident }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" onClick={() => setDialog('note')}>+ Note</Button>
+            <Button onClick={() => setDialog('appointment')}>+ Rendez-vous</Button>
             {supervisor && <Button onClick={() => setDialog('edit')}>Modifier</Button>}
             {supervisor && resident.status === 'actif' && <Button variant="ghost" onClick={() => setDialog('leave')}>Départ</Button>}
             {supervisor && resident.status === 'parti' && (
@@ -97,6 +105,16 @@ function ResidentView({ resident }: { resident: Resident }) {
       </Card>
 
       <section className="mt-8">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Rendez-vous à venir</h2>
+          <Link to={`/agenda?residentId=${resident.id}`} className="text-sm text-primary hover:underline">Voir dans l'agenda →</Link>
+        </div>
+        {appointments.isPending ? <Loading /> : !appointments.data?.length ? <EmptyState>Aucun rendez-vous prévu.</EmptyState> : (
+          <ul className="flex flex-col gap-2">{appointments.data.map((a) => <AppointmentItem key={a.id} appointment={a} showDate />)}</ul>
+        )}
+      </section>
+
+      <section className="mt-8">
         <h2 className="mb-3 text-lg font-semibold">Suivis ouverts</h2>
         {followUps.isPending ? <Loading /> : !followUps.data?.length ? <EmptyState>Aucun suivi ouvert.</EmptyState> : (
           <ul className="flex flex-col gap-3">{followUps.data.map((f) => <FollowUpItem key={f.id} followUp={f} />)}</ul>
@@ -113,6 +131,9 @@ function ResidentView({ resident }: { resident: Resident }) {
         )}
       </section>
 
+      <Dialog open={dialog === 'appointment'} onClose={close} title={`Nouveau rendez-vous — ${fullName(resident)}`}>
+        <AppointmentForm defaultResidentId={resident.id} onDone={close} />
+      </Dialog>
       <Dialog open={dialog === 'note'} onClose={close} title={`Nouvelle note — ${fullName(resident)}`}>
         <NoteForm defaultResidentId={resident.id} submitLabel="Enregistrer la note" onCancel={close}
           onSubmit={async (input) => {

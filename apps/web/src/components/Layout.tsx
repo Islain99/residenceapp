@@ -11,6 +11,7 @@ const LINKS = [
   { to: '/', label: 'Relève', icon: '◷', end: true },
   { to: '/journal', label: 'Journal', icon: '☰', end: false },
   { to: '/suivis', label: 'Suivis', icon: '✓', end: false },
+  { to: '/agenda', label: 'Agenda', icon: '▦', end: false },
   { to: '/residents', label: 'Résidents', icon: '⌂', end: false },
 ];
 // Responsable : équipe, catégories, journal d'audit
@@ -74,7 +75,8 @@ export function Layout() {
         <Outlet />
       </main>
 
-      <nav aria-label="Navigation principale" className={cx('fixed inset-x-0 bottom-0 z-10 grid border-t border-line bg-surface md:hidden', links.length > 4 ? 'grid-cols-5' : 'grid-cols-4')}>
+      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-10 grid border-t border-line bg-surface md:hidden"
+        style={{ gridTemplateColumns: `repeat(${links.length}, minmax(0, 1fr))` }}>
         {links.map((link) => (
           <NavLink
             key={link.to}

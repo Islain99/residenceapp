@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAcknowledgeHandover, useHandover } from '../api/hooks';
 import { useUser } from '../auth/session';
+import { AppointmentItem } from '../components/Appointments';
 import { FollowUpItem } from '../components/FollowUps';
 import { NoteCard } from '../components/NoteCard';
 import { Badge, Button, EmptyState, ErrorMessage, Loading, PageHeader } from '../components/ui';
@@ -56,6 +57,16 @@ export function HandoverPage() {
         <section className="mb-8">
           <h2 className="mb-3 text-lg font-semibold text-priority">Consignes prioritaires</h2>
           <div className="flex flex-col gap-3">{priority.map((n) => <NoteCard key={n.id} note={n} />)}</div>
+        </section>
+      )}
+
+      {h.appointments.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Rendez-vous des prochaines 24 h</h2>
+            <Link to="/agenda" className="text-sm text-primary hover:underline">Agenda →</Link>
+          </div>
+          <ul className="flex flex-col gap-2">{h.appointments.map((a) => <AppointmentItem key={a.id} appointment={a} showDate />)}</ul>
         </section>
       )}
 
