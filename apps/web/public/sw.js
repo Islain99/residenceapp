@@ -3,9 +3,9 @@
 // Règle Loi 25 : AUCUNE réponse de l'API (/api/*) n'est mise en cache. Seuls
 // les fichiers de l'interface (code, styles, icônes) le sont, pour un
 // démarrage rapide. Sans réseau, la page « Hors connexion » s'affiche.
-const VERSION = 'v1';
+const VERSION = 'v2';   // v2 : nouveau logo (logo.png, icônes)
 const CACHE = `journal-${VERSION}`;
-const PRECACHE = ['/offline.html', '/favicon.svg', '/icons/icon-192.png'];
+const PRECACHE = ['/offline.html', '/logo.png', '/icons/favicon-64.png', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Fichiers de l'interface : noms versionnés par Vite (/assets/…-hash.js), donc immuables
-  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/') || url.pathname === '/favicon.svg') {
+  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/') || url.pathname === '/logo.png') {
     event.respondWith(
       caches.match(request).then((cached) => cached ?? fetch(request).then((response) => {
         if (response.ok) {

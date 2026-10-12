@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation } from 'react-router';
 import { useAuth } from '../auth/session';
+import { Logo } from '../components/Logo';
 import { Button, Card, Checkbox, ErrorMessage, TextField } from '../components/ui';
 
 export function LoginPage() {
@@ -37,7 +38,7 @@ export function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center px-4">
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <img src="/favicon.svg" alt="" className="size-12" />
+          <Logo className="size-20" />
           <h1 className="text-xl font-bold">Journal de bord</h1>
           <p className="text-sm text-muted">Connectez-vous avec votre compte de la résidence.</p>
         </div>
