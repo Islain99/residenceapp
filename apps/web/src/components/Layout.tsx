@@ -12,6 +12,7 @@ const LINKS = [
   { to: '/journal', label: 'Journal', icon: '☰', end: false },
   { to: '/suivis', label: 'Suivis', icon: '✓', end: false },
   { to: '/agenda', label: 'Agenda', icon: '▦', end: false },
+  { to: '/horaires', label: 'Horaires', icon: '⏱', end: false },
   { to: '/residents', label: 'Résidents', icon: '⌂', end: false },
 ];
 // Responsable : équipe, catégories, journal d'audit
@@ -83,12 +84,14 @@ export function Layout() {
             to={link.to}
             end={link.end}
             className={({ isActive }) => cx(
-              'flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-medium',
+              'flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 font-medium',
+              // Plus de 5 entrées sur un téléphone : libellés plus petits pour tenir sur une ligne
+              links.length > 5 ? 'text-[10px]' : 'text-xs',
               isActive ? 'text-primary' : 'text-muted',
             )}
           >
             <span aria-hidden className="text-lg leading-none">{link.icon}</span>
-            <span className="flex items-center">{link.label}{link.to === '/' && <NavBadge />}</span>
+            <span className="flex max-w-full items-center truncate">{link.label}{link.to === '/' && <NavBadge />}</span>
           </NavLink>
         ))}
       </nav>

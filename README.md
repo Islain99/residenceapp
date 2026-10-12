@@ -6,7 +6,8 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Journal de bord** : notes par résident, recherche, corrections avec historique, annulation avec motif. Rien n'est jamais supprimé.
 - **Suivis** : actions à faire issues d'une note, assignées à quelqu'un ou à toute l'équipe.
 - **Agenda** : rendez-vous des résidents (médecin, transport, visite…) et de la résidence (activités, réunions) ; ceux des prochaines 24 h apparaissent dans la relève.
-- **Résidents** : fiches, consignes particulières, notes réservées aux infirmières et responsables.
+- **Horaires** : la responsable place les quarts de l'équipe (Jour, Soir, Nuit…) semaine par semaine ; chacun voit son horaire.
+- **Résidents** : fiches, consignes particulières, notes réservées aux infirmières et responsables ; statistiques par mois ou par année (tendances par catégorie, moments de la journée) pour l'infirmière et la responsable.
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
 - **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
 
@@ -42,7 +43,7 @@ cp .env.example .env      # puis remplacer TOUS les mots de passe (sans espaces)
 docker compose up -d --build
 ```
 
-Démarre la base principale, le serveur de reprise et Mailpit (boîte de réception de test). Au premier démarrage, le schéma et des **données fictives** sont créés (1 résidence, 15 résidents, environ 180 notes).
+Démarre la base principale, le serveur de reprise et Mailpit (boîte de réception de test). Au premier démarrage, le schéma et des **données fictives** sont créés (1 résidence, 15 résidents, environ 180 notes sur le dernier mois plus un an d'historique pour les statistiques, deux semaines d'horaire).
 
 > **Sous Windows**
 > - Si Git a converti les scripts en fins de ligne Windows, les conteneurs ne démarrent pas (`bash\r: No such file or directory`). Voir « Prérequis » dans [database/README.md](database/README.md).

@@ -16,7 +16,9 @@ import healthRoutes from './routes/health.js';
 import noteRoutes from './routes/notes.js';
 import passwordRoutes from './routes/password.js';
 import residentRoutes from './routes/residents.js';
+import scheduleRoutes from './routes/schedule.js';
 import staffRoutes from './routes/staff.js';
+import statsRoutes from './routes/stats.js';
 import userRoutes from './routes/users.js';
 
 declare module 'fastify' {
@@ -87,6 +89,8 @@ export async function buildApp(config: Config, db: Database, mailer: Mailer = sm
   await app.register(passwordRoutes);
   await app.register(auditRoutes);
   await app.register(agendaRoutes);
+  await app.register(scheduleRoutes);
+  await app.register(statsRoutes);
 
   return app;
 }

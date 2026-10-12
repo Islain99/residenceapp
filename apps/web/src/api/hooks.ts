@@ -3,7 +3,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type {
-  Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
+  Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, ResidentStats, Shift, ShiftType, StatsPeriod, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
 } from './types';
 
@@ -256,3 +256,70 @@ export function useCancelAppointment(id: string) {
     onSuccess: () => invalidate('appointments', 'handover'),
   });
 }
+
+// ---------------------------------------------------------------------
+// Horaires
+// ---------------------------------------------------------------------
+export const useShiftTypes = (all = false) =>
+  useQuery({ queryKey: ['shift-types', all], queryFn: () => api<ShiftType[]>('/shift-types', { query: { all } }), staleTime: 5 * 60_000 });
+
+export function useSaveShiftType(id?: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: Partial<Omit<ShiftType, 'id'>>) =>
+      id
+        ? api<ShiftType>(`/shift-types/${id}`, { method: 'PATCH', body: input })
+        : api<ShiftType>('/shift-types', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('shift-types'),
+  });
+}
+
+export const useShifts = (from: string, to: string, userId?: string) =>
+  useQuery({ queryKey: ['shifts', from, to, userId], queryFn: () => api<Shift[]>('/shifts', { query: { from, to, userId } }) });
+
+export interface ShiftInput {
+  userId: string;
+  workDate: string;
+  shiftTypeId: string;
+  startTime?: string;
+  endTime?: string;
+  notes?: string | null;
+}
+
+export function useSaveShift(id?: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: Partial<ShiftInput>) =>
+      id
+        ? api<Shift>(`/shifts/${id}`, { method: 'PATCH', body: input })
+        : api<Shift>('/shifts', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('shifts'),
+  });
+}
+
+export function useCancelShift() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/shifts/${id}/cancel`, { method: 'POST', body: {} }),
+    onSuccess: () => invalidate('shifts'),
+  });
+}
+
+export function useCopyWeek() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: { fromWeek: string; toWeek: string }) =>
+      api<{ created: number; skipped: number }>('/shifts/copy-week', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('shifts'),
+  });
+}
+
+// ---------------------------------------------------------------------
+// Statistiques d'un résident (infirmière, responsable)
+// ---------------------------------------------------------------------
+export const useResidentStats = (id: string, period: StatsPeriod, date?: string) =>
+  useQuery({
+    queryKey: ['resident-stats', id, period, date],
+    queryFn: () => api<ResidentStats>(`/residents/${id}/stats`, { query: { period, date } }),
+    placeholderData: (previous) => previous,   // garde le graphique affiché pendant le changement de période
+  });

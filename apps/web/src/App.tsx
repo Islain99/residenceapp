@@ -13,7 +13,10 @@ import { LoginPage } from './pages/LoginPage';
 import { NoteDetailPage } from './pages/NoteDetailPage';
 import { ForgotPasswordPage, SetPasswordPage } from './pages/PasswordPages';
 import { ResidentPage } from './pages/ResidentPage';
+import { ResidentStatsPage } from './pages/ResidentStatsPage';
 import { ResidentsPage } from './pages/ResidentsPage';
+import { SchedulePage } from './pages/SchedulePage';
+import { ShiftTypesPage } from './pages/ShiftTypesPage';
 import { TeamPage } from './pages/TeamPage';
 
 // Pages connectées : sans session, retour à la connexion (puis à la page demandée)
@@ -53,8 +56,10 @@ const router = createBrowserRouter([
         { path: 'notes/:id', element: <NoteDetailPage /> },
         { path: 'suivis', element: <FollowUpsPage /> },
         { path: 'agenda', element: <AgendaPage /> },
+        { path: 'horaires', element: <SchedulePage /> },
         { path: 'residents', element: <ResidentsPage /> },
         { path: 'residents/:id', element: <ResidentPage /> },
+        { path: 'residents/:id/statistiques', element: <ResidentStatsPage /> },
         {
           element: <RequireResponsable />,
           children: [
@@ -65,6 +70,7 @@ const router = createBrowserRouter([
                 { index: true, element: <Navigate to="equipe" replace /> },
                 { path: 'equipe', element: <TeamPage /> },
                 { path: 'categories', element: <CategoriesPage /> },
+                { path: 'quarts', element: <ShiftTypesPage /> },
                 { path: 'audit', element: <AuditPage /> },
               ],
             },

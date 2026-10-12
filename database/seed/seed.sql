@@ -36,6 +36,30 @@ SELECT '00000000-0000-4000-8000-000000000001', label, ord
 FROM unnest(ARRAY['Comportement','Alimentation','Sommeil','Chute','Visite','Santé','Hygiène','Activité'])
      WITH ORDINALITY AS t(label, ord);
 
+-- Quarts types (sur une base neuve, la migration 0007 passe avant la résidence)
+INSERT INTO shift_types (residence_id, label, start_time, end_time, sort_order) VALUES
+  ('00000000-0000-4000-8000-000000000001', 'Jour', '07:00', '15:00', 1),
+  ('00000000-0000-4000-8000-000000000001', 'Soir', '15:00', '23:00', 2),
+  ('00000000-0000-4000-8000-000000000001', 'Nuit', '23:00', '07:00', 3);
+
+-- Horaire de démonstration : semaine en cours et suivante. Chaque préposé
+-- a un quart fixe, 5 jours sur 7 (rotation des congés) ; l'infirmière est
+-- de jour en semaine.
+INSERT INTO shifts (residence_id, user_id, shift_type_id, work_date, start_time, end_time, created_by)
+SELECT st.residence_id, u.id, st.id, d::date, st.start_time, st.end_time,
+       (SELECT id FROM users WHERE email = 'responsable@exemple.test')
+FROM generate_series(date_trunc('week', now())::date, date_trunc('week', now())::date + 13, interval '1 day') AS d
+JOIN users u ON u.email IN ('prepose1@exemple.test', 'prepose2@exemple.test', 'prepose3@exemple.test',
+                            'prepose4@exemple.test', 'infirmiere@exemple.test')
+JOIN shift_types st ON st.residence_id = u.residence_id
+ AND st.label = CASE u.email WHEN 'prepose1@exemple.test' THEN 'Jour' WHEN 'prepose2@exemple.test' THEN 'Jour'
+                             WHEN 'prepose3@exemple.test' THEN 'Soir' WHEN 'prepose4@exemple.test' THEN 'Nuit'
+                             ELSE 'Jour' END
+WHERE CASE u.email
+        WHEN 'infirmiere@exemple.test' THEN extract(isodow FROM d) <= 5
+        ELSE (extract(isodow FROM d)::int + right(split_part(u.email, '@', 1), 1)::int) % 7 NOT IN (0, 1)
+      END;
+
 INSERT INTO residents (residence_id, first_name, last_name, room, birth_date, emergency_contact, special_instructions, admitted_at)
 SELECT '00000000-0000-4000-8000-000000000001', fn, ln, (100 + i)::text,
        date '1935-01-01' + (random() * 6000)::int,
@@ -113,6 +137,63 @@ WHERE n.description LIKE 'Trouvée%' OR n.description LIKE 'Se plaint%';
 INSERT INTO handovers (residence_id, user_id, acknowledged_at)
 SELECT residence_id, id, now() - interval '1 day'
 FROM users WHERE residence_id IS NOT NULL;
+
+-- ---------------------------------------------------------------------
+-- Historique d'un an (statistiques) : ~240 notes réparties sur les 11 mois
+-- précédant le dernier mois, tous résidents. Après les suivis : pas de
+-- suivi ajouté pour cet historique.
+-- ---------------------------------------------------------------------
+WITH model(idx, label, description, intervention, positive) AS (VALUES
+  (1, 'Alimentation', 'A mangé la moitié de son repas.',                 'Collation offerte plus tard.',          false),
+  (2, 'Sommeil',      'Nuit agitée, plusieurs réveils.',                 'Rassuré, verre d''eau offert.',         false),
+  (3, 'Visite',       'Visite de la famille, bon moment partagé.',       NULL,                                    true),
+  (4, 'Chute',        'Trouvé au sol dans la salle de bain, sans blessure apparente.', 'Aidé à se relever, infirmière avisée.', false),
+  (5, 'Activité',     'A participé à l''activité musicale.',             NULL,                                    true),
+  (6, 'Santé',        'Se plaint de maux de tête.',                       'Infirmière avisée, signes vitaux pris.', false),
+  (7, 'Hygiène',      'Bain complété avec aide.',                         NULL,                                    false),
+  (8, 'Comportement', 'Agité en fin d''après-midi, a refusé ses soins.',  'Approche reportée, calme retrouvé.',     false)
+), staff AS (
+  SELECT array_agg(id) AS ids FROM users WHERE residence_id = '00000000-0000-4000-8000-000000000001'
+), res AS (
+  SELECT array_agg(id ORDER BY last_name) AS ids FROM residents
+), gen AS (
+  SELECT g,
+         now() - interval '31 days' - (random() * interval '334 days') AS ts,
+         1 + floor(random() * 8)::int AS k,
+         1 + floor(random() * 15)::int AS who
+  FROM generate_series(1, 240) AS g
+)
+INSERT INTO notes (residence_id, author_id, resident_id, category_id, occurred_at, description,
+                   intervention, is_priority, is_positive, created_at)
+SELECT '00000000-0000-4000-8000-000000000001',
+       staff.ids[1 + (g % array_length(staff.ids, 1))],
+       res.ids[who],
+       c.id, ts, m.description, m.intervention, m.label = 'Chute', m.positive, ts + interval '15 minutes'
+FROM gen
+JOIN model m ON m.idx = gen.k
+JOIN note_categories c ON c.residence_id = '00000000-0000-4000-8000-000000000001' AND c.label = m.label
+CROSS JOIN staff CROSS JOIN res;
+
+-- Tendance marquée pour Gaston Bélanger : chutes et nuits agitées en hausse
+-- sur les quatre derniers mois (1, 2, 3 puis 4 chutes ; deux fois plus de nuits agitées).
+INSERT INTO notes (residence_id, author_id, resident_id, category_id, occurred_at, description,
+                   intervention, is_priority, is_positive, created_at)
+SELECT '00000000-0000-4000-8000-000000000001',
+       (SELECT id FROM users WHERE email = 'prepose4@exemple.test'),
+       r.id, c.id, t.ts,
+       CASE c.label WHEN 'Chute' THEN 'Trouvé assis au sol près du lit, sans blessure apparente.'
+                    ELSE 'Nuit agitée, s''est levé plusieurs fois.' END,
+       CASE c.label WHEN 'Chute' THEN 'Aidé à se relever, infirmière avisée.' ELSE 'Rassuré, raccompagné au lit.' END,
+       c.label = 'Chute', false, t.ts + interval '15 minutes'
+FROM residents r
+JOIN note_categories c ON c.residence_id = r.residence_id AND c.label IN ('Chute', 'Sommeil')
+CROSS JOIN generate_series(0, 3) AS m
+CROSS JOIN LATERAL generate_series(1, (m + 1) * CASE c.label WHEN 'Chute' THEN 1 ELSE 2 END) AS k
+CROSS JOIN LATERAL (
+  SELECT date_trunc('month', now()) - (3 - m) * interval '1 month'
+         + (random() * 25) * interval '1 day' + interval '2 hours' + (random() * 3) * interval '1 hour' AS ts
+) AS t
+WHERE r.last_name = 'Bélanger' AND t.ts < now();
 
 COMMIT;
 

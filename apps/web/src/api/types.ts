@@ -208,3 +208,40 @@ export interface AppointmentInput {
   endsAt: string | null;
   details: string | null;
 }
+
+export interface ShiftType {
+  id: string;
+  label: string;
+  startTime: string;   // HH:MM, heure locale
+  endTime: string;     // ≤ startTime : finit le lendemain
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface Shift {
+  id: string;
+  workDate: string;    // AAAA-MM-JJ, jour où le quart commence
+  startTime: string;
+  endTime: string;
+  overnight: boolean;
+  adjusted: boolean;   // heures différentes du quart type
+  notes: string | null;
+  shiftType: { id: string; label: string };
+  user: Person & { role: Role };
+}
+
+export type StatsPeriod = 'month' | 'year';
+
+export interface ResidentStats {
+  resident: Person;
+  period: { unit: StatsPeriod; start: string; end: string; previousStart: string };
+  totals: {
+    notes: number; positive: number; priority: number;
+    previousNotes: number; previousPositive: number; previousPriority: number;
+  };
+  categories: { id: string; label: string; count: number; previousCount: number }[];
+  timeline: { bucket: string; total: number; byCategory: Record<string, number> }[];   // jour (mois) ou mois (année)
+  timeOfDay: { slot: 'nuit' | 'matin' | 'apres_midi' | 'soir'; count: number }[];
+  followUps: { opened: number; closed: number; openNow: number };
+  appointments: number;
+}
