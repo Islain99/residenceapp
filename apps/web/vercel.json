@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://REMPLACER-PAR-L-API.up.railway.app/:path*"
+      "destination": "https://residenceapp-production.up.railway.app/:path*"
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
