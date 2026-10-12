@@ -77,7 +77,7 @@ SEED_PASSWORD=<mot de passe des comptes fictifs, 12 caractères min.>
 ### 2. Vercel
 
 1. **Add New → Project** → ce dépôt. *Root Directory* : `apps/web` (framework Vite détecté).
-2. Dans `apps/web/vercel.json`, remplacer `REMPLACER-PAR-L-API.up.railway.app` par le domaine Railway de l'API, puis pousser. (Vercel ne lit pas de variables d'environnement dans `vercel.json`.)
+2. `apps/web/vercel.json` relaie vers `residenceapp-production.up.railway.app`. Si le domaine Railway change, le modifier dans ce fichier (Vercel ne lit pas de variables d'environnement dans `vercel.json`).
 3. Ouvrir `https://<projet>.vercel.app` et se connecter avec un compte fictif (`SEED_PASSWORD`).
 
 `vercel.json` relaie `/api/*` vers l'API (en retirant `/api`, comme le proxy de Vite en développement), renvoie les autres adresses vers `index.html` (routes de l'interface), et ajoute des en-têtes de sécurité. `sw.js` n'est jamais mis en cache par le navigateur, pour que les mises à jour de l'application arrivent tout de suite.
