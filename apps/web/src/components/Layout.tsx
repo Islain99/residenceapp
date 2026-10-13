@@ -1,7 +1,7 @@
 // Cadre des pages connectées : barre du haut (ordinateur) et barre du bas (téléphone).
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { useHandover } from '../api/hooks';
+import { useHandover, useMessagingSummary } from '../api/hooks';
 import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
 import { fullName } from '../lib/format';
 import { cx } from '../lib/cx';
@@ -13,6 +13,7 @@ const LINKS = [
   { to: '/', label: 'Relève', icon: '◷', end: true },
   { to: '/journal', label: 'Journal', icon: '☰', end: false },
   { to: '/suivis', label: 'Suivis', icon: '✓', end: false },
+  { to: '/messages', label: 'Messages', icon: '✉', end: false },
   { to: '/agenda', label: 'Agenda', icon: '▦', end: false },
   { to: '/horaires', label: 'Horaires', icon: '⏱', end: false },
   { to: '/residents', label: 'Résidents', icon: '⌂', end: false },
@@ -21,9 +22,27 @@ const LINKS = [
 const ADMIN_LINK = { to: '/administration', label: 'Admin', icon: '⚙', end: false };
 
 // Téléphone : les 4 écrans du quotidien en bas, le reste dans « Plus »
-const MOBILE_MAIN = ['/', '/journal', '/suivis', '/residents'];
+const MOBILE_MAIN = ['/', '/journal', '/suivis', '/messages', '/residents'];
 
-function NavBadge() {
+// Pastille : non lues de la relève, ou messages non lus + annonces à confirmer
+function NavBadge({ to }: { to: string }) {
+  if (to === '/') return <HandoverBadge />;
+  if (to === '/messages') return <MessagesBadge />;
+  return null;
+}
+
+function MessagesBadge() {
+  const summary = useMessagingSummary();
+  const count = (summary.data?.unread ?? 0) + (summary.data?.announcements.length ?? 0);
+  if (!count) return null;
+  return (
+    <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-bold text-on-primary" aria-label={count > 1 ? `${count} messages non lus` : '1 message non lu'}>
+      {count > 99 ? '99+' : count}
+    </span>
+  );
+}
+
+function HandoverBadge() {
   const handover = useHandover();
   const unread = handover.data?.counts.unread ?? 0;
   if (!unread) return null;
@@ -70,7 +89,7 @@ export function Layout() {
                 )}
               >
                 {link.label}
-                {link.to === '/' && <NavBadge />}
+                <NavBadge to={link.to} />
               </NavLink>
             ))}
           </nav>
@@ -112,19 +131,23 @@ export function Layout() {
         </>
       )}
 
-      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface md:hidden">
+      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-line bg-surface md:hidden">
         {mobileMain.map((link) => (
           <NavLink
             key={link.to}
             to={link.to}
             end={link.end}
             className={({ isActive }) => cx(
-              'flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 text-xs font-medium',
+              'flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
               isActive && !moreOpen ? 'text-primary' : 'text-muted',
             )}
           >
-            <span aria-hidden className="text-lg leading-none">{link.icon}</span>
-            <span className="flex max-w-full items-center truncate">{link.label}{link.to === '/' && <NavBadge />}</span>
+            {/* Pastille sur l'icône : le libellé garde toute la largeur */}
+            <span className="relative text-lg leading-none">
+              <span aria-hidden>{link.icon}</span>
+              <span className="absolute -top-2 left-3 text-[11px] leading-4"><NavBadge to={link.to} /></span>
+            </span>
+            <span className="max-w-full truncate">{link.label}</span>
           </NavLink>
         ))}
         <button
@@ -133,7 +156,7 @@ export function Layout() {
           aria-controls="menu-plus"
           onClick={() => setMoreOpen(!moreOpen)}
           className={cx(
-            'flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 text-xs font-medium',
+            'flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
             moreOpen || inMore ? 'text-primary' : 'text-muted',
           )}
         >

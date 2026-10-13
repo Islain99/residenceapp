@@ -249,3 +249,73 @@ export interface ResidentStats {
   followUps: { opened: number; closed: number; openNow: number };
   appointments: number;
 }
+
+// ---------------------------------------------------------------------
+// Messagerie
+// ---------------------------------------------------------------------
+export type ConversationKind = 'direct' | 'group' | 'team' | 'announcements';
+
+export interface ConversationMember extends Person {
+  isActive: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  kind: ConversationKind;
+  title: string;
+  members: ConversationMember[];     // privée et groupe ; vide pour Équipe et Annonces
+  memberCount: number;
+  createdBy: string | null;
+  lastMessage: { id: string; excerpt: string | null; author: Person; createdAt: string } | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+  pendingAcks: number;               // annonces à confirmer
+  canPost: boolean;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  author: Person;
+  body: string | null;               // null : message retiré
+  createdAt: string;
+  editedAt: string | null;
+  retractedAt: string | null;
+  mine: boolean;
+  editableUntil: string | null;      // mon message, modifiable jusqu'à cette heure
+  ack: { ackedByMe: boolean; count: number } | null;   // annonces seulement
+}
+
+export interface MessagePage {
+  items: Message[];
+  nextCursor: string | null;
+}
+
+export interface MessagingSummary {
+  unread: number;
+  announcements: Message[];          // annonces que je n'ai pas encore confirmées
+}
+
+export interface AnnouncementAcks {
+  acked: { user: Person; ackedAt: string }[];
+  pending: Person[];
+}
+
+export interface AdminConversation {
+  id: string;
+  kind: 'direct' | 'group';
+  title: string | null;
+  members: Person[];
+  messageCount: number;
+  lastMessageAt: string | null;
+}
+
+export interface ConsultedMessage {
+  id: string;
+  author: Person;
+  body: string;
+  createdAt: string;
+  editedAt: string | null;
+  retractedAt: string | null;
+  versions: { body: string; replacedAt: string }[];
+}

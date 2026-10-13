@@ -2,6 +2,7 @@ import { createBrowserRouter, Link, Navigate, Outlet, RouterProvider, useLocatio
 import { useAuth, useUser } from './auth/session';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
+import { AdminMessagesPage } from './pages/AdminMessagesPage';
 import { AdminPage } from './pages/AdminPage';
 import { AgendaPage } from './pages/AgendaPage';
 import { AuditPage } from './pages/AuditPage';
@@ -10,6 +11,7 @@ import { FollowUpsPage } from './pages/FollowUpsPage';
 import { HandoverPage } from './pages/HandoverPage';
 import { JournalPage } from './pages/JournalPage';
 import { LoginPage } from './pages/LoginPage';
+import { MessagesPage } from './pages/MessagesPage';
 import { NoteDetailPage } from './pages/NoteDetailPage';
 import { ForgotPasswordPage, SetPasswordPage } from './pages/PasswordPages';
 import { ResidentPage } from './pages/ResidentPage';
@@ -55,6 +57,8 @@ const router = createBrowserRouter([
         { path: 'journal', element: <JournalPage /> },
         { path: 'notes/:id', element: <NoteDetailPage /> },
         { path: 'suivis', element: <FollowUpsPage /> },
+        { path: 'messages', element: <MessagesPage /> },
+        { path: 'messages/:id', element: <MessagesPage /> },
         { path: 'agenda', element: <AgendaPage /> },
         { path: 'horaires', element: <SchedulePage /> },
         { path: 'residents', element: <ResidentsPage /> },
@@ -71,6 +75,7 @@ const router = createBrowserRouter([
                 { path: 'equipe', element: <TeamPage /> },
                 { path: 'categories', element: <CategoriesPage /> },
                 { path: 'quarts', element: <ShiftTypesPage /> },
+                { path: 'messagerie', element: <AdminMessagesPage /> },
                 { path: 'audit', element: <AuditPage /> },
               ],
             },

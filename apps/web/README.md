@@ -44,7 +44,9 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 
 **Suivis** : « Je m'en occupe » m'assigne le suivi ; les suivis terminés apparaissent dans le dossier du résident.
 
-**Téléphone** : 4 onglets en bas (Relève, Journal, Suivis, Résidents) et un menu « Plus » (Agenda, Horaires, Admin).
+**Téléphone** : 5 onglets en bas (Relève, Journal, Suivis, Messages, Résidents) et un menu « Plus » (Agenda, Horaires, Admin).
+
+**Messagerie** (`/messages`, `/messages/:id`) : liste à gauche et fil à droite sur ordinateur ; liste puis fil en plein écran sur téléphone. Entrée envoie, Maj+Entrée va à la ligne. Mes messages se modifient ou se retirent pendant 15 minutes. Annonces : « J'ai lu cette annonce » (aussi en tête de la relève) ; l'autrice voit « Lue par N — voir qui manque ». Groupe : renommer, ajouter des collègues, quitter. Pastille de non-lus sur l'onglet Messages. Responsable : Administration › Messagerie pour consulter une conversation avec un motif (tracé).
 
 L'interface masque les actions non permises (ex. « Corriger » après 24 h pour un préposé), mais c'est l'API qui fait foi.
 

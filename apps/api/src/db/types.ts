@@ -67,6 +67,33 @@ export interface AuditLog {
   user_id: string | null;
 }
 
+export interface ConversationMembers {
+  added_by: string | null;
+  conversation_id: string;
+  joined_at: Generated<Timestamp>;
+  left_at: Timestamp | null;
+  residence_id: string;
+  user_id: string;
+}
+
+export interface ConversationReads {
+  conversation_id: string;
+  last_read_at: Timestamp;
+  residence_id: string;
+  user_id: string;
+}
+
+export interface Conversations {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  direct_key: string | null;
+  id: Generated<string>;
+  kind: string;
+  last_message_at: Timestamp | null;
+  residence_id: string;
+  title: string | null;
+}
+
 export interface FollowUps {
   assigned_to: string | null;
   closed_at: Timestamp | null;
@@ -86,6 +113,32 @@ export interface Handovers {
   id: Generated<string>;
   residence_id: string;
   user_id: string;
+}
+
+export interface MessageAcks {
+  acked_at: Generated<Timestamp>;
+  message_id: string;
+  residence_id: string;
+  user_id: string;
+}
+
+export interface Messages {
+  author_id: string;
+  body: string;
+  conversation_id: string;
+  created_at: Generated<Timestamp>;
+  edited_at: Timestamp | null;
+  id: Generated<string>;
+  residence_id: string;
+  retracted_at: Timestamp | null;
+}
+
+export interface MessageVersions {
+  edited_at: Generated<Timestamp>;
+  id: Generated<string>;
+  message_id: string;
+  previous_body: string;
+  residence_id: string;
 }
 
 export interface NoteCategories {
@@ -217,8 +270,14 @@ export interface DB {
   account_tokens: AccountTokens;
   appointments: Appointments;
   audit_log: AuditLog;
+  conversation_members: ConversationMembers;
+  conversation_reads: ConversationReads;
+  conversations: Conversations;
   follow_ups: FollowUps;
   handovers: Handovers;
+  message_acks: MessageAcks;
+  message_versions: MessageVersions;
+  messages: Messages;
   note_categories: NoteCategories;
   note_reads: NoteReads;
   note_versions: NoteVersions;

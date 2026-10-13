@@ -3,6 +3,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import type {
+  AdminConversation, AnnouncementAcks, ConsultedMessage, Conversation, Message, MessagePage, MessagingSummary,
   Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, ResidentStats, Shift, ShiftType, StatsPeriod, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
 } from './types';
@@ -334,3 +335,126 @@ export const useResidentStats = (id: string, period: StatsPeriod, date?: string)
     queryFn: () => api<ResidentStats>(`/residents/${id}/stats`, { query: { period, date } }),
     placeholderData: (previous) => previous,   // garde le graphique affiché pendant le changement de période
   });
+
+// ---------------------------------------------------------------------
+// Messagerie. Quasi en direct : la liste et les non-lus sont relus toutes les
+// 15 s, le fil ouvert toutes les 5 s (et au retour sur l'onglet).
+// ---------------------------------------------------------------------
+const LIST_REFRESH_MS = 15_000;
+const THREAD_REFRESH_MS = 5_000;
+
+export const useConversations = () =>
+  useQuery({ queryKey: ['conversations'], queryFn: () => api<Conversation[]>('/conversations'), refetchInterval: LIST_REFRESH_MS });
+
+export const useMessagingSummary = () =>
+  useQuery({ queryKey: ['messaging-summary'], queryFn: () => api<MessagingSummary>('/messaging/summary'), refetchInterval: LIST_REFRESH_MS });
+
+export const useConversation = (id: string) =>
+  useQuery({ queryKey: ['conversation', id], queryFn: () => api<Conversation>(`/conversations/${id}`) });
+
+export const useMessages = (conversationId: string) =>
+  useInfiniteQuery({
+    queryKey: ['messages', conversationId],
+    queryFn: ({ pageParam }) => api<MessagePage>(`/conversations/${conversationId}/messages`, { query: { limit: 50, before: pageParam } }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+    refetchInterval: THREAD_REFRESH_MS,
+  });
+
+const MESSAGING = ['conversations', 'messaging-summary', 'conversation', 'messages'];
+
+export function useSendMessage(conversationId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (body: string) => api<Message>(`/conversations/${conversationId}/messages`, { method: 'POST', body: { body } }),
+    onSuccess: () => invalidate(...MESSAGING),
+  });
+}
+
+export function useEditMessage() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: string }) => api<Message>(`/messages/${id}`, { method: 'PATCH', body: { body } }),
+    onSuccess: () => invalidate(...MESSAGING),
+  });
+}
+
+export function useRetractMessage() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api<Message>(`/messages/${id}/retract`, { method: 'POST' }),
+    onSuccess: () => invalidate(...MESSAGING),
+  });
+}
+
+export function useMarkConversationRead() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/conversations/${id}/read`, { method: 'POST' }),
+    onSuccess: () => invalidate('conversations', 'messaging-summary'),
+  });
+}
+
+export function useAckAnnouncement() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api<void>(`/messages/${id}/ack`, { method: 'POST' }),
+    onSuccess: () => invalidate(...MESSAGING, 'acks'),
+  });
+}
+
+export const useAnnouncementAcks = (messageId: string | null) =>
+  useQuery({
+    queryKey: ['acks', messageId],
+    queryFn: () => api<AnnouncementAcks>(`/messages/${messageId}/acks`),
+    enabled: messageId !== null,
+  });
+
+export type NewConversation =
+  | { kind: 'direct'; userId: string }
+  | { kind: 'group'; title: string; memberIds: string[] };
+
+export function useCreateConversation() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: NewConversation) => api<Conversation>('/conversations', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('conversations'),
+  });
+}
+
+export function useAddMembers(conversationId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (userIds: string[]) => api<Conversation>(`/conversations/${conversationId}/members`, { method: 'POST', body: { userIds } }),
+    onSuccess: () => invalidate('conversations', 'conversation'),
+  });
+}
+
+export function useRenameGroup(conversationId: string) {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (title: string) => api<Conversation>(`/conversations/${conversationId}`, { method: 'PATCH', body: { title } }),
+    onSuccess: () => invalidate('conversations', 'conversation'),
+  });
+}
+
+export function useLeaveGroup() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (conversationId: string) => api<void>(`/conversations/${conversationId}/leave`, { method: 'POST' }),
+    onSuccess: () => invalidate('conversations', 'messaging-summary'),
+  });
+}
+
+// Responsable : conversations privées et de groupe (sans contenu), consultation tracée
+export const useAdminConversations = () =>
+  useQuery({ queryKey: ['admin-conversations'], queryFn: () => api<AdminConversation[]>('/admin/conversations') });
+
+export function useConsultConversation() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api<{ messages: ConsultedMessage[] }>(`/admin/conversations/${id}/consult`, { method: 'POST', body: { reason } }),
+    onSuccess: () => invalidate('audit'),
+  });
+}
