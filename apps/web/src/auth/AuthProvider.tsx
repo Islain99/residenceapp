@@ -1,9 +1,11 @@
 // Session de l'utilisateur : restauration au chargement, connexion, déconnexion.
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, ApiError, isSharedDevice, onSessionExpired, refreshSession, setAccessToken, setSharedDevice } from '../api/client';
-import type { User } from '../api/types';
-import { AuthContext } from './session';
+import {
+  api, isSharedDevice, onAssistanceEnded, onSessionExpired, refreshSession, setAccessToken, setAssistanceToken, setSharedDevice,
+} from '../api/client';
+import type { AssistanceSession, User } from '../api/types';
+import { AuthContext, type AssistanceState } from './session';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -11,9 +13,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [sharedDevice, setShared] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [assistance, setAssistance] = useState<AssistanceState | null>(null);
+  const [platformNotice, setPlatformNotice] = useState<string | null>(null);
+
+  const leaveAssistance = useCallback((message?: string) => {
+    setAssistanceToken(null);
+    setAssistance(null);
+    queryClient.clear();
+    setPlatformNotice(message ?? null);
+  }, [queryClient]);
+
+  const startAssistance = useCallback(async (grantId: string) => {
+    const session = await api<AssistanceSession>(`/platform/assistance/${grantId}/start`, { method: 'POST' });
+    queryClient.clear();
+    setAssistanceToken(session.accessToken);
+    setPlatformNotice(null);
+    setAssistance({ grantId, residence: session.residence, expiresAt: session.expiresAt });
+  }, [queryClient]);
+
+  // Fin prévue de l'accès : retour au tableau de bord de la plateforme
+  useEffect(() => {
+    if (!assistance) return;
+    const ms = Date.parse(assistance.expiresAt) - Date.now();
+    const timer = setTimeout(() => leaveAssistance('L’accès d’assistance est arrivé à échéance.'), Math.max(0, Math.min(ms, 2 ** 31 - 1)));
+    return () => clearTimeout(timer);
+  }, [assistance, leaveAssistance]);
+
+  useEffect(() => {
+    onAssistanceEnded((message) => leaveAssistance(message));
+  }, [leaveAssistance]);
 
   const clear = useCallback(() => {
     setAccessToken(null);
+    setAssistanceToken(null);
+    setAssistance(null);
     setSharedDevice(false);
     setUser(null);
     setShared(false);
@@ -31,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         if (await refreshSession()) {
           const me = await api<User>('/auth/me');
-          if (!cancelled && me.residenceId) {
+          if (!cancelled) {
             setShared(isSharedDevice());
             setUser(me);
           }
@@ -50,12 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: 'POST', body: { email, password, session: 'cookie', sharedDevice },
     });
     setAccessToken(res.accessToken);
-    if (!res.user.residenceId) {
-      // Admin plateforme : pas de journal. On ferme la session ouverte par le cookie.
-      await api('/auth/logout', { method: 'POST', body: {} }).catch(() => {});
-      setAccessToken(null);
-      throw new ApiError(403, 'no_residence', "Ce compte n'est rattaché à aucune résidence.");
-    }
     setSharedDevice(res.sharedDevice);
     setShared(res.sharedDevice);
     setNotice(null);
@@ -73,9 +100,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clear]);
 
+  const clearPlatformNotice = useCallback(() => setPlatformNotice(null), []);
+
+  // Mode assistance : l'admin voit la résidence comme sa responsable (lecture seule)
+  const effectiveUser = useMemo(
+    () => (user && assistance ? { ...user, role: 'responsable' as const, residenceId: assistance.residence.id } : user),
+    [user, assistance],
+  );
+
   const value = useMemo(
-    () => ({ user, ready, sharedDevice, notice, login, logout }),
-    [user, ready, sharedDevice, notice, login, logout],
+    () => ({
+      user: effectiveUser, ready, sharedDevice, notice, login, logout,
+      assistance, startAssistance, leaveAssistance, platformNotice, clearPlatformNotice,
+    }),
+    [effectiveUser, ready, sharedDevice, notice, login, logout, assistance, startAssistance, leaveAssistance,
+      platformNotice, clearPlatformNotice],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

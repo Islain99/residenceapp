@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ApiError } from './api/client';
@@ -7,6 +7,14 @@ import { AuthProvider } from './auth/AuthProvider';
 import './index.css';
 
 const queryClient = new QueryClient({
+  // Accès d'assistance : toute tentative de modification est signalée dans le bandeau
+  mutationCache: new MutationCache({
+    onError: (error) => {
+      if (error instanceof ApiError && error.code === 'assistance_read_only') {
+        window.dispatchEvent(new CustomEvent('assistance-refused'));
+      }
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 30_000,

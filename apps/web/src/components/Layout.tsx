@@ -1,9 +1,9 @@
 // Cadre des pages connectées : barre du haut (ordinateur) et barre du bas (téléphone).
-import { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router';
-import { useHandover, useMessagingSummary } from '../api/hooks';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { useEndAssistance, useHandover, useMessagingSummary } from '../api/hooks';
 import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
-import { fullName } from '../lib/format';
+import { formatWhen, fullName } from '../lib/format';
 import { cx } from '../lib/cx';
 import { IdleLogout } from './IdleLogout';
 import { Logo } from './Logo';
@@ -53,10 +53,65 @@ function HandoverBadge() {
   );
 }
 
+// Admin plateforme en consultation : bandeau toujours visible, sortie en un clic
+function AssistanceBanner() {
+  const { assistance, leaveAssistance } = useAuth();
+  const end = useEndAssistance();
+  const navigate = useNavigate();
+  // Tentative de modification : rappel bien visible pendant quelques secondes
+  const [refusedAt, setRefusedAt] = useState(0);
+  useEffect(() => {
+    const onRefused = () => setRefusedAt(Date.now());
+    window.addEventListener('assistance-refused', onRefused);
+    return () => window.removeEventListener('assistance-refused', onRefused);
+  }, []);
+  useEffect(() => {
+    if (!refusedAt) return;
+    const timer = setTimeout(() => setRefusedAt(0), 5000);
+    return () => clearTimeout(timer);
+  }, [refusedAt]);
+  if (!assistance) return null;
+  const leave = (notice?: string) => {
+    leaveAssistance(notice);
+    void navigate('/plateforme');
+  };
+  return (
+    <div role="status" className="bg-priority px-4 py-2 text-sm text-white">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2">
+        <p className="min-w-0 flex-1">
+          {refusedAt > 0 && (
+            <strong role="alert" className="mr-2 inline-block rounded bg-white px-2 text-priority">
+              Modification refusée : consultation seulement.
+            </strong>
+          )}
+          <strong>Accès d’assistance — {assistance.residence.name}</strong>
+          {' · '}lecture seule, messagerie exclue, chaque page consultée est inscrite au journal de la résidence
+          {' · '}jusqu’à {formatWhen(assistance.expiresAt)}
+        </p>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => leave()} className="min-h-9 rounded-lg bg-white/15 px-3 font-medium hover:bg-white/25">
+            Revenir à la plateforme
+          </button>
+          <button
+            type="button"
+            disabled={end.isPending}
+            onClick={() => end.mutate(assistance.grantId, { onSettled: () => leave('Accès d’assistance terminé.') })}
+            className="min-h-9 rounded-lg bg-white px-3 font-medium text-priority hover:bg-white/90"
+          >
+            Terminer l’accès
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Layout() {
   const user = useUser();
-  const { logout, sharedDevice } = useAuth();
-  const links = user.role === 'responsable' ? [...LINKS, ADMIN_LINK] : LINKS;
+  const { logout, sharedDevice, assistance } = useAuth();
+  // Assistance : la messagerie reste privée (l'API la refuse aussi)
+  const base = assistance ? LINKS.filter((l) => l.to !== '/messages') : LINKS;
+  const links = user.role === 'responsable' ? [...base, ADMIN_LINK] : base;
   const mobileMain = links.filter((l) => MOBILE_MAIN.includes(l.to));
   const mobileMore = links.filter((l) => !MOBILE_MAIN.includes(l.to));
   const location = useLocation();
@@ -71,6 +126,7 @@ export function Layout() {
       {sharedDevice && <IdleLogout />}
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
         <OfflineBanner />
+        <AssistanceBanner />
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 lg:gap-6">
           <span className="flex shrink-0 items-center gap-2 font-bold">
             <Logo className="size-10" />
@@ -96,7 +152,7 @@ export function Layout() {
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden text-right leading-tight sm:block md:hidden lg:block">
               <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
-              <span className="block text-xs text-muted">{ROLE_LABELS[user.role]}</span>
+              <span className="block text-xs text-muted">{assistance ? 'Assistance (lecture seule)' : ROLE_LABELS[user.role]}</span>
             </span>
             <button type="button" onClick={() => void logout()} className="whitespace-nowrap rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
               Déconnexion
@@ -131,7 +187,8 @@ export function Layout() {
         </>
       )}
 
-      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-6 border-t border-line bg-surface md:hidden">
+      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-20 grid border-t border-line bg-surface md:hidden"
+        style={{ gridTemplateColumns: `repeat(${mobileMain.length + 1}, minmax(0, 1fr))` }}>
         {mobileMain.map((link) => (
           <NavLink
             key={link.to}

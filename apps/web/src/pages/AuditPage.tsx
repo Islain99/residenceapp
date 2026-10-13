@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useAudit, useStaff, type AuditFilters } from '../api/hooks';
 import type { AuditEntry } from '../api/types';
 import { Button, Chip, EmptyState, ErrorMessage, Loading, PageHeader, SelectField } from '../components/ui';
+import { auditActor, describeAudit } from '../lib/audit';
 import { formatFull, fullName } from '../lib/format';
 
 const ENTITIES: Record<string, string> = {
@@ -13,56 +14,8 @@ const ENTITIES: Record<string, string> = {
   follow_up: 'Suivis',
   user: 'Comptes et connexions',
   note_category: 'Catégories',
+  assistance: 'Accès d’assistance',
 };
-
-const ACTIONS: Record<string, string> = {
-  view: 'a consulté',
-  create: 'a créé',
-  update: 'a modifié',
-  cancel: 'a annulé',
-  close: 'a fermé',
-  export: 'a exporté',
-  login: 's’est connecté·e',
-  login_failed: 'connexion refusée',
-  logout: 's’est déconnecté·e',
-  refresh_reuse: 'réutilisation de session suspecte',
-  invite: 'a invité',
-  account_activated: 'a activé son compte',
-  password_reset_requested: 'a demandé un nouveau mot de passe',
-  password_reset: 'a changé son mot de passe',
-  deactivate: 'a désactivé',
-  reactivate: 'a réactivé',
-  handover: 'a pris connaissance de la relève',
-};
-
-const ENTITY_NAMES: Record<string, string> = {
-  resident: 'le dossier d’un résident',
-  note: 'une note',
-  follow_up: 'un suivi',
-  user: 'un compte',
-  note_category: 'une catégorie',
-  handover: 'la relève',
-};
-
-const REASONS: Record<string, string> = {
-  bad_password: 'mauvais mot de passe',
-  unknown_email: 'courriel inconnu',
-  inactive: 'compte désactivé',
-  not_activated: 'invitation non acceptée',
-  locked: 'compte bloqué',
-};
-
-function describe(entry: AuditEntry): string {
-  const action = ACTIONS[entry.action] ?? entry.action;
-  if (entry.entity === 'user' && ['login', 'logout', 'login_failed', 'refresh_reuse', 'account_activated',
-    'password_reset', 'password_reset_requested', 'handover'].includes(entry.action)) {
-    const reason = typeof entry.details?.reason === 'string' ? REASONS[entry.details.reason] : undefined;
-    const locked = entry.details?.locked ? ' — compte bloqué' : '';
-    return reason ? `${action} (${reason})${locked}` : action;
-  }
-  if (entry.entity === 'user' && entry.target) return `${action} le compte de ${fullName(entry.target)}`;
-  return `${action} ${ENTITY_NAMES[entry.entity] ?? entry.entity}`;
-}
 
 function target(entry: AuditEntry) {
   if (!entry.entityId) return null;
@@ -116,8 +69,8 @@ export function AuditPage() {
                 <li key={entry.id} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:gap-4">
                   <time dateTime={entry.at} className="shrink-0 text-xs text-muted sm:w-44">{formatFull(entry.at)}</time>
                   <span className="flex-1">
-                    <strong>{entry.user ? fullName(entry.user) : entry.target ? fullName(entry.target) : 'Courriel inconnu'}</strong>{' '}
-                    {describe(entry)}
+                    <strong>{auditActor(entry)}</strong>{' '}
+                    {describeAudit(entry)}
                   </span>
                   {target(entry)}
                 </li>

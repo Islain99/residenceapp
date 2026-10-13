@@ -7,6 +7,7 @@ import type { Config } from './config.js';
 import type { Database } from './db/index.js';
 import { smtpMailer, type Mailer } from './lib/mailer.js';
 import agendaRoutes from './routes/agenda.js';
+import assistanceRoutes from './routes/assistance.js';
 import auditRoutes from './routes/audit.js';
 import authRoutes from './routes/auth.js';
 import categoryRoutes from './routes/categories.js';
@@ -16,6 +17,7 @@ import healthRoutes from './routes/health.js';
 import messageRoutes from './routes/messages.js';
 import noteRoutes from './routes/notes.js';
 import passwordRoutes from './routes/password.js';
+import platformRoutes from './routes/platform.js';
 import residentRoutes from './routes/residents.js';
 import scheduleRoutes from './routes/schedule.js';
 import staffRoutes from './routes/staff.js';
@@ -78,6 +80,23 @@ export async function buildApp(config: Config, db: Database, mailer: Mailer = sm
     return reply.code(status).send({ error: error.code ?? 'error', message: error.message });
   });
 
+  // Accès d'assistance (admin plateforme) : lecture seule. Refusé dès la
+  // réception, avant même la validation du corps (auth.ts revérifie l'accès).
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.method === 'GET' || request.method === 'HEAD') return;
+    const header = request.headers.authorization;
+    if (!header?.startsWith('Bearer ')) return;
+    let payload: { asst?: string } | null = null;
+    try {
+      payload = app.jwt.verify<{ asst?: string }>(header.slice(7));
+    } catch {
+      return;   // jeton invalide : la route répondra 401
+    }
+    if (payload.asst) {
+      return reply.code(403).send({ error: 'assistance_read_only', message: 'Accès d’assistance : consultation seulement.' });
+    }
+  });
+
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(categoryRoutes);
@@ -93,6 +112,8 @@ export async function buildApp(config: Config, db: Database, mailer: Mailer = sm
   await app.register(agendaRoutes);
   await app.register(scheduleRoutes);
   await app.register(statsRoutes);
+  await app.register(assistanceRoutes);
+  await app.register(platformRoutes);
 
   return app;
 }

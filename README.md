@@ -11,6 +11,7 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
 - **Messagerie** : messages privés, groupes, fil de toute l'équipe et annonces de la direction avec confirmation de lecture. Un message se corrige ou se retire pendant 15 minutes, rien n'est supprimé.
 - **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
+- **Plateforme** (plusieurs résidences) : l'administrateur crée les résidences et leurs responsables, suspend une résidence, débloque un compte, surveille la sécurité ; il ne voit que des chiffres. La responsable peut lui accorder un **accès d'assistance** limité dans le temps, en lecture seule et tracé.
 
 Sur téléphone et tablette, l'application s'installe comme une application (PWA). Sur un appareil partagé, la session se ferme après 15 minutes sans activité. Aucune donnée de résident n'est gardée hors connexion.
 
@@ -82,7 +83,8 @@ Mot de passe pour tous : **`Residence2026!`**
 | `responsable@exemple.test` | Responsable | Administration : équipe, catégories, journal d'audit, export d'un dossier (Loi 25) ; tout ce que fait l'infirmière |
 | `infirmiere@exemple.test` | Infirmière | Consignes prioritaires, corriger ou annuler toute note, gérer les résidents, lire les notes réservées |
 | `prepose1@exemple.test` … `prepose4@exemple.test` | Préposé·e | Relève, notes, suivis ; corriger sa propre note pendant 24 h |
-| `admin@exemple.test` | Administrateur plateforme | Aucun accès au journal (pas de résidence), pas encore d'écran |
+| `admin@exemple.test` | Administrateur plateforme | Tableau de bord de la plateforme (`/plateforme`) : résidences, responsables, sécurité, journal ; une résidence seulement avec un accès d'assistance |
+| `responsable2@exemple.test`, `prepose5@exemple.test` | Responsable, préposé | Deuxième résidence fictive (Manoir du Fleuve) |
 
 Les mots de passe ne sont stockés nulle part en clair, seulement sous forme hachée.
 

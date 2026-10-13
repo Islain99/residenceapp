@@ -23,6 +23,20 @@ let accessToken: string | null = null;
 let sharedDevice = false;           // session ouverte avec « appareil partagé » (selon l'API)
 let refreshing: Promise<boolean> | null = null;
 let onSessionLost: () => void = () => {};
+// Accès d'assistance (admin plateforme) : jeton de consultation d'une
+// résidence, en mémoire seulement. Utilisé pour toutes les requêtes sauf
+// /auth/* et /platform/* (qui gardent le jeton de l'admin).
+let assistanceToken: string | null = null;
+let onAssistanceLost: (message: string) => void = () => {};
+
+export function setAssistanceToken(token: string | null) {
+  assistanceToken = token;
+}
+
+// Appelé quand l'accès d'assistance est retiré ou terminé
+export function onAssistanceEnded(handler: (message: string) => void) {
+  onAssistanceLost = handler;
+}
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
@@ -84,12 +98,18 @@ function buildUrl(path: string, query?: Query) {
 }
 
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const assisted = assistanceToken !== null && !path.startsWith('/auth/') && !path.startsWith('/platform/');
+  // Assistance : lecture seule (l'API refuse aussi) — message clair, sans appel
+  if (assisted && (options.method ?? 'GET') !== 'GET') {
+    throw new ApiError(403, 'assistance_read_only', 'Accès d’assistance : consultation seulement, aucune modification possible.');
+  }
   const send = () => fetch(buildUrl(path, options.query), {
     method: options.method ?? 'GET',
     credentials: 'same-origin',
     headers: {
       ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
+      ...(assisted ? { authorization: `Bearer ${assistanceToken}` }
+        : accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
     },
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
@@ -99,6 +119,14 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     res = await send();
   } catch {
     throw new ApiError(0, 'network', 'Serveur injoignable. Vérifier la connexion.');
+  }
+
+  if (res.status === 401 && assisted) {
+    const body = await res.json().catch(() => null) as { message?: string } | null;
+    const message = body?.message ?? 'Accès d’assistance terminé.';
+    assistanceToken = null;
+    onAssistanceLost(message);
+    throw new ApiError(401, 'assistance_ended', message);
   }
 
   if (res.status === 401 && !path.startsWith('/auth/')) {

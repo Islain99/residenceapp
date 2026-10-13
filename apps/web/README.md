@@ -12,7 +12,7 @@ npm install
 npm run dev        # http://localhost:5173
 ```
 
-Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepose1@exemple.test`… mot de passe `Residence2026!` (après `npm run seed:passwords` dans `apps/api`).
+Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepose1@exemple.test`…, `admin@exemple.test` (plateforme) mot de passe `Residence2026!` (après `npm run seed:passwords` dans `apps/api`).
 
 | Commande | Rôle |
 | --- | --- |
@@ -47,6 +47,10 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 **Téléphone** : 5 onglets en bas (Relève, Journal, Suivis, Messages, Résidents) et un menu « Plus » (Agenda, Horaires, Admin).
 
 **Messagerie** (`/messages`, `/messages/:id`) : liste à gauche et fil à droite sur ordinateur ; liste puis fil en plein écran sur téléphone. Entrée envoie, Maj+Entrée va à la ligne. Mes messages se modifient ou se retirent pendant 15 minutes. Annonces : « J'ai lu cette annonce » (aussi en tête de la relève) ; l'autrice voit « Lue par N — voir qui manque ». Groupe : renommer, ajouter des collègues, quitter. Pastille de non-lus sur l'onglet Messages. Responsable : Administration › Messagerie pour consulter une conversation avec un motif (tracé).
+
+**Plateforme** (`/plateforme`, rôle admin) : résidences avec indicateurs chiffrés, création d'une résidence (et invitation de sa responsable), détail d'une résidence (modifier, suspendre, responsables : inviter, nommer un employé, renvoyer l'invitation, lien de mot de passe, débloquer, fermer les sessions, désactiver), Sécurité, Journal, Administrateurs. Un admin qui ouvre une page de résidence est renvoyé ici.
+
+**Accès d'assistance** : la responsable l'accorde dans Administration › Assistance (durée, motif ; retrait à tout moment ; historique avec le nombre de pages consultées). L'admin clique « Consulter (lecture seule) » : il voit la résidence comme la responsable, sous un bandeau orange (« Revenir à la plateforme », « Terminer l'accès »), sans la messagerie ; toute tentative de modification est refusée et signalée dans le bandeau. Le jeton d'assistance reste en mémoire : recharger la page ramène à la plateforme.
 
 L'interface masque les actions non permises (ex. « Corriger » après 24 h pour un préposé), mais c'est l'API qui fait foi.
 

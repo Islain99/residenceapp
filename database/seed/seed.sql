@@ -2,7 +2,8 @@
 -- seed.sql — Données FICTIVES pour le développement et les démos.
 -- Ne jamais exécuter en production.
 --   1 résidence, 6 employés + 1 admin, 15 résidents, 8 catégories,
---   environ un mois de notes, des suivis, des relèves.
+--   environ un mois de notes, des suivis, des relèves ; une deuxième
+--   résidence, plus petite (tableau de bord de la plateforme).
 -- Les mots de passe ne sont pas utilisables ici (password_hash factice) :
 -- le seed de l'API les remplacera par de vrais hachages Argon2id.
 -- =====================================================================
@@ -257,6 +258,47 @@ ON CONFLICT (conversation_id, user_id) DO NOTHING;
 -- est pas demandée).
 UPDATE users SET created_at = now() - interval '1 year'
 WHERE residence_id = '00000000-0000-4000-8000-000000000001';
+
+-- ---------------------------------------------------------------------
+-- Deuxième résidence, plus petite : pour le tableau de bord de la
+-- plateforme (plusieurs résidences). Une responsable, un préposé,
+-- quatre résidents, quelques notes.
+-- ---------------------------------------------------------------------
+INSERT INTO residences (id, name, type)
+VALUES ('00000000-0000-4000-8000-000000000002', 'Manoir du Fleuve (fictif)', 'RI');
+
+INSERT INTO users (residence_id, email, password_hash, first_name, last_name, role, created_at) VALUES
+  ('00000000-0000-4000-8000-000000000002', 'responsable2@exemple.test', '!seed', 'Lucie', 'Martin',  'responsable', now() - interval '6 months'),
+  ('00000000-0000-4000-8000-000000000002', 'prepose5@exemple.test',     '!seed', 'Hugo',  'Bernard', 'prepose',     now() - interval '6 months');
+
+INSERT INTO note_categories (residence_id, label, sort_order)
+SELECT '00000000-0000-4000-8000-000000000002', label, ord
+FROM unnest(ARRAY['Comportement','Alimentation','Sommeil','Chute','Visite','Santé','Hygiène','Activité'])
+     WITH ORDINALITY AS t(label, ord);
+
+INSERT INTO shift_types (residence_id, label, start_time, end_time, sort_order) VALUES
+  ('00000000-0000-4000-8000-000000000002', 'Jour', '07:00', '15:00', 1),
+  ('00000000-0000-4000-8000-000000000002', 'Soir', '15:00', '23:00', 2),
+  ('00000000-0000-4000-8000-000000000002', 'Nuit', '23:00', '07:00', 3);
+
+INSERT INTO conversations (residence_id, kind, title) VALUES
+  ('00000000-0000-4000-8000-000000000002', 'team', 'Toute l''équipe'),
+  ('00000000-0000-4000-8000-000000000002', 'announcements', 'Annonces');
+
+INSERT INTO residents (residence_id, first_name, last_name, room, admitted_at) VALUES
+  ('00000000-0000-4000-8000-000000000002', 'Rosaire',   'Pelletier', '1', current_date - 400),
+  ('00000000-0000-4000-8000-000000000002', 'Ginette',   'Lavoie',    '2', current_date - 250),
+  ('00000000-0000-4000-8000-000000000002', 'Aurèle',    'Bouchard',  '3', current_date - 120),
+  ('00000000-0000-4000-8000-000000000002', 'Thérèse',   'Côté',      '4', current_date - 60);
+
+INSERT INTO notes (residence_id, author_id, resident_id, category_id, occurred_at, description, created_at)
+SELECT r.residence_id, u.id, r.id, c.id, now() - (n || ' days')::interval,
+       'Note de démonstration ' || n || '.', now() - (n || ' days')::interval
+FROM residents r
+JOIN users u ON u.email = 'prepose5@exemple.test'
+JOIN note_categories c ON c.residence_id = r.residence_id AND c.label = 'Activité'
+CROSS JOIN generate_series(1, 3) AS n
+WHERE r.residence_id = '00000000-0000-4000-8000-000000000002';
 
 -- L'auteur de chaque note l'a lue (comme l'API à la création d'une note)
 INSERT INTO note_reads (residence_id, note_id, user_id, read_at)
