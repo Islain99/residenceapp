@@ -182,7 +182,8 @@ database/
 │   ├── 0006_agenda.sql            # agenda : rendez-vous des résidents et de la résidence
 │   ├── 0007_horaires.sql          # horaires : quarts types et quarts du personnel
 │   ├── 0008_note_reads_logic.sql  # lectures : auteur, corrections de fond (à relire)
-│   └── 0009_messaging.sql         # messagerie : conversations, messages, lectures, annonces
+│   ├── 0009_messaging.sql         # messagerie : conversations, messages, lectures, annonces
+│   └── 0010_platform.sql          # plateforme : accès d'assistance, index du journal
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

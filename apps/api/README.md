@@ -259,6 +259,46 @@ Quatre sortes de conversations : **privée** (deux employés, une seule par pair
 - Journal d'audit : création de conversation, ajout de membres, départ d'un groupe, correction et retrait d'un message, consultation. Les messages eux-mêmes ne sont pas recopiés dans le journal.
 - Isolation : une conversation d'une autre résidence répond 404 ; les canaux Équipe et Annonces d'une nouvelle résidence sont créés au premier usage.
 
+## Administration de la plateforme
+
+Rôle `admin` (compte sans résidence). L'administrateur gère **les résidences et leurs responsables**, jamais leur contenu : il ne voit que des chiffres (employés, résidents, notes des 30 derniers jours, dernière connexion, comptes bloqués). Il ne choisit jamais un mot de passe : invitation ou lien de réinitialisation par courriel. Rien n'est supprimé.
+
+| Route | Rôle |
+| --- | --- |
+| `GET /platform/residences` | Résidences et indicateurs chiffrés (aucun nom de résident, aucune note) |
+| `POST /platform/residences` | `{ name, type, timezone, responsable: { email, firstName, lastName } }` → résidence créée avec les catégories, quarts et canaux de messagerie habituels ; la responsable reçoit son invitation. Si le courriel ne part pas, rien n'est créé (502) |
+| `GET /platform/residences/:id` | Détail : responsables, employés actifs (noms et rôles, pour en nommer un responsable), accès d'assistance |
+| `PATCH /platform/residences/:id` | `{ name?, type?, timezone?, isActive?, reason? }`. Suspendre (`isActive: false`) ferme toutes les sessions et retire les accès d'assistance ; les données restent |
+| `POST /platform/residences/:id/responsables` | `{ email, firstName, lastName }` (invitation) ou `{ userId }` (nommer un employé de la résidence) |
+| `PATCH /platform/users/:id` | Responsable ou admin : `{ isActive }`. Jamais la dernière responsable active d'une résidence (409 `last_responsable`), ni le dernier admin, ni soi-même |
+| `POST /platform/users/:id/invite` · `/reset-password` | Responsable ou admin : renvoyer l'invitation · envoyer un lien de réinitialisation (1 h) |
+| `POST /platform/users/:id/unlock` · `/revoke-sessions` | Tout compte : débloquer après trop d'essais · fermer toutes ses sessions |
+| `GET /platform/admins` · `POST /platform/admins` | Administrateurs ; inviter `{ email, firstName, lastName }` |
+| `GET /platform/security` | Comptes bloqués, connexions refusées (24 h) par résidence, événements à surveiller (7 jours) |
+| `GET /platform/audit` | Journal de la plateforme : actions des admins et événements sans résidence (`residenceId`, `action`, curseur). L'activité d'une résidence reste dans son journal |
+
+Chaque action d'un admin sur une résidence figure **aussi** au journal de cette résidence (la responsable la voit).
+
+### Accès d'assistance
+
+Seule la responsable peut ouvrir la résidence à l'administrateur, pour régler un problème :
+
+| Route | Rôle |
+| --- | --- |
+| `GET /assistance` | Responsable : accès accordés (en cours et passés) et nombre de pages consultées |
+| `POST /assistance` | Responsable : `{ hours: 1 \| 4 \| 24 \| 72, reason? }` ; un seul accès ouvert à la fois (409 `assistance_active`) |
+| `POST /assistance/:id/revoke` | Responsable : retirer l'accès, effet immédiat |
+| `GET /platform/assistance` | Admin : accès ouverts |
+| `POST /platform/assistance/:id/start` | Admin : jeton de consultation `{ accessToken, expiresAt, residence }`, valable jusqu'à la fin de l'accès |
+| `POST /platform/assistance/:id/end` | Admin : terminer l'accès |
+
+Avec ce jeton (`asst` dans le JWT), l'admin voit la résidence comme sa responsable, avec ces limites, revérifiées à **chaque** requête (`auth.ts`) :
+
+- lecture seule : toute requête autre que GET est refusée dès sa réception (403 `assistance_read_only`) ;
+- jamais la messagerie ni l'export d'un dossier (403 `assistance_forbidden`) ;
+- accès retiré ou expiré, résidence suspendue, admin désactivé : 401 `assistance_ended` tout de suite ;
+- chaque page consultée est inscrite au journal de la résidence (`assistance_view`, une ligne par page et par tranche de 5 minutes), au nom de l'admin.
+
 ## Comptes des employés et mot de passe
 
 Personne d'autre que l'employé ne connaît son mot de passe : la responsable l'invite, il le choisit lui-même à partir d'un lien reçu par courriel.

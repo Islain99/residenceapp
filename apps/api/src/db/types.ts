@@ -55,6 +55,17 @@ export interface Appointments {
   updated_at: Generated<Timestamp>;
 }
 
+export interface AssistanceGrants {
+  expires_at: Timestamp;
+  granted_at: Generated<Timestamp>;
+  granted_by: string;
+  id: Generated<string>;
+  reason: string | null;
+  residence_id: string;
+  revoked_at: Timestamp | null;
+  revoked_by: string | null;
+}
+
 export interface AuditLog {
   action: string;
   at: Generated<Timestamp>;
@@ -269,6 +280,7 @@ export interface Users {
 export interface DB {
   account_tokens: AccountTokens;
   appointments: Appointments;
+  assistance_grants: AssistanceGrants;
   audit_log: AuditLog;
   conversation_members: ConversationMembers;
   conversation_reads: ConversationReads;

@@ -1,11 +1,14 @@
 // Accès aux données : une fonction par lecture ou écriture de l'API.
 // Après une écriture, les listes concernées sont relues (invalidate).
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../auth/session';
 import { api } from './client';
 import type {
   AdminConversation, AnnouncementAcks, ConsultedMessage, Conversation, Message, MessagePage, MessagingSummary,
   Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, ResidentStats, Shift, ShiftType, StatsPeriod, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
+  AssistanceGrant, NewResidenceInput, OpenAssistanceGrant, PlatformAccount, PlatformAuditPage, PlatformResidence,
+  PlatformResidenceDetail, PlatformSecurity,
 } from './types';
 
 export interface NoteFilters {
@@ -346,8 +349,16 @@ const THREAD_REFRESH_MS = 5_000;
 export const useConversations = () =>
   useQuery({ queryKey: ['conversations'], queryFn: () => api<Conversation[]>('/conversations'), refetchInterval: LIST_REFRESH_MS });
 
-export const useMessagingSummary = () =>
-  useQuery({ queryKey: ['messaging-summary'], queryFn: () => api<MessagingSummary>('/messaging/summary'), refetchInterval: LIST_REFRESH_MS });
+// Pas en accès d'assistance : la messagerie reste privée
+export function useMessagingSummary() {
+  const { assistance } = useAuth();
+  return useQuery({
+    queryKey: ['messaging-summary'],
+    queryFn: () => api<MessagingSummary>('/messaging/summary'),
+    refetchInterval: LIST_REFRESH_MS,
+    enabled: !assistance,
+  });
+}
 
 export const useConversation = (id: string) =>
   useQuery({ queryKey: ['conversation', id], queryFn: () => api<Conversation>(`/conversations/${id}`) });
@@ -458,3 +469,85 @@ export function useConsultConversation() {
     onSuccess: () => invalidate('audit'),
   });
 }
+
+// ---------------------------------------------------------------------
+// Accès d'assistance (responsable)
+// ---------------------------------------------------------------------
+export const useAssistanceGrants = () =>
+  useQuery({ queryKey: ['assistance'], queryFn: () => api<AssistanceGrant[]>('/assistance'), refetchInterval: 30_000 });
+
+export function useGrantAssistance() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: { hours: number; reason?: string }) => api<AssistanceGrant>('/assistance', { method: 'POST', body: input }),
+    onSuccess: () => invalidate('assistance', 'audit'),
+  });
+}
+
+export function useRevokeAssistance() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) => api<AssistanceGrant>(`/assistance/${id}/revoke`, { method: 'POST' }),
+    onSuccess: () => invalidate('assistance', 'audit'),
+  });
+}
+
+// ---------------------------------------------------------------------
+// Administration de la plateforme (admin)
+// ---------------------------------------------------------------------
+export const usePlatformResidences = () =>
+  useQuery({ queryKey: ['platform', 'residences'], queryFn: () => api<PlatformResidence[]>('/platform/residences') });
+
+export const usePlatformResidence = (id: string) =>
+  useQuery({ queryKey: ['platform', 'residence', id], queryFn: () => api<PlatformResidenceDetail>(`/platform/residences/${id}`) });
+
+export const useOpenAssistance = () =>
+  useQuery({ queryKey: ['platform', 'assistance'], queryFn: () => api<OpenAssistanceGrant[]>('/platform/assistance'), refetchInterval: 30_000 });
+
+export const usePlatformSecurity = () =>
+  useQuery({ queryKey: ['platform', 'security'], queryFn: () => api<PlatformSecurity>('/platform/security'), refetchInterval: 60_000 });
+
+export const usePlatformAdmins = () =>
+  useQuery({ queryKey: ['platform', 'admins'], queryFn: () => api<PlatformAccount[]>('/platform/admins') });
+
+export const usePlatformAudit = (filters: { residenceId?: string; action?: string }) =>
+  useInfiniteQuery({
+    queryKey: ['platform', 'audit', filters],
+    queryFn: ({ pageParam }) => api<PlatformAuditPage>('/platform/audit', { query: { ...filters, limit: 50, cursor: pageParam } }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+
+// Toute écriture de la plateforme relit ses écrans
+function usePlatformMutation<I, O>(fn: (input: I) => Promise<O>) {
+  const invalidate = useInvalidate();
+  return useMutation({ mutationFn: fn, onSuccess: () => invalidate('platform') });
+}
+
+export const useCreateResidence = () =>
+  usePlatformMutation((input: NewResidenceInput) => api<PlatformResidence>('/platform/residences', { method: 'POST', body: input }));
+
+export const useUpdateResidence = () =>
+  usePlatformMutation(({ id, ...body }: { id: string; name?: string; type?: 'RPA' | 'RI'; timezone?: string; isActive?: boolean; reason?: string }) =>
+    api<PlatformResidence>(`/platform/residences/${id}`, { method: 'PATCH', body }));
+
+export const useAddResponsable = () =>
+  usePlatformMutation(({ residenceId, ...body }: { residenceId: string } & ({ userId: string } | { email: string; firstName: string; lastName: string })) =>
+    api<PlatformAccount>(`/platform/residences/${residenceId}/responsables`, { method: 'POST', body }));
+
+export type PlatformAccountAction = 'invite' | 'reset-password' | 'unlock' | 'revoke-sessions';
+
+export const usePlatformAccountAction = () =>
+  usePlatformMutation(({ id, action }: { id: string; action: PlatformAccountAction }) =>
+    api<unknown>(`/platform/users/${id}/${action}`, { method: 'POST' }));
+
+export const useSetPlatformAccountActive = () =>
+  usePlatformMutation(({ id, isActive }: { id: string; isActive: boolean }) =>
+    api<PlatformAccount>(`/platform/users/${id}`, { method: 'PATCH', body: { isActive } }));
+
+export const useInviteAdmin = () =>
+  usePlatformMutation((input: { email: string; firstName: string; lastName: string }) =>
+    api<PlatformAccount>('/platform/admins', { method: 'POST', body: input }));
+
+export const useEndAssistance = () =>
+  usePlatformMutation((id: string) => api<void>(`/platform/assistance/${id}/end`, { method: 'POST' }));

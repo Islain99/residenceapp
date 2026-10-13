@@ -319,3 +319,92 @@ export interface ConsultedMessage {
   retractedAt: string | null;
   versions: { body: string; replacedAt: string }[];
 }
+
+// ---------------------------------------------------------------------
+// Administration de la plateforme et accès d'assistance
+// ---------------------------------------------------------------------
+export interface ResidenceRef {
+  id: string;
+  name: string;
+}
+
+export interface PlatformResidence {
+  id: string;
+  name: string;
+  type: 'RPA' | 'RI';
+  timezone: string;
+  isActive: boolean;
+  createdAt: string;
+  staffActive: number;
+  responsablesActive: number;
+  residentsActive: number;
+  notesLast30Days: number;
+  lastLoginAt: string | null;
+  lockedAccounts: number;
+  failedLogins24h: number;
+  assistanceUntil: string | null;
+}
+
+export interface PlatformAccount {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: Role;
+  status: 'invited' | 'active' | 'inactive';
+  lastLoginAt: string | null;
+  lockedUntil: string | null;
+  invitationExpiresAt: string | null;
+}
+
+export interface AssistanceGrant {
+  id: string;
+  residenceId: string;
+  status: 'active' | 'expired' | 'revoked';
+  reason: string | null;
+  grantedAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  grantedBy: Person;
+  revokedBy: Person | null;
+  views: number;
+}
+
+export interface OpenAssistanceGrant extends AssistanceGrant {
+  residence: ResidenceRef;
+}
+
+export interface PlatformResidenceDetail {
+  residence: PlatformResidence;
+  responsables: PlatformAccount[];
+  staff: (Person & { role: Role })[];
+  assistance: AssistanceGrant[];
+}
+
+export interface NewResidenceInput {
+  name: string;
+  type: 'RPA' | 'RI';
+  timezone: string;
+  responsable: { email: string; firstName: string; lastName: string };
+}
+
+export interface PlatformSecurity {
+  locked: (Person & { email: string; role: Role; residence: ResidenceRef | null; lockedUntil: string })[];
+  failedLogins24h: { residence: ResidenceRef | null; count: number }[];
+  events: { id: string; at: string; action: string; user: Person | null; residence: ResidenceRef | null; ip: string | null }[];
+}
+
+export interface PlatformAuditEntry extends AuditEntry {
+  residence: ResidenceRef | null;
+}
+
+export interface PlatformAuditPage {
+  items: PlatformAuditEntry[];
+  nextCursor: string | null;
+}
+
+export interface AssistanceSession {
+  accessToken: string;
+  expiresAt: string;
+  residence: ResidenceRef & { type: string };
+}
