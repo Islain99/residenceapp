@@ -68,7 +68,10 @@ export interface Note {
   category: Category;
   resident: ResidentRef | null;
   versionCount: number;
+  // Lecture confirmée. Consigne prioritaire corrigée depuis ma lecture : false (à relire)
   readByMe: boolean;
+  modifiedSinceRead: boolean;   // note ordinaire corrigée après ma lecture
+  contentEditedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -106,6 +109,7 @@ export interface NoteDetail extends Note {
   versions: NoteVersion[];
   followUps: FollowUp[];
   reads: { user: Person; readAt: string }[];
+  unreadBy: Person[];           // consigne prioritaire : qui ne l'a pas encore lue
 }
 
 export interface NotePage {

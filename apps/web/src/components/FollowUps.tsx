@@ -1,15 +1,19 @@
 // Suivis : élément de liste (avec fermeture) et formulaire d'ajout.
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { useCloseFollowUp, useCreateFollowUp, useStaff } from '../api/hooks';
+import { useCloseFollowUp, useCreateFollowUp, useStaff, useTakeFollowUp } from '../api/hooks';
+import { useUser } from '../auth/session';
 import type { FollowUp } from '../api/types';
 import { formatWhen, fromLocalInput, fullName } from '../lib/format';
 import { cx } from '../lib/cx';
 import { Badge, Button, Dialog, ErrorMessage, SelectField, TextArea, TextField } from './ui';
 
 export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp; showNote?: boolean }) {
+  const me = useUser();
+  const take = useTakeFollowUp();
   const [closing, setClosing] = useState(false);
   const closed = followUp.closedAt !== null;
+  const mine = followUp.assignedTo?.id === me.id;
   return (
     <li className={cx('rounded-xl border bg-surface p-4', followUp.isOverdue ? 'border-danger/60 border-l-4' : 'border-line')}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -21,14 +25,24 @@ export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp
                 {fullName(followUp.resident)}{followUp.resident.room && ` · ch. ${followUp.resident.room}`}
               </Link>
             )}
-            <span>{followUp.assignedTo ? `Pour ${fullName(followUp.assignedTo)}` : "Pour toute l'équipe"}</span>
+            <span className={cx(mine && !closed && 'font-medium text-primary')}>
+              {mine ? 'Pour moi' : followUp.assignedTo ? `Pour ${fullName(followUp.assignedTo)}` : "Pour toute l'équipe"}
+            </span>
             {followUp.dueAt && <span>Échéance {formatWhen(followUp.dueAt)}</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
           {followUp.isOverdue && <Badge tone="danger">En retard</Badge>}
           {closed ? <Badge tone="positive">Fait</Badge> : (
-            <Button variant="primary" className="min-h-9" onClick={() => setClosing(true)}>Marquer fait</Button>
+            <>
+              {!mine && (
+                <Button className="min-h-9 whitespace-nowrap" busy={take.isPending}
+                  onClick={() => take.mutate({ id: followUp.id, userId: me.id })}>
+                  Je m'en occupe
+                </Button>
+              )}
+              <Button variant="primary" className="min-h-9 whitespace-nowrap" onClick={() => setClosing(true)}>Marquer fait</Button>
+            </>
           )}
         </div>
       </div>
@@ -45,6 +59,7 @@ export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp
         </p>
       )}
 
+      <ErrorMessage error={take.error} />
       <CloseDialog followUp={followUp} open={closing} onClose={() => setClosing(false)} />
     </li>
   );

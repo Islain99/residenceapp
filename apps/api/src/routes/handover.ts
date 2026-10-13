@@ -7,15 +7,23 @@
 //   POST /handover/ack  « j'ai pris connaissance » : enregistre l'instant
 //                       generatedAt reçu du GET, pour qu'une note écrite
 //                       entre la lecture et la confirmation ne soit pas perdue.
+//
+// Lectures :
+//   * Les consignes prioritaires se confirment une à une (POST /notes/:id/read).
+//     Tant qu'il en reste une non lue dans la relève : 409 priority_unread.
+//   * « J'ai pris connaissance » confirme la lecture de toutes les notes
+//     ordinaires de la relève.
+//   * Une consigne prioritaire corrigée depuis la dernière relève y réapparaît,
+//     même si elle avait été écrite avant.
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql } from 'kysely';
 import { authenticate, residenceOf } from '../auth.js';
 import type { Database } from '../db/index.js';
 import { AppointmentBody, appointmentQuery, toAppointment } from '../lib/appointment-view.js';
 import { audit } from '../lib/audit.js';
-import { badRequest } from '../lib/errors.js';
+import { badRequest, HttpError } from '../lib/errors.js';
 import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
-import { NoteBody, noteQuery, toNote } from '../lib/note-view.js';
+import { NoteBody, noteQuery, toNote, validReadSql } from '../lib/note-view.js';
 import { Nullable } from '../lib/schemas.js';
 
 const FIRST_HANDOVER_LOOKBACK_MS = 24 * 60 * 60 * 1000;   // aucune relève encore : dernières 24 h
@@ -28,6 +36,21 @@ const APPOINTMENTS_BEHIND_MS = 60 * 60 * 1000;          // … et ceux commencé
 async function dbNow(db: Database): Promise<Date> {
   const { rows } = await sql<{ now: Date }>`SELECT clock_timestamp() AS now`.execute(db);
   return rows[0]!.now;
+}
+
+// Dernière relève confirmée, sinon les 24 dernières heures
+async function lastHandover(db: Database, userId: string, residenceId: string) {
+  return db.selectFrom('handovers').select('acknowledged_at')
+    .where('user_id', '=', userId).where('residence_id', '=', residenceId)
+    .orderBy('acknowledged_at', 'desc').limit(1).executeTakeFirst();
+}
+
+// Notes actives de la relève entre since (exclu) et until (inclus) : écrites
+// dans l'intervalle, ou consignes prioritaires corrigées dans l'intervalle.
+function inWindow(since: Date, until: Date) {
+  return sql<boolean>`n.status = 'active' AND (
+    (n.created_at > ${since} AND n.created_at <= ${until})
+    OR (n.is_priority AND n.content_edited_at > ${since} AND n.content_edited_at <= ${until}))`;
 }
 
 const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
@@ -54,16 +77,12 @@ const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const userId = request.user.sub;
     const generatedAt = await dbNow(db);
 
-    const last = await db.selectFrom('handovers').select('acknowledged_at')
-      .where('user_id', '=', userId).where('residence_id', '=', residenceId)
-      .orderBy('acknowledged_at', 'desc').limit(1).executeTakeFirst();
+    const last = await lastHandover(db, userId, residenceId);
     const since = last?.acknowledged_at ?? new Date(generatedAt.getTime() - FIRST_HANDOVER_LOOKBACK_MS);
 
     const [rows, followUps, appointments] = await Promise.all([
       noteQuery(db, residenceId, userId)
-        .where('n.status', '=', 'active')
-        .where('n.created_at', '>', since)
-        .where('n.created_at', '<=', generatedAt)
+        .where(inWindow(since, generatedAt))
         .orderBy('n.is_priority', 'desc').orderBy('n.occurred_at', 'desc')
         .limit(MAX_NOTES + 1)
         .execute(),
@@ -103,11 +122,39 @@ const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
     },
   }, async (request, reply) => {
     const residenceId = residenceOf(request);
+    const userId = request.user.sub;
     const now = await dbNow(db);
     const seenUntil = request.body.seenUntil ? new Date(request.body.seenUntil) : now;
     if (seenUntil > now) throw badRequest('invalid_seen_until', 'seenUntil ne peut pas être dans le futur.');
+    const last = await lastHandover(db, userId, residenceId);
+    const since = last?.acknowledged_at ?? new Date(now.getTime() - FIRST_HANDOVER_LOOKBACK_MS);
 
     const row = await db.transaction().execute(async (trx) => {
+      // Consignes prioritaires de la relève pas encore lues : à confirmer une à une d'abord
+      const pending = await trx.selectFrom('notes as n').select((eb) => eb.fn.countAll<string>().as('count'))
+        .where('n.residence_id', '=', residenceId)
+        .where('n.is_priority', '=', true)
+        .where(inWindow(since, seenUntil))
+        .where(sql<boolean>`NOT ${validReadSql(userId)}`)
+        .executeTakeFirstOrThrow();
+      const count = Number(pending.count);
+      if (count > 0) {
+        throw new HttpError(409, 'priority_unread', count === 1
+          ? 'Confirmez d\'abord la lecture de la consigne prioritaire.'
+          : `Confirmez d'abord la lecture des ${count} consignes prioritaires.`);
+      }
+
+      // Les notes ordinaires de la relève sont lues
+      await trx.insertInto('note_reads')
+        .columns(['residence_id', 'note_id', 'user_id'])
+        .expression(trx.selectFrom('notes as n')
+          .select((eb) => ['n.residence_id', 'n.id', eb.val(userId).as('user_id')])
+          .where('n.residence_id', '=', residenceId)
+          .where('n.is_priority', '=', false)
+          .where(inWindow(since, seenUntil)))
+        .onConflict((oc) => oc.columns(['note_id', 'user_id']).doNothing())
+        .execute();
+
       const row = await trx.insertInto('handovers')
         .values({ residence_id: residenceId, user_id: request.user.sub, acknowledged_at: seenUntil })
         .returning('acknowledged_at').executeTakeFirstOrThrow();

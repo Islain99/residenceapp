@@ -64,7 +64,9 @@ function NoteView({ note }: { note: NoteDetail }) {
 
         <div className="mt-5 flex flex-wrap gap-2">
           {active && !note.readByMe && (
-            <Button variant="primary" busy={markRead.isPending} onClick={() => markRead.mutate(note.id)}>Marquer comme lue</Button>
+            <Button variant="primary" busy={markRead.isPending} onClick={() => markRead.mutate(note.id)}>
+              {note.isPriority ? "J'ai lu cette consigne" : 'Marquer comme lue'}
+            </Button>
           )}
           {active && <Button onClick={() => setDialog('follow-up')}>+ Suivi</Button>}
           {canModify && <Button onClick={() => setDialog('edit')}>Corriger</Button>}
@@ -84,15 +86,35 @@ function NoteView({ note }: { note: NoteDetail }) {
           : <ul className="flex flex-col gap-3">{note.followUps.map((f) => <FollowUpItem key={f.id} followUp={f} showNote={false} />)}</ul>}
       </section>
 
+      {note.isPriority && active && (
+        <section className="mt-8">
+          <h2 className="mb-1 text-lg font-semibold">Pas encore lue par</h2>
+          <p className="mb-3 text-sm text-muted">
+            Employés actifs qui n'ont pas confirmé {note.contentEditedAt ? 'la dernière version de ' : ''}cette consigne.
+          </p>
+          {note.unreadBy.length === 0 ? <p className="text-sm text-positive">Toute l'équipe l'a lue.</p> : (
+            <ul className="flex flex-wrap gap-2">
+              {note.unreadBy.map((u) => (
+                <li key={u.id} className="rounded-full bg-priority-soft px-3 py-1 text-sm text-priority">{fullName(u)}</li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-semibold">Lue par</h2>
         {note.reads.length === 0 ? <p className="text-sm text-muted">Personne n'a encore confirmé la lecture.</p> : (
           <ul className="flex flex-wrap gap-2">
-            {note.reads.map((r) => (
-              <li key={r.user.id} className="rounded-full bg-sunken px-3 py-1 text-sm">
-                {fullName(r.user)} <span className="text-muted">· {formatWhen(r.readAt)}</span>
-              </li>
-            ))}
+            {note.reads.map((r) => {
+              // Lecture antérieure à la dernière correction de fond
+              const before = note.contentEditedAt !== null && r.readAt < note.contentEditedAt;
+              return (
+                <li key={r.user.id} className="rounded-full bg-sunken px-3 py-1 text-sm">
+                  {fullName(r.user)} <span className="text-muted">· {formatWhen(r.readAt)}{before && ' (avant la correction)'}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

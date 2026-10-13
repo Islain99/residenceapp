@@ -180,7 +180,8 @@ database/
 │   ├── 0004_account_tokens.sql    # invitations, mot de passe oublié
 │   ├── 0005_login_lockout.sql     # blocage par compte, sessions « appareil partagé »
 │   ├── 0006_agenda.sql            # agenda : rendez-vous des résidents et de la résidence
-│   └── 0007_horaires.sql          # horaires : quarts types et quarts du personnel
+│   ├── 0007_horaires.sql          # horaires : quarts types et quarts du personnel
+│   └── 0008_note_reads_logic.sql  # lectures : auteur, corrections de fond (à relire)
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

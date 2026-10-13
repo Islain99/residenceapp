@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { useResidentStats } from '../api/hooks';
 import type { ResidentStats, StatsPeriod } from '../api/types';
+import { isSupervisor, useUser } from '../auth/session';
 import { ColumnChart, CompareBars, StatTile, type Column } from '../components/charts';
 import { Button, Card, Chip, EmptyState, ErrorMessage, Loading } from '../components/ui';
 import { fromDateParam, fullName } from '../lib/format';
@@ -31,7 +32,23 @@ function shift(unit: StatsPeriod, start: string, direction: -1 | 1) {
   return d.toISOString().slice(0, 10);
 }
 
+// Réservé à l'infirmière et à la responsable (l'API refuse les autres rôles) :
+// message clair plutôt qu'une erreur si un préposé arrive ici par un lien.
 export function ResidentStatsPage() {
+  const user = useUser();
+  const { id = '' } = useParams();
+  if (!isSupervisor(user.role)) {
+    return (
+      <>
+        <Link to={`/residents/${id}`} className="mb-4 inline-block text-sm text-primary hover:underline">← Dossier du résident</Link>
+        <EmptyState>Les statistiques sont réservées à l'infirmière et à la responsable.</EmptyState>
+      </>
+    );
+  }
+  return <ResidentStats />;
+}
+
+function ResidentStats() {
   const { id = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const unit: StatsPeriod = params.get('periode') === 'annee' ? 'year' : 'month';

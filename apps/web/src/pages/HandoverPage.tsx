@@ -1,5 +1,8 @@
 // Relève de quart : page d'accueil. Ce qui s'est passé depuis ma dernière
 // relève, puis « J'ai pris connaissance ».
+//
+// Les consignes prioritaires se confirment une à une ; ensuite seulement,
+// « J'ai pris connaissance » confirme la lecture des notes ordinaires.
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAcknowledgeHandover, useHandover } from '../api/hooks';
@@ -22,6 +25,7 @@ export function HandoverPage() {
   const h = handover.data;
   const priority = h.notes.filter((n) => n.isPriority);
   const others = h.notes.filter((n) => !n.isPriority);
+  const pending = priority.filter((n) => !n.readByMe).length;   // consignes à confirmer d'abord
 
   async function acknowledge() {
     await ack.mutateAsync(h.generatedAt);
@@ -55,7 +59,12 @@ export function HandoverPage() {
 
       {priority.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-lg font-semibold text-priority">Consignes prioritaires</h2>
+          <h2 className="mb-1 text-lg font-semibold text-priority">Consignes prioritaires</h2>
+          <p className="mb-3 text-sm text-muted">
+            {pending > 0
+              ? `À lire et confirmer une à une (${pending} restante${pending > 1 ? 's' : ''}).`
+              : 'Toutes confirmées.'}
+          </p>
           <div className="flex flex-col gap-3">{priority.map((n) => <NoteCard key={n.id} note={n} />)}</div>
         </section>
       )}
@@ -89,12 +98,18 @@ export function HandoverPage() {
         )}
       </section>
 
-      <div className="sticky bottom-20 z-[5] flex justify-center md:bottom-4">
-        <Button variant="primary" className="shadow-lg" busy={ack.isPending} onClick={acknowledge}>
+      {/* Barre de confirmation : pleine largeur au-dessus de la navigation sur téléphone */}
+      <div className="sticky bottom-16 z-[5] -mx-4 flex flex-col items-center gap-1 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:bottom-4 md:mx-0 md:rounded-xl md:border md:shadow-lg">
+        <Button variant="primary" className="w-full sm:w-auto" busy={ack.isPending} disabled={pending > 0} onClick={acknowledge}>
           J'ai pris connaissance de la relève
         </Button>
+        <p className="text-center text-xs text-muted">
+          {pending > 0
+            ? `Confirmez d'abord ${pending > 1 ? `les ${pending} consignes prioritaires` : 'la consigne prioritaire'}.`
+            : 'Les notes de la relève seront marquées comme lues.'}
+        </p>
+        <ErrorMessage error={ack.error} />
       </div>
-      <ErrorMessage error={ack.error} />
     </>
   );
 }

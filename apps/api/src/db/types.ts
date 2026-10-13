@@ -109,6 +109,7 @@ export interface Notes {
   cancelled_at: Timestamp | null;
   cancelled_by: string | null;
   category_id: string;
+  content_edited_at: Timestamp | null;
   created_at: Generated<Timestamp>;
   description: string;
   id: Generated<string>;

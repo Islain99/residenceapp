@@ -189,11 +189,18 @@ FROM residents r
 JOIN note_categories c ON c.residence_id = r.residence_id AND c.label IN ('Chute', 'Sommeil')
 CROSS JOIN generate_series(0, 3) AS m
 CROSS JOIN LATERAL generate_series(1, (m + 1) * CASE c.label WHEN 'Chute' THEN 1 ELSE 2 END) AS k
+-- « k * 0 » rend la sous-requête dépendante de k : sans ça, PostgreSQL ne
+-- tire random() qu'une fois par mois et crée des notes en double, à la même minute.
 CROSS JOIN LATERAL (
   SELECT date_trunc('month', now()) - (3 - m) * interval '1 month'
-         + (random() * 25) * interval '1 day' + interval '2 hours' + (random() * 3) * interval '1 hour' AS ts
+         + (random() * 25 + k * 0) * interval '1 day' + interval '2 hours' + (random() * 3) * interval '1 hour' AS ts
 ) AS t
 WHERE r.last_name = 'Bélanger' AND t.ts < now();
+
+-- L'auteur de chaque note l'a lue (comme l'API à la création d'une note)
+INSERT INTO note_reads (residence_id, note_id, user_id, read_at)
+SELECT residence_id, id, author_id, created_at FROM notes
+ON CONFLICT (note_id, user_id) DO NOTHING;
 
 COMMIT;
 

@@ -25,10 +25,23 @@ export const NoteBody = Type.Object({
     id: Type.String(), firstName: Type.String(), lastName: Type.String(), room: Nullable(Type.String()),
   })),
   versionCount: Type.Integer(),          // nombre de corrections
-  readByMe: Type.Boolean(),              // lecture confirmée par l'utilisateur connecté
+  // Lecture confirmée par l'utilisateur connecté. Consigne prioritaire corrigée
+  // depuis sa lecture : redevient false (à relire).
+  readByMe: Type.Boolean(),
+  // Note ordinaire corrigée après ma lecture (information, pas besoin de relire)
+  modifiedSinceRead: Type.Boolean(),
+  contentEditedAt: Nullable(Type.String()),   // dernière correction de fond
   createdAt: Type.String(),
   updatedAt: Type.String(),
 });
+
+// Lecture valable de la note n par userId (SQL, pour les filtres) :
+// une lecture existe, et pour une consigne prioritaire elle est postérieure
+// à la dernière correction de fond.
+export const validReadSql = (userId: string) => sql<boolean>`EXISTS (
+  SELECT 1 FROM note_reads nr
+  WHERE nr.note_id = n.id AND nr.user_id = ${userId}
+    AND (NOT n.is_priority OR n.content_edited_at IS NULL OR nr.read_at >= n.content_edited_at))`;
 
 // Notes de la résidence, avec auteur, catégorie, résident et état de lecture
 // pour l'utilisateur userId.
@@ -41,7 +54,7 @@ export function noteQuery(db: Db, residenceId: string, userId: string) {
     .where('n.residence_id', '=', residenceId)
     .select((eb) => [
       'n.id', 'n.occurred_at', 'n.description', 'n.intervention', 'n.is_priority', 'n.is_positive',
-      'n.status', 'n.cancel_reason', 'n.cancelled_at', 'n.created_at', 'n.updated_at',
+      'n.status', 'n.cancel_reason', 'n.cancelled_at', 'n.created_at', 'n.updated_at', 'n.content_edited_at',
       'a.id as author_id', 'a.first_name as author_first_name', 'a.last_name as author_last_name',
       'c.id as category_id', 'c.label as category_label',
       'r.id as resident_id', 'r.first_name as resident_first_name',
@@ -50,8 +63,8 @@ export function noteQuery(db: Db, residenceId: string, userId: string) {
       'x.last_name as cancelled_by_last_name',
       eb.selectFrom('note_versions as v').whereRef('v.note_id', '=', 'n.id')
         .select((v) => v.fn.countAll<string>().as('count')).as('version_count'),
-      eb.exists(eb.selectFrom('note_reads as nr').whereRef('nr.note_id', '=', 'n.id')
-        .where('nr.user_id', '=', userId).select(sql`1`.as('one'))).as('read_by_me'),
+      eb.selectFrom('note_reads as nr').whereRef('nr.note_id', '=', 'n.id')
+        .where('nr.user_id', '=', userId).select('nr.read_at').as('my_read_at'),
       // Horodatage exact (microsecondes) pour la pagination
       sql<string>`to_char(n.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`.as('cursor_ts'),
     ]);
@@ -79,9 +92,21 @@ export function toNote(row: NoteRow) {
       ? { id: row.resident_id, firstName: row.resident_first_name ?? '', lastName: row.resident_last_name ?? '', room: row.resident_room }
       : null,
     versionCount: Number(row.version_count ?? 0),
-    readByMe: Boolean(row.read_by_me),
+    ...readState(row),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+  };
+}
+
+// État de lecture pour l'utilisateur de la requête (voir NoteBody)
+function readState(row: Pick<NoteRow, 'my_read_at' | 'content_edited_at' | 'is_priority'>) {
+  const readAt = row.my_read_at;
+  const editedAt = row.content_edited_at;
+  const stale = readAt !== null && editedAt !== null && readAt < editedAt;
+  return {
+    readByMe: readAt !== null && !(stale && row.is_priority),
+    modifiedSinceRead: stale && !row.is_priority,
+    contentEditedAt: editedAt?.toISOString() ?? null,
   };
 }
 

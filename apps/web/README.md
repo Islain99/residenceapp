@@ -40,6 +40,12 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 | `/mot-de-passe-oublie` | Public : demander un lien de réinitialisation par courriel |
 | `/mot-de-passe#<jeton>` | Public : choisir son mot de passe (lien d'invitation ou de réinitialisation) |
 
+**Relève et lectures** : chaque consigne prioritaire se confirme avec « J'ai lu cette consigne » ; « J'ai pris connaissance de la relève » reste bloqué tant qu'il en reste une, puis marque lues les notes ordinaires. Une consigne corrigée affiche « Corrigée — à relire » ; une note ordinaire corrigée après ma lecture, « Modifiée depuis votre lecture ». Sur une consigne prioritaire, « Pas encore lue par » liste les employés qui ne l'ont pas confirmée.
+
+**Suivis** : « Je m'en occupe » m'assigne le suivi ; les suivis terminés apparaissent dans le dossier du résident.
+
+**Téléphone** : 4 onglets en bas (Relève, Journal, Suivis, Résidents) et un menu « Plus » (Agenda, Horaires, Admin).
+
 L'interface masque les actions non permises (ex. « Corriger » après 24 h pour un préposé), mais c'est l'API qui fait foi.
 
 ## Session

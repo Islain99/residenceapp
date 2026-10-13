@@ -119,7 +119,8 @@ export function useAcknowledgeHandover() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: (seenUntil: string) => api<{ acknowledgedAt: string }>('/handover/ack', { method: 'POST', body: { seenUntil } }),
-    onSuccess: () => invalidate('handover'),
+    // La relève confirme la lecture des notes ordinaires : les listes changent aussi
+    onSuccess: () => invalidate('handover', 'notes', 'note'),
   });
 }
 
@@ -129,6 +130,16 @@ export function useCreateFollowUp(noteId: string) {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: (input: FollowUpInput) => api<FollowUp>(`/notes/${noteId}/follow-ups`, { method: 'POST', body: input }),
+    onSuccess: () => invalidate('note', 'follow-ups', 'handover'),
+  });
+}
+
+// « Je m'en occupe » : s'assigner un suivi ouvert
+export function useTakeFollowUp() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+      api<FollowUp>(`/follow-ups/${id}`, { method: 'PATCH', body: { assignedTo: userId } }),
     onSuccess: () => invalidate('note', 'follow-ups', 'handover'),
   });
 }
