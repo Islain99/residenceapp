@@ -197,6 +197,67 @@ CROSS JOIN LATERAL (
 ) AS t
 WHERE r.last_name = 'Bélanger' AND t.ts < now();
 
+-- ---------------------------------------------------------------------
+-- Messagerie : canaux Équipe et Annonces, une conversation privée, un groupe
+-- ---------------------------------------------------------------------
+INSERT INTO conversations (residence_id, kind, title)
+VALUES ('00000000-0000-4000-8000-000000000001', 'team', 'Toute l''équipe'),
+       ('00000000-0000-4000-8000-000000000001', 'announcements', 'Annonces')
+ON CONFLICT DO NOTHING;
+
+WITH u AS (
+  SELECT email, id FROM users WHERE residence_id = '00000000-0000-4000-8000-000000000001'
+), direct AS (
+  INSERT INTO conversations (residence_id, kind, direct_key, created_by)
+  SELECT '00000000-0000-4000-8000-000000000001'::uuid, 'direct',
+         least(a.id::text, b.id::text) || ':' || greatest(a.id::text, b.id::text), a.id
+  FROM u a, u b WHERE a.email = 'prepose1@exemple.test' AND b.email = 'prepose2@exemple.test'
+  RETURNING id
+), grp AS (
+  INSERT INTO conversations (residence_id, kind, title, created_by)
+  SELECT '00000000-0000-4000-8000-000000000001'::uuid, 'group', 'Équipe de nuit', id FROM u WHERE email = 'infirmiere@exemple.test'
+  RETURNING id
+), members AS (
+  INSERT INTO conversation_members (residence_id, conversation_id, user_id, added_by)
+  SELECT '00000000-0000-4000-8000-000000000001'::uuid, d.id, u.id, NULL::uuid FROM direct d, u
+  WHERE u.email IN ('prepose1@exemple.test', 'prepose2@exemple.test')
+  UNION ALL
+  SELECT '00000000-0000-4000-8000-000000000001'::uuid, g.id, u.id, NULL::uuid FROM grp g, u
+  WHERE u.email IN ('infirmiere@exemple.test', 'prepose2@exemple.test', 'prepose4@exemple.test')
+  RETURNING 1
+), msgs(conv, email, body, ago) AS (
+  VALUES
+    ('team', 'responsable@exemple.test', 'Bonjour à tous ! Rappel : la réunion d''équipe est jeudi à 14 h, salle commune.', interval '26 hours'),
+    ('team', 'prepose3@exemple.test', 'Merci, j''y serai.', interval '25 hours'),
+    ('team', 'prepose1@exemple.test', 'Le lève-personne du 2e est réparé.', interval '3 hours'),
+    ('announcements', 'responsable@exemple.test', 'Nouvelle procédure de lavage des mains affichée près de chaque poste. À lire avant votre prochain quart.', interval '20 hours'),
+    ('direct', 'prepose1@exemple.test', 'Salut Fatou, peux-tu me remplacer samedi soir ?', interval '5 hours'),
+    ('direct', 'prepose2@exemple.test', 'Oui, pas de problème. Je préviens Sophie.', interval '4 hours'),
+    ('group', 'infirmiere@exemple.test', 'Cette nuit : surveiller la chambre 110 aux deux heures.', interval '9 hours'),
+    ('group', 'prepose4@exemple.test', 'Bien noté.', interval '8 hours')
+)
+INSERT INTO messages (residence_id, conversation_id, author_id, body, created_at)
+SELECT '00000000-0000-4000-8000-000000000001'::uuid,
+       CASE m.conv WHEN 'direct' THEN (SELECT id FROM direct) WHEN 'group' THEN (SELECT id FROM grp)
+         ELSE (SELECT id FROM conversations WHERE residence_id = '00000000-0000-4000-8000-000000000001' AND kind = m.conv) END,
+       u.id, m.body, now() - m.ago
+FROM msgs m JOIN u ON u.email = m.email
+WHERE (SELECT count(*) FROM members) > 0;
+
+UPDATE conversations c SET last_message_at = (SELECT max(created_at) FROM messages m WHERE m.conversation_id = c.id)
+WHERE c.residence_id = '00000000-0000-4000-8000-000000000001';
+
+-- Chaque auteur a lu sa conversation jusqu'à son propre message
+INSERT INTO conversation_reads (residence_id, conversation_id, user_id, last_read_at)
+SELECT residence_id, conversation_id, author_id, max(created_at) FROM messages GROUP BY 1, 2, 3
+ON CONFLICT (conversation_id, user_id) DO NOTHING;
+
+-- Comptes fictifs « anciens » : ils datent d'avant les messages et annonces
+-- de démonstration (une annonce antérieure à l'arrivée d'un employé ne lui
+-- est pas demandée).
+UPDATE users SET created_at = now() - interval '1 year'
+WHERE residence_id = '00000000-0000-4000-8000-000000000001';
+
 -- L'auteur de chaque note l'a lue (comme l'API à la création d'une note)
 INSERT INTO note_reads (residence_id, note_id, user_id, read_at)
 SELECT residence_id, id, author_id, created_at FROM notes

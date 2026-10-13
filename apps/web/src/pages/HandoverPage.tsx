@@ -5,13 +5,13 @@
 // « J'ai pris connaissance » confirme la lecture des notes ordinaires.
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { useAcknowledgeHandover, useHandover } from '../api/hooks';
+import { useAckAnnouncement, useAcknowledgeHandover, useHandover, useMessagingSummary } from '../api/hooks';
 import { useUser } from '../auth/session';
 import { AppointmentItem } from '../components/Appointments';
 import { FollowUpItem } from '../components/FollowUps';
 import { NoteCard } from '../components/NoteCard';
 import { Badge, Button, EmptyState, ErrorMessage, Loading, PageHeader } from '../components/ui';
-import { formatWhen } from '../lib/format';
+import { formatWhen, fullName } from '../lib/format';
 
 export function HandoverPage() {
   const user = useUser();
@@ -56,6 +56,8 @@ export function HandoverPage() {
           {h.followUps.length} suivi{h.followUps.length > 1 ? 's' : ''} à faire
         </Badge>
       </div>
+
+      <AnnouncementsToConfirm />
 
       {priority.length > 0 && (
         <section className="mb-8">
@@ -111,5 +113,33 @@ export function HandoverPage() {
         <ErrorMessage error={ack.error} />
       </div>
     </>
+  );
+}
+
+// Annonces de la messagerie pas encore confirmées : en tête de la relève
+function AnnouncementsToConfirm() {
+  const summary = useMessagingSummary();
+  const ack = useAckAnnouncement();
+  const pending = summary.data?.announcements ?? [];
+  if (pending.length === 0) return null;
+  return (
+    <section className="mb-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-priority">Annonces à confirmer</h2>
+        <Link to={`/messages/${pending[0]!.conversationId}`} className="text-sm text-primary hover:underline">Annonces →</Link>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {pending.map((m) => (
+          <li key={m.id} className="rounded-xl border border-l-4 border-priority/60 bg-surface p-4">
+            <p className="mb-1 text-sm"><span className="font-semibold">{fullName(m.author)}</span> <span className="text-muted">{formatWhen(m.createdAt)}</span></p>
+            <p className="whitespace-pre-wrap break-words">{m.body}</p>
+            <Button variant="primary" className="mt-3 min-h-9" busy={ack.isPending && ack.variables === m.id} onClick={() => ack.mutate(m.id)}>
+              J'ai lu cette annonce
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <ErrorMessage error={ack.error} />
+    </section>
   );
 }

@@ -13,6 +13,7 @@ import categoryRoutes from './routes/categories.js';
 import followUpRoutes from './routes/follow-ups.js';
 import handoverRoutes from './routes/handover.js';
 import healthRoutes from './routes/health.js';
+import messageRoutes from './routes/messages.js';
 import noteRoutes from './routes/notes.js';
 import passwordRoutes from './routes/password.js';
 import residentRoutes from './routes/residents.js';
@@ -85,6 +86,7 @@ export async function buildApp(config: Config, db: Database, mailer: Mailer = sm
   await app.register(residentRoutes);
   await app.register(handoverRoutes);
   await app.register(staffRoutes);
+  await app.register(messageRoutes);
   await app.register(userRoutes);
   await app.register(passwordRoutes);
   await app.register(auditRoutes);

@@ -231,6 +231,34 @@ Aucune suppression de résident.
 
 Qui a consulté un dossier : `GET /audit?entity=resident&entityId=<id>&action=view`.
 
+## Messagerie interne
+
+Quatre sortes de conversations : **privée** (deux employés, une seule par paire), **groupe** (titre, on y ajoute des collègues, on le quitte), **équipe** (tous les employés actifs) et **annonces** (seules l'infirmière et la responsable publient ; chacun confirme sa lecture). Texte seulement, 4 000 caractères au plus. Quasi en direct : l'interface relit la liste toutes les 15 s et le fil ouvert toutes les 5 s.
+
+| Route | Rôle |
+| --- | --- |
+| `GET /conversations` | Mes conversations, la plus récente d'abord : titre, membres, dernier message, `unreadCount`, `pendingAcks` (annonces à confirmer), `canPost` |
+| `GET /messaging/summary` | `{ unread, announcements }` : total des non-lus et annonces que je n'ai pas confirmées (navigation, relève) |
+| `POST /conversations` | `{ kind: "direct", userId }` (retrouve la conversation existante : 200) ou `{ kind: "group", title, memberIds }` |
+| `GET /conversations/:id` | Une conversation (404 si je n'en suis pas membre) |
+| `PATCH /conversations/:id` | Groupe : `{ title }` |
+| `POST /conversations/:id/members` | Groupe : `{ userIds }` (un ancien membre peut revenir) |
+| `POST /conversations/:id/leave` | Quitter un groupe |
+| `GET /conversations/:id/messages` | Les plus récents (`limit`, 50), du plus ancien au plus récent ; `before` = `nextCursor` pour remonter le fil |
+| `POST /conversations/:id/messages` | `{ body }`. Annonces : infirmière et responsable seulement (403). Écrire marque la conversation lue |
+| `POST /conversations/:id/read` | Lue jusqu'à maintenant |
+| `PATCH /messages/:id` | L'auteur, pendant 15 min : `{ body }` ; l'ancien texte est conservé (`message_versions`) |
+| `POST /messages/:id/retract` | L'auteur, pendant 15 min : le message n'est plus montré (« Message retiré »), mais il est conservé |
+| `POST /messages/:id/ack` | Annonce : confirmer sa lecture (idempotent) |
+| `GET /messages/:id/acks` | Infirmière, responsable : qui a confirmé, qui manque (employés actifs) |
+| `GET /admin/conversations` | Responsable : conversations privées et de groupe, **sans leur contenu** (membres, nombre de messages) |
+| `POST /admin/conversations/:id/consult` | Responsable : `{ reason }` (10 caractères minimum) → tous les messages, retirés et versions corrigées compris. Inscrit au journal d'audit (`consult`, avec le motif) |
+
+- Rien n'est supprimé (`app_user` n'a pas de DELETE). `app_readonly` n'a **aucun** accès à la messagerie (échanges privés).
+- Non-lus : à partir de « lu jusqu'à » (`conversation_reads`), sinon de l'arrivée dans le groupe, sinon de la création du compte. Une annonce publiée avant l'arrivée d'un employé ne lui est pas demandée.
+- Journal d'audit : création de conversation, ajout de membres, départ d'un groupe, correction et retrait d'un message, consultation. Les messages eux-mêmes ne sont pas recopiés dans le journal.
+- Isolation : une conversation d'une autre résidence répond 404 ; les canaux Équipe et Annonces d'une nouvelle résidence sont créés au premier usage.
+
 ## Comptes des employés et mot de passe
 
 Personne d'autre que l'employé ne connaît son mot de passe : la responsable l'invite, il le choisit lui-même à partir d'un lien reçu par courriel.
