@@ -92,16 +92,24 @@ describe('consignes prioritaires et suivis', () => {
   it('consigne prioritaire : avis aux employés en quart, sans le nom du résident', async () => {
     const fatou = await subscribe('prepose2');
     // Fatou est en quart maintenant (une heure avant, une heure après)
-    const type = await app.db.selectFrom('shift_types').select('id').where('residence_id', '=', RESIDENCE_A).executeTakeFirstOrThrow();
-    await sql`
+    // Un quart type où Fatou n'a pas déjà de quart ce jour-là (un seul quart
+    // par type et par jour ; l'horaire de démonstration lui donne « Jour »)
+    const inserted = await sql`
       INSERT INTO shifts (residence_id, user_id, shift_type_id, work_date, start_time, end_time, created_by)
-      SELECT r.id, ${ids.userId('prepose2')}::uuid, ${type.id}::uuid,
-             ((now() AT TIME ZONE r.timezone) - interval '1 hour')::date,
+      SELECT r.id, ${ids.userId('prepose2')}::uuid, t.id, d.day,
              ((now() AT TIME ZONE r.timezone) - interval '1 hour')::time,
              ((now() AT TIME ZONE r.timezone) + interval '1 hour')::time,
              ${ids.userId('responsable')}::uuid
-      FROM residences r WHERE r.id = ${RESIDENCE_A}::uuid
-      ON CONFLICT DO NOTHING`.execute(app.db);
+      FROM residences r
+      CROSS JOIN LATERAL (SELECT ((now() AT TIME ZONE r.timezone) - interval '1 hour')::date AS day) d
+      CROSS JOIN LATERAL (
+        SELECT st.id FROM shift_types st
+        WHERE st.residence_id = r.id AND NOT EXISTS (
+          SELECT 1 FROM shifts s WHERE s.user_id = ${ids.userId('prepose2')}::uuid AND s.work_date = d.day
+            AND s.shift_type_id = st.id AND s.cancelled_at IS NULL)
+        ORDER BY st.sort_order LIMIT 1) t
+      WHERE r.id = ${RESIDENCE_A}::uuid`.execute(app.db);
+    expect(Number(inserted.numAffectedRows)).toBe(1);
 
     const res = await call('infirmiere', 'POST', '/notes', {
       occurredAt: new Date().toISOString(), categoryId: ids.categoryId, residentId: ids.residentId,
