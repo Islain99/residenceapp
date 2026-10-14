@@ -28,6 +28,9 @@ const ACTIONS: Record<string, string> = {
   retract: 'a retiré',
   add_members: 'a ajouté des membres à',
   leave: 'a quitté',
+  mfa_enabled: 'a activé la double authentification',
+  mfa_backup_codes: 'a généré de nouveaux codes de secours',
+  mfa_reset: 'a réinitialisé la double authentification de',
 };
 
 const ENTITY_NAMES: Record<string, string> = {
@@ -48,6 +51,7 @@ const REASONS: Record<string, string> = {
   inactive: 'compte désactivé',
   not_activated: 'invitation non acceptée',
   locked: 'compte bloqué',
+  bad_mfa_code: 'mauvais code de double authentification',
 };
 
 // Pages consultées pendant un accès d'assistance
@@ -72,7 +76,7 @@ const ROUTES: Record<string, string> = {
 };
 
 const SELF_ACTIONS = ['login', 'logout', 'login_failed', 'refresh_reuse', 'account_activated',
-  'password_reset', 'password_reset_requested', 'handover'];
+  'password_reset', 'password_reset_requested', 'handover', 'mfa_enabled', 'mfa_backup_codes'];
 
 export function describeAudit(entry: AuditEntry): string {
   const d = entry.details ?? {};
@@ -95,7 +99,7 @@ export function describeAudit(entry: AuditEntry): string {
     return reason ? `${action} (${reason})${locked}` : action;
   }
   if (entry.entity === 'user' && entry.target) {
-    const object = ['revoke_sessions', 'reset_link'].includes(entry.action) ? '' : 'le compte de ';
+    const object = ['revoke_sessions', 'reset_link', 'mfa_reset'].includes(entry.action) ? '' : 'le compte de ';
     return `${action} ${object}${fullName(entry.target)}`;
   }
   const reason = entry.entity === 'residence' && typeof d.reason === 'string' ? ` — motif : ${d.reason}` : '';

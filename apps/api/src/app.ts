@@ -6,6 +6,7 @@ import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
 import { smtpMailer, type Mailer } from './lib/mailer.js';
+import { Notifier, webPushSender, type PushSender } from './lib/notifier.js';
 import agendaRoutes from './routes/agenda.js';
 import assistanceRoutes from './routes/assistance.js';
 import auditRoutes from './routes/audit.js';
@@ -18,6 +19,7 @@ import messageRoutes from './routes/messages.js';
 import noteRoutes from './routes/notes.js';
 import passwordRoutes from './routes/password.js';
 import platformRoutes from './routes/platform.js';
+import pushRoutes from './routes/push.js';
 import residentRoutes from './routes/residents.js';
 import scheduleRoutes from './routes/schedule.js';
 import staffRoutes from './routes/staff.js';
@@ -29,10 +31,16 @@ declare module 'fastify' {
     db: Database;
     config: Config;
     mailer: Mailer;
+    notifier: Notifier;
   }
 }
 
-export async function buildApp(config: Config, db: Database, mailer: Mailer = smtpMailer(config.SMTP_URL, config.MAIL_FROM)) {
+export async function buildApp(
+  config: Config,
+  db: Database,
+  mailer: Mailer = smtpMailer(config.SMTP_URL, config.MAIL_FROM),
+  pushSender: PushSender | null = webPushSender(config),
+) {
   const app = Fastify({
     // Les N proxys les plus proches sont de confiance (même règle que « trust proxy = N »)
     trustProxy: config.TRUST_PROXY > 0 ? (_address: string, hop: number) => hop < config.TRUST_PROXY : false,
@@ -45,7 +53,23 @@ export async function buildApp(config: Config, db: Database, mailer: Mailer = sm
   app.decorate('db', db);
   app.decorate('config', config);
   app.decorate('mailer', mailer);
-  app.addHook('onClose', async () => { await db.destroy(); });
+  app.decorate('notifier', new Notifier(db, pushSender, app.log));
+
+  // Rappels d'échéance des suivis (pas pendant les tests : ils l'appellent eux-mêmes)
+  let reminders: NodeJS.Timeout | undefined;
+  if (pushSender && config.PUSH_REMINDER_INTERVAL_SECONDS > 0 && config.NODE_ENV !== 'test') {
+    app.addHook('onReady', async () => {
+      reminders = setInterval(() => {
+        app.notifier.sendDueReminders().catch((err: unknown) => app.log.error({ err }, 'rappels de suivis'));
+      }, config.PUSH_REMINDER_INTERVAL_SECONDS * 1000);
+      reminders.unref();
+    });
+  }
+  app.addHook('onClose', async () => {
+    clearInterval(reminders);
+    await app.notifier.flush();
+    await db.destroy();
+  });
 
   await app.register(jwt, {
     secret: config.JWT_SECRET,
@@ -114,6 +138,7 @@ export async function buildApp(config: Config, db: Database, mailer: Mailer = sm
   await app.register(statsRoutes);
   await app.register(assistanceRoutes);
   await app.register(platformRoutes);
+  await app.register(pushRoutes);
 
   return app;
 }

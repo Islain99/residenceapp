@@ -17,6 +17,7 @@ const DONE: Record<PlatformAccountAction, (a: PlatformAccount) => string> = {
   'reset-password': (a) => `Lien de réinitialisation envoyé à ${a.email} (valable 1 heure).`,
   unlock: (a) => `Compte de ${fullName(a)} débloqué.`,
   'revoke-sessions': (a) => `Toutes les sessions de ${fullName(a)} sont fermées.`,
+  'reset-mfa': (a) => `Double authentification réinitialisée : ${fullName(a)} la reconfigurera à sa prochaine connexion.`,
 };
 
 // Compte géré par la plateforme (responsable ou administrateur)
@@ -38,6 +39,9 @@ export function PlatformAccountRow({ account, onNotice }: { account: PlatformAcc
             {fullName(account)}{self && <span className="text-sm font-normal text-muted">(vous)</span>}
             <Badge tone={status.tone}>{status.label}</Badge>
             {account.lockedUntil && <Badge tone="danger">Bloqué jusqu’à {formatWhen(account.lockedUntil)}</Badge>}
+            {account.status === 'active' && (account.mfaEnabled
+              ? <Badge tone="info">Double authentification</Badge>
+              : <Badge tone="priority">Double authentification à configurer</Badge>)}
           </p>
           <p className="truncate text-sm text-muted">{account.email}</p>
           <p className="text-xs text-muted">
@@ -53,6 +57,11 @@ export function PlatformAccountRow({ account, onNotice }: { account: PlatformAcc
           {account.status === 'invited' && <Button busy={action.isPending} onClick={() => run('invite')}>Renvoyer l’invitation</Button>}
           {account.status === 'active' && (
             <Button busy={action.isPending} onClick={() => run('reset-password')}>Envoyer un lien de mot de passe</Button>
+          )}
+          {account.mfaEnabled && !self && (
+            <Button variant="ghost" busy={action.isPending} onClick={() => {
+              if (window.confirm(`Réinitialiser la double authentification de ${fullName(account)} (téléphone perdu, codes de secours perdus) ? Ses sessions seront fermées ; elle la reconfigurera à sa prochaine connexion.`)) run('reset-mfa');
+            }}>Réinitialiser la double authentification</Button>
           )}
           {account.status === 'active' && !self && (
             <Button variant="ghost" busy={action.isPending} onClick={() => {

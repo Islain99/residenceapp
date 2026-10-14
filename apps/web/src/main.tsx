@@ -24,9 +24,10 @@ const queryClient = new QueryClient({
   },
 });
 
-// PWA : installable sur téléphone et tablette. En production seulement
-// (en développement, un cache gênerait le rechargement à chaud).
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+// PWA : installable sur téléphone et tablette, notifications push.
+// Aussi en développement (le cache ne concerne que /assets/ et les icônes,
+// que Vite ne sert pas en développement).
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });

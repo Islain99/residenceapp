@@ -33,6 +33,18 @@ const ConfigSchema = Type.Object({
   // Serveur d'envoi des courriels. Développement : Mailpit (database/docker-compose.yml)
   SMTP_URL: Type.String({ default: 'smtp://127.0.0.1:1025' }),
   MAIL_FROM: Type.String({ default: 'Journal de bord <no-reply@residence.local>' }),
+  // Double authentification : clé de chiffrement des secrets TOTP (32 caractères
+  // minimum). Absente : dérivée de JWT_SECRET — changer JWT_SECRET obligerait
+  // alors chaque responsable à reconfigurer son application. À définir en production.
+  MFA_ENCRYPTION_KEY: Type.Optional(Type.String({ minLength: 32 })),
+  MFA_ISSUER: Type.String({ default: 'Journal de bord' }),   // nom affiché dans l'application d'authentification
+  // Notifications push (Web Push). Clés : npx web-push generate-vapid-keys.
+  // Absentes : notifications désactivées (l'interface ne propose pas de les activer).
+  VAPID_PUBLIC_KEY: Type.Optional(Type.String({ minLength: 20 })),
+  VAPID_PRIVATE_KEY: Type.Optional(Type.String({ minLength: 20 })),
+  VAPID_SUBJECT: Type.String({ default: 'mailto:no-reply@residence.local' }),
+  // Rappels d'échéance des suivis : vérification toutes les N secondes (0 : jamais)
+  PUSH_REMINDER_INTERVAL_SECONDS: Type.Integer({ minimum: 0, default: 300 }),
 });
 
 export type Config = Static<typeof ConfigSchema>;

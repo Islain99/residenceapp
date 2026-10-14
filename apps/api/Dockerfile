@@ -21,7 +21,7 @@ WORKDIR /app/apps/api
 COPY --from=build /app/apps/api/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./dist
 COPY apps/api/package.json ./
-COPY apps/api/scripts/db-setup.mjs ./scripts/db-setup.mjs
+COPY apps/api/scripts/db-setup.mjs apps/api/scripts/mfa-reset.mjs ./scripts/
 COPY database/migrations /app/database/migrations
 COPY database/seed /app/database/seed
 USER node

@@ -183,7 +183,8 @@ database/
 │   ├── 0007_horaires.sql          # horaires : quarts types et quarts du personnel
 │   ├── 0008_note_reads_logic.sql  # lectures : auteur, corrections de fond (à relire)
 │   ├── 0009_messaging.sql         # messagerie : conversations, messages, lectures, annonces
-│   └── 0010_platform.sql          # plateforme : accès d'assistance, index du journal
+│   ├── 0010_platform.sql          # plateforme : accès d'assistance, index du journal
+│   └── 0011_security_push.sql     # sessions (délai de grâce), double authentification, notifications
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

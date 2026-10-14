@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { App } from '../src/app.js';
-import { bearer, buildTestApp, caller, loginAll, outbox, PASSWORD, tokenFromMail } from './helpers.js';
+import { bearer, buildTestApp, caller, loginAll, outbox, PASSWORD, passwordLogin, tokenFromMail } from './helpers.js';
 
 let app: App;
 let call: ReturnType<typeof caller>;
@@ -166,7 +166,7 @@ describe('mot de passe oublié', () => {
 describe('autre résidence', () => {
   it('la responsable ne voit que les comptes de sa résidence', async () => {
     const list = (await app.inject({ method: 'GET', url: '/users', headers: bearer(
-      (await login('responsable@exemple.test', PASSWORD)).json().accessToken) })).json();
+      (await passwordLogin(app, 'responsable@exemple.test', PASSWORD)).json().accessToken) })).json();
     expect(list.some((u: { email: string }) => u.email === 'prepose-b@exemple.test')).toBe(false);
     expect(list.some((u: { email: string }) => u.email === 'admin@exemple.test')).toBe(false);
   });

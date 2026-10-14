@@ -114,6 +114,7 @@ export interface FollowUps {
   created_by: string | null;
   description: string;
   due_at: Timestamp | null;
+  due_notified_at: Timestamp | null;
   id: Generated<string>;
   note_id: string;
   residence_id: string;
@@ -150,6 +151,15 @@ export interface MessageVersions {
   message_id: string;
   previous_body: string;
   residence_id: string;
+}
+
+export interface MfaBackupCodes {
+  code_hash: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  revoked_at: Timestamp | null;
+  used_at: Timestamp | null;
+  user_id: string;
 }
 
 export interface NoteCategories {
@@ -197,11 +207,34 @@ export interface NoteVersions {
   residence_id: string;
 }
 
+export interface NotificationPreferences {
+  announcements: Generated<boolean>;
+  follow_ups: Generated<boolean>;
+  messages: Generated<boolean>;
+  priority_notes: Generated<boolean>;
+  updated_at: Generated<Timestamp>;
+  user_id: string;
+}
+
+export interface PushSubscriptions {
+  auth: string;
+  created_at: Generated<Timestamp>;
+  disabled_at: Timestamp | null;
+  endpoint: string;
+  failures: Generated<number>;
+  id: Generated<string>;
+  last_sent_at: Timestamp | null;
+  p256dh: string;
+  user_agent: string | null;
+  user_id: string;
+}
+
 export interface RefreshTokens {
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
   id: Generated<string>;
   revoked_at: Timestamp | null;
+  rotated_at: Timestamp | null;
   shared_device: Generated<boolean>;
   token_hash: string;
   user_agent: string | null;
@@ -271,6 +304,9 @@ export interface Users {
   last_login_at: Timestamp | null;
   last_name: string;
   locked_until: Timestamp | null;
+  mfa_enabled_at: Timestamp | null;
+  mfa_last_step: Int8 | null;
+  mfa_secret: string | null;
   password_hash: string | null;
   residence_id: string | null;
   role: string;
@@ -290,10 +326,13 @@ export interface DB {
   message_acks: MessageAcks;
   message_versions: MessageVersions;
   messages: Messages;
+  mfa_backup_codes: MfaBackupCodes;
   note_categories: NoteCategories;
   note_reads: NoteReads;
   note_versions: NoteVersions;
   notes: Notes;
+  notification_preferences: NotificationPreferences;
+  push_subscriptions: PushSubscriptions;
   refresh_tokens: RefreshTokens;
   residences: Residences;
   residents: Residents;

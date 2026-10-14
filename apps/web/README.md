@@ -52,6 +52,10 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 
 **Accès d'assistance** : la responsable l'accorde dans Administration › Assistance (durée, motif ; retrait à tout moment ; historique avec le nombre de pages consultées). L'admin clique « Consulter (lecture seule) » : il voit la résidence comme la responsable, sous un bandeau orange (« Revenir à la plateforme », « Terminer l'accès »), sans la messagerie ; toute tentative de modification est refusée et signalée dans le bandeau. Le jeton d'assistance reste en mémoire : recharger la page ramène à la plateforme.
 
+**Double authentification** (responsables, admins) : après le mot de passe, code à 6 chiffres de l'application d'authentification (ou code de secours). Première fois : code QR (ou clé à saisir), confirmation, puis 10 codes de secours à noter (copier, télécharger, imprimer) avant d'entrer.
+
+**Mon compte** (`/compte`, ou le nom en haut ; « Plus » sur téléphone) : notifications de cet appareil (activer, essai, choix des avis) et double authentification (codes de secours restants, nouvelle série). Une invitation à activer les notifications apparaît une fois dans la relève. Pas de notifications sur un appareil partagé ; sur iPhone/iPad, seulement une fois l'application ajoutée à l'écran d'accueil. Une déconnexion volontaire désabonne l'appareil. Le service worker (`public/sw.js`) affiche les notifications et ouvre la bonne page au toucher ; il est aussi enregistré en développement.
+
 L'interface masque les actions non permises (ex. « Corriger » après 24 h pour un préposé), mais c'est l'API qui fait foi.
 
 ## Session

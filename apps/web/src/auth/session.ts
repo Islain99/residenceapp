@@ -1,6 +1,6 @@
 // Accès à la session (fournie par AuthProvider) et règles liées aux rôles.
 import { createContext, useContext } from 'react';
-import type { Role, User } from '../api/types';
+import type { MfaChallenge, MfaSetup, Role, User } from '../api/types';
 
 // Admin plateforme en consultation d'une résidence (accès accordé par sa responsable)
 export interface AssistanceState {
@@ -21,7 +21,14 @@ export interface AuthState {
   ready: boolean;                 // restauration de session terminée
   sharedDevice: boolean;          // appareil partagé : déconnexion après inactivité
   notice: string | null;          // raison de la dernière déconnexion, affichée à la connexion
-  login: (email: string, password: string, sharedDevice: boolean) => Promise<void>;
+  // Préposé, infirmière : connecté tout de suite (null). Responsable, admin :
+  // deuxième étape (code de l'application d'authentification, ou première configuration)
+  login: (email: string, password: string, sharedDevice: boolean) => Promise<MfaChallenge | null>;
+  verifyMfa: (mfaToken: string, code: string) => Promise<void>;
+  setupMfa: (mfaToken: string) => Promise<MfaSetup>;
+  // Active la double authentification ; la session ne s'ouvre qu'avec finish(),
+  // une fois les codes de secours notés
+  enableMfa: (mfaToken: string, code: string) => Promise<{ backupCodes: string[]; finish: () => void }>;
   logout: (notice?: string) => Promise<void>;
 }
 

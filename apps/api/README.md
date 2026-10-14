@@ -66,7 +66,13 @@ SMTP_URL=<SMTP du fournisseur de courriels>
 MAIL_FROM=Journal de bord <no-reply@<domaine>>
 SEED_DEMO=true
 SEED_PASSWORD=<mot de passe des comptes fictifs, 12 caractères min.>
+MFA_ENCRYPTION_KEY=<64 caractères hexadécimaux, encore différent>
+VAPID_PUBLIC_KEY=<npx web-push generate-vapid-keys>
+VAPID_PRIVATE_KEY=<idem>
+VAPID_SUBJECT=mailto:<adresse de contact>
 ```
+
+`MFA_ENCRYPTION_KEY` chiffre les secrets de double authentification ; sans elle, la clé est dérivée de `JWT_SECRET` (changer `JWT_SECRET` obligerait alors chaque responsable à reconfigurer son application). Ne plus la changer une fois des comptes configurés. Sans clés VAPID, les notifications push sont simplement désactivées.
 
 `PORT` est fourni par Railway. `HOST=::` : l'API écoute en IPv6 et en IPv4 ; avec `0.0.0.0` (IPv4 seulement), le test de santé de Railway échoue. Sans `SMTP_URL` valide, les comptes fictifs fonctionnent, mais inviter un employé ou « mot de passe oublié » échouent (aucun courriel ne part) : prévoir un service d'envoi (ex. Resend, Brevo, Amazon SES) avant d'inviter de vraies personnes. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
 
@@ -97,7 +103,12 @@ Mêmes commandes : `npm run db:setup` (`DATABASE_ADMIN_URL` = compte maître RDS
 
 | Route | Corps | Réponse |
 | --- | --- | --- |
-| `POST /auth/login` | `{ email, password, session?, sharedDevice? }` | `{ accessToken, refreshToken, expiresIn, user }` |
+| `POST /auth/login` | `{ email, password, session?, sharedDevice? }` | `{ accessToken, refreshToken, expiresIn, user }` ; responsable et admin : `{ mfa: "required" \| "setup", mfaToken, expiresIn }` |
+| `POST /auth/mfa/verify` | `{ mfaToken, code }` (6 chiffres ou code de secours) | comme `/auth/login`, + `backupCodesRemaining` |
+| `POST /auth/mfa/setup` | `{ mfaToken }` (première fois) | `{ secret, otpauthUrl, qrSvg }` |
+| `POST /auth/mfa/enable` | `{ mfaToken, code }` | comme `/auth/login`, + `backupCodes` (10, affichés une seule fois) |
+| `GET /auth/mfa` | — | `{ required, enabled, enabledAt, backupCodesRemaining }` |
+| `POST /auth/mfa/backup-codes` | `{ code }` (6 chiffres) | `{ backupCodes }` : nouvelle série, l'ancienne ne vaut plus rien |
 | `POST /auth/refresh` | `{ refreshToken }` (ou `{}` + cookie) | `{ accessToken, refreshToken, expiresIn }` |
 | `POST /auth/logout` | `{ refreshToken }` (ou `{}` + cookie) | 204 |
 | `GET /staff` | — | Employés actifs de ma résidence (`id`, nom, rôle), pour assigner un suivi |
@@ -106,13 +117,36 @@ Mêmes commandes : `npm run db:setup` (`DATABASE_ADMIN_URL` = compte maître RDS
 
 - **Mots de passe** : Argon2id. Un courriel inconnu, un mauvais mot de passe ou un compte désactivé donnent la même réponse 401, dans le même temps.
 - **Jeton d'accès** : JWT HS256 de 15 min, contient `sub` (utilisateur), `rid` (résidence) et `role`. Sans jeton ou jeton invalide : 401 `unauthorized` ; jeton expiré : 401 `token_expired` (le client appelle alors `/auth/refresh`).
-- **Jeton de rafraîchissement** : 12 h (`REFRESH_TOKEN_TTL_HOURS`), à usage unique (remplacé à chaque `/auth/refresh`), stocké haché. Un jeton déjà utilisé présenté de nouveau révoque toutes les sessions de l'utilisateur (vol probable).
+- **Jeton de rafraîchissement** : 12 h (`REFRESH_TOKEN_TTL_HOURS`), à usage unique (remplacé à chaque `/auth/refresh`), stocké haché. Un jeton déjà utilisé présenté de nouveau révoque toutes les sessions de l'utilisateur (vol probable). Exception : un jeton remplacé il y a moins de 30 s (deux rechargements rapprochés, réponse perdue en route) redonne simplement une session (`refresh_tokens.rotated_at`).
+- **Double authentification** (responsables, admins — obligatoire) : après le bon mot de passe, l'API ne remet qu'un jeton d'étape 2 (10 min, n'ouvre aucune route). Code TOTP à 6 chiffres (RFC 6238 : Google Authenticator, Microsoft Authenticator…), un pas de 30 s de tolérance, jamais deux fois le même code ; ou un des 10 codes de secours (hachés, usage unique). Les mauvais codes comptent dans le blocage du compte (5 essais). Le secret est chiffré en base (AES-256-GCM). Première connexion : code QR, confirmation, codes de secours. Un employé nommé responsable doit se reconnecter et la configurer. Téléphone et codes perdus : un admin la réinitialise (`POST /platform/users/:id/reset-mfa`) ; pour le dernier admin, `npm run mfa:reset -- <courriel>` sur le serveur.
 - **Mode cookie (navigateur)** : `session: "cookie"` à la connexion → le jeton de rafraîchissement est posé dans un cookie `httpOnly`, `SameSite=Strict` (`Secure` en production) et n'apparaît pas dans la réponse ; `/auth/refresh` et `/auth/logout` le lisent dans le cookie. Le site doit être servi sur la même origine que l'API (proxy `/api`). Sans `session` (mode `token`, application mobile) : jeton dans le corps, comme avant.
 - **Appareil partagé** : `sharedDevice: true` à la connexion → le cookie est un cookie de session (effacé à la fermeture du navigateur), y compris après chaque `/auth/refresh`.
 - **Blocage par compte** : 5 mauvais mots de passe d'affilée (`LOGIN_MAX_ATTEMPTS`) bloquent le compte 15 min (`LOGIN_LOCK_MINUTES`), quelle que soit l'adresse IP : 429 `account_locked`, même avec le bon mot de passe. Une connexion réussie ou un nouveau mot de passe (lien « mot de passe oublié ») remet le compteur à zéro. Un courriel inconnu ne bloque rien et répond toujours 401. Seul effet visible de l'extérieur : après 5 essais, un compte existant répond 429 au lieu de 401.
 - **Limite par adresse IP** : 30 requêtes de connexion par minute (`LOGIN_RATE_LIMIT_MAX`, 429 `too_many_requests`). Large exprès : tout le personnel d'une résidence passe souvent par le même Wi-Fi.
 - **Compte relu à chaque requête** : un compte désactivé perd l'accès immédiatement (401 `inactive_account`), sans attendre la fin du jeton d'accès ; un changement de rôle s'applique aussi tout de suite.
-- **Audit** : `login`, `login_failed` (avec le motif : `bad_password`, `locked`…), `logout`, `refresh_reuse` dans `audit_log`.
+- **Audit** : `login` (avec `mfa` : `totp`, `backup`, `setup`), `login_failed` (avec le motif : `bad_password`, `bad_mfa_code`, `locked`…), `logout`, `refresh_reuse`, `mfa_enabled`, `mfa_backup_codes`, `mfa_reset` dans `audit_log`.
+
+## Notifications push
+
+Web Push (service worker de l'interface), si les clés VAPID sont configurées. **Aucun contenu** dans une notification (elle s'affiche sur l'écran verrouillé) : le type d'événement et l'auteur seulement, jamais le nom d'un résident ni le texte d'une note ou d'un message.
+
+| Événement | Qui reçoit | Exemple |
+| --- | --- | --- |
+| Message privé, de groupe ou d'équipe | Membres, sauf l'auteur | « Message de Marc T. » |
+| Annonce | Toute l'équipe active | « Annonce de Sophie G. » |
+| Consigne prioritaire (créée, ou note devenue prioritaire) | Employés en quart selon l'horaire (30 min avant le début jusqu'à la fin) ; sans horaire ce jour-là : toute l'équipe | « Consigne prioritaire » |
+| Suivi confié à quelqu'un d'autre | La personne assignée | « Suivi assigné » |
+| Échéance d'un suivi (dans les 30 min) | La personne assignée, sinon l'équipe en quart ; une fois (une nouvelle échéance relance un rappel) | « Suivi à échéance » |
+
+| Route | Rôle |
+| --- | --- |
+| `GET /push/config` | `{ enabled, publicKey }` |
+| `POST /push/subscriptions` | `{ endpoint, keys: { p256dh, auth } }` : abonner cet appareil. Seuls les services des navigateurs sont acceptés (FCM, Mozilla, Microsoft, Apple) |
+| `POST /push/subscriptions/unsubscribe` | `{ endpoint }` (l'interface l'appelle aussi à la déconnexion) |
+| `GET /push/preferences` · `PATCH /push/preferences` | `messages`, `announcements`, `priorityNotes`, `followUps` (tous activés par défaut) ; `devices` |
+| `POST /push/test` | Notification d'essai sur mes appareils |
+
+L'envoi se fait après la réponse (une notification qui échoue ne fait pas échouer l'action). Abonnement expiré (404/410) : désactivé ; 5 échecs de suite : désactivé. Rappels d'échéance vérifiés toutes les 5 min (`PUSH_REMINDER_INTERVAL_SECONDS`), sans double envoi même avec plusieurs instances de l'API.
 
 ## Journal de bord
 

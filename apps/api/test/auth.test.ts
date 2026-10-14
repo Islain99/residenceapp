@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { App } from '../src/app.js';
 import { requireRole } from '../src/auth.js';
-import { buildTestApp, PASSWORD } from './helpers.js';
+import { buildTestApp, PASSWORD, passwordLogin } from './helpers.js';
 
 let app: App;
 
@@ -17,6 +17,11 @@ afterAll(async () => { await app.close(); });
 
 const login = (email: string, password = PASSWORD) =>
   app.inject({ method: 'POST', url: '/auth/login', payload: { email, password } });
+// Connexion complète (code de double authentification compris pour une responsable)
+const fullLogin = (email: string) => passwordLogin(app, email, PASSWORD);
+// Le jeton remplacé sort du délai de grâce (rechargements rapprochés)
+const ageRotation = () => app.db.updateTable('refresh_tokens')
+  .set({ rotated_at: new Date(Date.now() - 60_000) }).where('rotated_at', 'is not', null).execute();
 const refresh = (refreshToken: string) =>
   app.inject({ method: 'POST', url: '/auth/refresh', payload: { refreshToken } });
 
@@ -30,13 +35,13 @@ describe('santé', () => {
 
 describe('connexion', () => {
   it('renvoie les jetons et le profil', async () => {
-    const res = await login('responsable@exemple.test');
+    const res = await login('prepose1@exemple.test');
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.accessToken).toBeTypeOf('string');
     expect(body.refreshToken).toBeTypeOf('string');
     expect(body.expiresIn).toBe(15 * 60);
-    expect(body.user).toMatchObject({ email: 'responsable@exemple.test', role: 'responsable', firstName: 'Sophie' });
+    expect(body.user).toMatchObject({ email: 'prepose1@exemple.test', role: 'prepose', firstName: 'Marc' });
     expect(body.user).not.toHaveProperty('passwordHash');
   });
 
@@ -112,7 +117,7 @@ describe('jeton d’accès et rôles', () => {
 
   it('requireRole : 403 pour un préposé, 200 pour une responsable', async () => {
     const prepose = (await login('prepose1@exemple.test')).json().accessToken;
-    const responsable = (await login('responsable@exemple.test')).json().accessToken;
+    const responsable = (await fullLogin('responsable@exemple.test')).json().accessToken;
     const call = (t: string) => app.inject({ method: 'GET', url: '/test/responsable', headers: { authorization: `Bearer ${t}` } });
     expect((await call(prepose)).statusCode).toBe(403);
     expect((await call(responsable)).statusCode).toBe(200);
@@ -131,9 +136,23 @@ describe('rafraîchissement et déconnexion', () => {
   it('réutilisation d’un ancien jeton : toutes les sessions sont révoquées', async () => {
     const stolen = (await login('prepose3@exemple.test')).json().refreshToken;
     const current = (await refresh(stolen)).json().refreshToken;
+    await ageRotation();
 
     expect((await refresh(stolen)).statusCode).toBe(401);   // réutilisation détectée
     expect((await refresh(current)).statusCode).toBe(401);  // session légitime coupée aussi
+  });
+
+  it('rechargements rapprochés : l’ancien jeton, juste remplacé, redonne une session sans alerte', async () => {
+    const first = (await login('prepose4@exemple.test')).json().refreshToken;
+    const second = (await refresh(first)).json().refreshToken;   // réponse « perdue » (page rechargée)
+    const again = await refresh(first);                           // le navigateur présente encore l'ancien
+    expect(again.statusCode).toBe(200);
+    expect((await refresh(again.json().refreshToken)).statusCode).toBe(200);
+    expect((await refresh(second)).statusCode).toBe(200);         // rien n'a été révoqué
+    const alert = await app.db.selectFrom('audit_log as l').innerJoin('users as u', 'u.id', 'l.entity_id')
+      .select('l.id').where('l.action', '=', 'refresh_reuse').where('u.email', '=', 'prepose4@exemple.test')
+      .executeTakeFirst();
+    expect(alert).toBeUndefined();
   });
 
   it('jeton inconnu → 401', async () => {
@@ -172,6 +191,7 @@ describe('mode cookie (navigateur)', () => {
     expect(res.json()).not.toHaveProperty('refreshToken');
     const second = refreshCookie(res as never)!.value;
     expect(second).not.toBe(first);
+    await ageRotation();
 
     const reuse = await app.inject({ method: 'POST', url: '/auth/refresh', payload: {}, cookies: { refresh_token: first } });
     expect(reuse.statusCode).toBe(401);
