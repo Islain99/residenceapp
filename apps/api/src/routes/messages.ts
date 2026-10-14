@@ -230,6 +230,29 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     return toConversation(row, members, user, await activeStaffCount(db, residenceId));
   }
 
+  // Notification push : qui écrit et où, jamais le texte du message
+  async function notifyMessage(residenceId: string, authorId: string,
+    conversation: { id: string; kind: string; title: string; members: { id: string; isActive: boolean }[] }) {
+    if (!app.notifier.enabled) return;
+    const author = await db.selectFrom('users').select(['first_name', 'last_name'])
+      .where('id', '=', authorId).executeTakeFirstOrThrow();
+    const who = `${author.first_name} ${author.last_name.charAt(0)}.`;
+    const recipients = isChannel(conversation.kind)
+      ? await app.notifier.activeStaff(residenceId, authorId)
+      : conversation.members.filter((m) => m.isActive && m.id !== authorId).map((m) => m.id);
+    const url = `/messages/${conversation.id}`;
+    if (conversation.kind === 'announcements') {
+      app.notifier.notify(recipients, 'announcements', {
+        title: `Annonce de ${who}`, body: 'Nouvelle annonce à lire et à confirmer.', url, tag: `conversation-${conversation.id}`,
+      });
+    } else {
+      app.notifier.notify(recipients, 'messages', {
+        title: conversation.kind === 'direct' ? `Message de ${who}` : `${conversation.title} — ${who}`,
+        body: 'Nouveau message. Ouvrez l’application pour le lire.', url, tag: `conversation-${conversation.id}`,
+      });
+    }
+  }
+
   async function assertColleagues(trx: Db, residenceId: string, ids: string[]) {
     if (ids.length === 0) return;
     const found = await trx.selectFrom('users').select('id')
@@ -518,6 +541,7 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return id;
     });
     const row = await messageQuery(db, conversation.id, me).where('m.id', '=', id).executeTakeFirstOrThrow();
+    await notifyMessage(residenceId, me, conversation);
     return reply.code(201).send(toMessage(row, me));
   });
 

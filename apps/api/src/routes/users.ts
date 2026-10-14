@@ -173,7 +173,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
     }
 
     await db.transaction().execute(async (trx) => {
-      const user = await trx.selectFrom('users').select(['id', 'is_active'])
+      const user = await trx.selectFrom('users').select(['id', 'is_active', 'role'])
         .where('id', '=', request.params.id).where('residence_id', '=', residenceId)
         .forUpdate().executeTakeFirst();
       if (!user) throw notFound('Employé introuvable.');
@@ -186,6 +186,12 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (b.isActive !== undefined) changes.is_active = b.isActive;
       await trx.updateTable('users').set(changes).where('id', '=', user.id).execute();
 
+      // Devenu responsable : double authentification obligatoire, donc nouvelle connexion
+      const becomesResponsable = b.role === 'responsable' && user.role !== 'responsable';
+      if ((b.isActive === false && user.is_active) || becomesResponsable) {
+        await trx.updateTable('refresh_tokens').set({ expires_at: new Date() })
+          .where('user_id', '=', user.id).where('revoked_at', 'is', null).execute();
+      }
       if (b.isActive === false && user.is_active) {
         // Désactivation : sessions fermées et liens annulés tout de suite
         await trx.updateTable('refresh_tokens').set({ revoked_at: new Date() })

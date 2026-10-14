@@ -8,7 +8,7 @@ import type {
   Account, AccountInput, Appointment, AppointmentInput, AppointmentKind, AuditPage, Category, ResidentStats, Shift, ShiftType, StatsPeriod, FollowUp, Handover, ManagedCategory, Note, NoteDetail, NoteInput,
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
   AssistanceGrant, NewResidenceInput, OpenAssistanceGrant, PlatformAccount, PlatformAuditPage, PlatformResidence,
-  PlatformResidenceDetail, PlatformSecurity,
+  PlatformResidenceDetail, PlatformSecurity, MfaStatus, PushConfig, PushPreferences,
 } from './types';
 
 export interface NoteFilters {
@@ -535,7 +535,7 @@ export const useAddResponsable = () =>
   usePlatformMutation(({ residenceId, ...body }: { residenceId: string } & ({ userId: string } | { email: string; firstName: string; lastName: string })) =>
     api<PlatformAccount>(`/platform/residences/${residenceId}/responsables`, { method: 'POST', body }));
 
-export type PlatformAccountAction = 'invite' | 'reset-password' | 'unlock' | 'revoke-sessions';
+export type PlatformAccountAction = 'invite' | 'reset-password' | 'unlock' | 'revoke-sessions' | 'reset-mfa';
 
 export const usePlatformAccountAction = () =>
   usePlatformMutation(({ id, action }: { id: string; action: PlatformAccountAction }) =>
@@ -551,3 +551,35 @@ export const useInviteAdmin = () =>
 
 export const useEndAssistance = () =>
   usePlatformMutation((id: string) => api<void>(`/platform/assistance/${id}/end`, { method: 'POST' }));
+
+// ---------------------------------------------------------------------
+// Mon compte : double authentification, notifications
+// ---------------------------------------------------------------------
+export const useMfaStatus = () =>
+  useQuery({ queryKey: ['mfa'], queryFn: () => api<MfaStatus>('/auth/mfa') });
+
+export function useRegenerateBackupCodes() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (code: string) => api<{ backupCodes: string[] }>('/auth/mfa/backup-codes', { method: 'POST', body: { code } }),
+    onSuccess: () => invalidate('mfa'),
+  });
+}
+
+export const usePushConfig = () =>
+  useQuery({ queryKey: ['push', 'config'], queryFn: () => api<PushConfig>('/push/config'), staleTime: Infinity });
+
+export const usePushPreferences = () =>
+  useQuery({ queryKey: ['push', 'preferences'], queryFn: () => api<PushPreferences>('/push/preferences') });
+
+export function useUpdatePushPreferences() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (changes: Partial<Omit<PushPreferences, 'devices'>>) =>
+      api<PushPreferences>('/push/preferences', { method: 'PATCH', body: changes }),
+    onSuccess: () => invalidate('push'),
+  });
+}
+
+export const useSendTestPush = () =>
+  useMutation({ mutationFn: () => api<{ sent: number }>('/push/test', { method: 'POST' }) });

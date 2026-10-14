@@ -355,6 +355,7 @@ export interface PlatformAccount {
   lastLoginAt: string | null;
   lockedUntil: string | null;
   invitationExpiresAt: string | null;
+  mfaEnabled: boolean;
 }
 
 export interface AssistanceGrant {
@@ -407,4 +408,46 @@ export interface AssistanceSession {
   accessToken: string;
   expiresAt: string;
   residence: ResidenceRef & { type: string };
+}
+
+// ---------------------------------------------------------------------
+// Double authentification et notifications
+// ---------------------------------------------------------------------
+export interface LoginSession {
+  accessToken: string;
+  expiresIn: number;
+  sharedDevice: boolean;
+  user: User;
+}
+
+export interface MfaChallenge {
+  mfa: 'required' | 'setup';
+  mfaToken: string;
+  expiresIn: number;
+}
+
+export interface MfaSetup {
+  secret: string;
+  otpauthUrl: string;
+  qrSvg: string;
+}
+
+export interface MfaStatus {
+  required: boolean;
+  enabled: boolean;
+  enabledAt: string | null;
+  backupCodesRemaining: number;
+}
+
+export interface PushConfig {
+  enabled: boolean;
+  publicKey: string | null;
+}
+
+export interface PushPreferences {
+  messages: boolean;
+  announcements: boolean;
+  priorityNotes: boolean;
+  followUps: boolean;
+  devices: number;
 }

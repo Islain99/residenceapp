@@ -104,6 +104,14 @@ function requiredText(value: string): string {
 // ---------------------------------------------------------------------
 const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
   const { db } = app;
+
+  // Consigne prioritaire : avis aux employés en quart (sans nom de résident ni texte)
+  async function notifyPriority(residenceId: string, authorId: string) {
+    if (!app.notifier.enabled) return;
+    app.notifier.notify(await app.notifier.onShiftNow(residenceId, authorId), 'priority_notes', {
+      title: 'Consigne prioritaire', body: 'Nouvelle consigne à lire dans la relève.', url: '/', tag: 'priority',
+    });
+  }
   app.addHook('preHandler', authenticate);
 
   // Liste filtrée, la plus récente d'abord, paginée par curseur
@@ -275,6 +283,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       return id;
     });
+    if (b.isPriority) await notifyPriority(residenceId, request.user.sub);
     return reply.code(201).send(await findNote(db, residenceId, request.user.sub, id));
   });
 
@@ -296,6 +305,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => {
     const residenceId = residenceOf(request);
     const b = request.body;
+    let becamePriority = false;
     await db.transaction().execute(async (trx) => {
       const note = await trx.selectFrom('notes').selectAll()
         .where('id', '=', request.params.id).where('residence_id', '=', residenceId)
@@ -368,7 +378,9 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         action: 'update', entity: 'note', entityId: note.id, userId: request.user.sub, residenceId,
         details: { fields }, ip: request.ip,
       });
+      becamePriority = changes.is_priority === true;
     });
+    if (becamePriority) await notifyPriority(residenceId, request.user.sub);
     return findNote(db, residenceId, request.user.sub, request.params.id);
   });
 

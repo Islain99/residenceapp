@@ -14,6 +14,7 @@
 //   Comptes      PATCH /platform/users/:id            désactiver / réactiver (responsable ou admin)
 //                POST /platform/users/:id/invite      renvoyer l'invitation
 //                POST /platform/users/:id/reset-password  envoyer un lien de réinitialisation
+//                POST /platform/users/:id/reset-mfa   double authentification à reconfigurer
 //                POST /platform/users/:id/unlock      débloquer après trop d'essais
 //                POST /platform/users/:id/revoke-sessions  fermer toutes ses sessions
 //   Admins       GET/POST /platform/admins
@@ -69,6 +70,7 @@ const Account = Type.Object({
   lastLoginAt: Nullable(Type.String()),
   lockedUntil: Nullable(Type.String()),
   invitationExpiresAt: Nullable(Type.String()),
+  mfaEnabled: Type.Boolean(),
 });
 
 const StaffMember = Type.Object({
@@ -134,7 +136,7 @@ const toResidence = (r: ResidenceRow) => ({
 function accountQuery(db: Db) {
   return db.selectFrom('users as u').select((eb) => [
     'u.id', 'u.email', 'u.first_name', 'u.last_name', 'u.role', 'u.is_active', 'u.last_login_at',
-    'u.locked_until', 'u.residence_id',
+    'u.locked_until', 'u.residence_id', 'u.mfa_enabled_at',
     sql<boolean>`u.password_hash IS NULL`.as('invited'),
     eb.selectFrom('account_tokens as t').whereRef('t.user_id', '=', 'u.id')
       .where('t.purpose', '=', 'invite').where('t.used_at', 'is', null)
@@ -154,6 +156,7 @@ const toAccount = (r: AccountRow) => ({
   lastLoginAt: iso(r.last_login_at),
   lockedUntil: r.locked_until && r.locked_until > new Date() ? r.locked_until.toISOString() : null,
   invitationExpiresAt: iso(r.invitation_expires_at),
+  mfaEnabled: r.mfa_enabled_at !== null,
 });
 
 function checkTimezone(tz: string) {
@@ -371,6 +374,9 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!user.is_active) throw new HttpError(409, 'inactive_account', 'Compte désactivé.');
         if (user.role === 'responsable') throw new HttpError(409, 'already_responsable', 'Cet employé est déjà responsable.');
         await trx.updateTable('users').set({ role: 'responsable' }).where('id', '=', user.id).execute();
+        // Double authentification obligatoire : nouvelle connexion
+        await trx.updateTable('refresh_tokens').set({ expires_at: new Date() })
+          .where('user_id', '=', user.id).where('revoked_at', 'is', null).execute();
         await audit(trx, {
           action: 'update', entity: 'user', entityId: user.id, userId: request.user.sub, residenceId: residence.id,
           details: { fields: ['role'], from: user.role, to: 'responsable' }, ip: request.ip,
@@ -473,6 +479,30 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       } catch {
         throw new HttpError(502, 'mail_failed', 'Le courriel n’a pas pu être envoyé. Réessayer plus tard.');
       }
+    });
+    return findAccount(request.params.id);
+  });
+
+  // Téléphone perdu, codes de secours perdus : la double authentification est
+  // à reconfigurer à la prochaine connexion. Sessions fermées.
+  app.post('/platform/users/:id/reset-mfa', {
+    schema: { params: IdParams, response: { 200: Account } },
+  }, async (request) => {
+    if (request.params.id === request.user.sub) {
+      throw badRequest('cannot_modify_self', 'Un autre administrateur doit le faire pour vous.');
+    }
+    await db.transaction().execute(async (trx) => {
+      const user = await managedAccount(trx, request.params.id);
+      await trx.updateTable('users').set({ mfa_secret: null, mfa_enabled_at: null, mfa_last_step: null })
+        .where('id', '=', user.id).execute();
+      await trx.updateTable('mfa_backup_codes').set({ revoked_at: sql<Date>`now()` })
+        .where('user_id', '=', user.id).where('used_at', 'is', null).where('revoked_at', 'is', null).execute();
+      await trx.updateTable('refresh_tokens').set({ revoked_at: sql<Date>`now()` })
+        .where('user_id', '=', user.id).where('revoked_at', 'is', null).execute();
+      await audit(trx, {
+        action: 'mfa_reset', entity: 'user', entityId: user.id, userId: request.user.sub,
+        residenceId: user.residence_id, ip: request.ip,
+      });
     });
     return findAccount(request.params.id);
   });

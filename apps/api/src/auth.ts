@@ -12,12 +12,23 @@ export type Role = (typeof ROLES)[number];
 export const SUPERVISOR_ROLES: Role[] = ['infirmiere', 'responsable'];
 export const isSupervisor = (role: Role) => SUPERVISOR_ROLES.includes(role);
 
+// Double authentification obligatoire (routes/auth.ts)
+export const MFA_ROLES: Role[] = ['responsable', 'admin'];
+
 // Contenu du jeton d'accès
 export interface AccessTokenPayload {
   sub: string;              // users.id
   rid: string | null;       // residence_id (NULL : admin plateforme)
   role: Role;
   asst?: string;            // accès d'assistance (assistance_grants.id) : admin plateforme en lecture seule
+  typ?: 'mfa';              // jeton de l'étape 2 de connexion : n'ouvre AUCUNE route
+}
+
+// Étape 2 de la connexion (double authentification) : 10 minutes
+export interface MfaTokenPayload extends AccessTokenPayload {
+  typ: 'mfa';
+  ses: 'token' | 'cookie';   // mode de session demandé à l'étape 1
+  sd: boolean;               // appareil partagé
 }
 
 declare module 'fastify' {
@@ -40,6 +51,7 @@ declare module '@fastify/jwt' {
 // s'applique aussi immédiatement.
 export async function authenticate(request: FastifyRequest): Promise<void> {
   await request.jwtVerify();   // 401 si absent, invalide ou expiré
+  if (request.user.typ) throw new HttpError(401, 'unauthorized', 'Connexion requise.');
   if (request.user.asst) return authenticateAssistance(request, request.user.asst);
   const account = await request.server.db.selectFrom('users as u')
     .leftJoin('residences as r', 'r.id', 'u.residence_id')

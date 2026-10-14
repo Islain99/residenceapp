@@ -11,6 +11,7 @@ const LINKS = [
   { to: '/plateforme/securite', label: 'Sécurité', end: false },
   { to: '/plateforme/journal', label: 'Journal', end: false },
   { to: '/plateforme/administrateurs', label: 'Administrateurs', end: false },
+  { to: '/plateforme/compte', label: 'Mon compte', end: false },
 ];
 
 export function PlatformLayout() {

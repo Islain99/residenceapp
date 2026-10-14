@@ -13,7 +13,7 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
 - **Plateforme** (plusieurs résidences) : l'administrateur crée les résidences et leurs responsables, suspend une résidence, débloque un compte, surveille la sécurité ; il ne voit que des chiffres. La responsable peut lui accorder un **accès d'assistance** limité dans le temps, en lecture seule et tracé.
 
-Sur téléphone et tablette, l'application s'installe comme une application (PWA). Sur un appareil partagé, la session se ferme après 15 minutes sans activité. Aucune donnée de résident n'est gardée hors connexion.
+Sur téléphone et tablette, l'application s'installe comme une application (PWA) et envoie des **notifications** (consignes prioritaires pendant le quart, messages, annonces, suivis), sans jamais afficher de nom de résident ni de contenu. Les responsables et l'administration se connectent avec la **double authentification** (application d'authentification + codes de secours). Sur un appareil partagé, la session se ferme après 15 minutes sans activité. Aucune donnée de résident n'est gardée hors connexion.
 
 Chaque résidence ne voit que ses propres données, et chaque action sensible est inscrite dans un journal d'audit.
 

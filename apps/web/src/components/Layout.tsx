@@ -113,7 +113,9 @@ export function Layout() {
   const base = assistance ? LINKS.filter((l) => l.to !== '/messages') : LINKS;
   const links = user.role === 'responsable' ? [...base, ADMIN_LINK] : base;
   const mobileMain = links.filter((l) => MOBILE_MAIN.includes(l.to));
-  const mobileMore = links.filter((l) => !MOBILE_MAIN.includes(l.to));
+  // « Mon compte » : dans « Plus » sur téléphone, sous le nom sur ordinateur
+  const mobileMore = [...links.filter((l) => !MOBILE_MAIN.includes(l.to)),
+    ...(assistance ? [] : [{ to: '/compte', label: 'Mon compte', icon: '☺', end: false }])];
   const location = useLocation();
   // Menu « Plus » ouvert sur la page courante : il se referme dès qu'on change de page
   const [moreOpenOn, setMoreOpenOn] = useState<string | null>(null);
@@ -150,10 +152,11 @@ export function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="hidden text-right leading-tight sm:block md:hidden lg:block">
+            <NavLink to="/compte" title="Mon compte"
+              className="hidden rounded-lg px-2 py-1 text-right leading-tight hover:bg-sunken sm:block md:hidden lg:block">
               <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
               <span className="block text-xs text-muted">{assistance ? 'Assistance (lecture seule)' : ROLE_LABELS[user.role]}</span>
-            </span>
+            </NavLink>
             <button type="button" onClick={() => void logout()} className="whitespace-nowrap rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
               Déconnexion
             </button>

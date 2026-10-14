@@ -31,6 +31,14 @@ const followUpRoutes: FastifyPluginAsyncTypebox = async (app) => {
   const { db } = app;
   app.addHook('preHandler', authenticate);
 
+  // Suivi confié à quelqu'un d'autre que soi : avis à cette personne
+  function notifyAssigned(assignee: string | null, actor: string) {
+    if (!assignee || assignee === actor) return;
+    app.notifier.notify([assignee], 'follow_ups', {
+      title: 'Suivi assigné', body: 'Un suivi vous a été confié. Ouvrez l’application pour le voir.', url: '/suivis',
+    });
+  }
+
   async function findFollowUp(residenceId: string, id: string) {
     const row = await followUpQuery(db, residenceId).where('f.id', '=', id).executeTakeFirst();
     if (!row) throw notFound('Suivi introuvable.');
@@ -104,6 +112,7 @@ const followUpRoutes: FastifyPluginAsyncTypebox = async (app) => {
       });
       return id;
     });
+    notifyAssigned(b.assignedTo ?? null, request.user.sub);
     return reply.code(201).send(await findFollowUp(residenceId, id));
   });
 
@@ -121,8 +130,9 @@ const followUpRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => {
     const residenceId = residenceOf(request);
     const b = request.body;
+    let newAssignee: string | null = null;
     await db.transaction().execute(async (trx) => {
-      const current = await trx.selectFrom('follow_ups').select(['id', 'closed_at'])
+      const current = await trx.selectFrom('follow_ups').select(['id', 'closed_at', 'assigned_to'])
         .where('id', '=', request.params.id).where('residence_id', '=', residenceId)
         .forUpdate().executeTakeFirst();
       if (!current) throw notFound('Suivi introuvable.');
@@ -132,13 +142,16 @@ const followUpRoutes: FastifyPluginAsyncTypebox = async (app) => {
       await trx.updateTable('follow_ups').set({
         ...(b.description !== undefined ? { description: requiredText(b.description) } : {}),
         ...(b.assignedTo !== undefined ? { assigned_to: b.assignedTo } : {}),
-        ...(b.dueAt !== undefined ? { due_at: b.dueAt ? new Date(b.dueAt) : null } : {}),
+        // Nouvelle échéance : nouveau rappel
+        ...(b.dueAt !== undefined ? { due_at: b.dueAt ? new Date(b.dueAt) : null, due_notified_at: null } : {}),
       }).where('id', '=', current.id).execute();
+      if (b.assignedTo && b.assignedTo !== current.assigned_to) newAssignee = b.assignedTo;
       await audit(trx, {
         action: 'update', entity: 'follow_up', entityId: current.id, userId: request.user.sub, residenceId,
         details: { fields: Object.keys(b) }, ip: request.ip,
       });
     });
+    notifyAssigned(newAssignee, request.user.sub);
     return findFollowUp(residenceId, request.params.id);
   });
 
@@ -152,7 +165,7 @@ const followUpRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => {
     const residenceId = residenceOf(request);
     await db.transaction().execute(async (trx) => {
-      const current = await trx.selectFrom('follow_ups').select(['id', 'closed_at'])
+      const current = await trx.selectFrom('follow_ups').select(['id', 'closed_at', 'assigned_to'])
         .where('id', '=', request.params.id).where('residence_id', '=', residenceId)
         .forUpdate().executeTakeFirst();
       if (!current) throw notFound('Suivi introuvable.');

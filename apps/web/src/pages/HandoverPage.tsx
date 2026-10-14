@@ -5,6 +5,7 @@
 // « J'ai pris connaissance » confirme la lecture des notes ordinaires.
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { PushPrompt } from '../components/PushPrompt';
 import { useAckAnnouncement, useAcknowledgeHandover, useHandover, useMessagingSummary } from '../api/hooks';
 import { useUser } from '../auth/session';
 import { AppointmentItem } from '../components/Appointments';
@@ -57,6 +58,7 @@ export function HandoverPage() {
         </Badge>
       </div>
 
+      <PushPrompt />
       <AnnouncementsToConfirm />
 
       {priority.length > 0 && (
