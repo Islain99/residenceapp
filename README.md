@@ -3,7 +3,7 @@
 Application web pour les équipes de résidences (RPA, RI). Les préposés, infirmières et responsables y consignent ce qui se passe pendant leur quart et se passent le relais entre les quarts.
 
 - **Relève** : en début de quart, ce qui s'est passé depuis ma dernière relève (consignes prioritaires d'abord) et les suivis à faire.
-- **Journal de bord** : notes par résident, recherche, corrections avec historique, annulation avec motif. Rien n'est jamais supprimé.
+- **Journal de bord** : notes par résident, recherche, corrections avec historique, annulation avec motif. Rien n'est jamais supprimé. **Dictée** des notes au micro, transcrite sur l'appareil même (la voix n'est envoyée nulle part) quand le navigateur le permet (Chrome récent).
 - **Suivis** : actions à faire issues d'une note, assignées à quelqu'un ou à toute l'équipe.
 - **Agenda** : rendez-vous des résidents (médecin, transport, visite…) et de la résidence (activités, réunions) ; ceux des prochaines 24 h apparaissent dans la relève.
 - **Horaires** : la responsable place les quarts de l'équipe (Jour, Soir, Nuit…) semaine par semaine ; chacun voit son horaire.

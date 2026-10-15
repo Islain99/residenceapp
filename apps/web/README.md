@@ -54,6 +54,8 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 
 **Double authentification** (responsables, admins) : après le mot de passe, code à 6 chiffres de l'application d'authentification (ou code de secours). Première fois : code QR (ou clé à saisir), confirmation, puis 10 codes de secours à noter (copier, télécharger, imprimer) avant d'entrer.
 
+**Dictée des notes** : bouton « 🎤 Dicter » sous « Ce qui s'est passé » et « Intervention ». La voix est transcrite **sur l'appareil seulement** (Web Speech API avec `processLocally`, `src/lib/dictation.ts`) : une note parle de la santé d'un résident (Loi 25), elle ne doit pas passer par les serveurs de Google ou d'Apple. La première fois, « Activer la dictée » télécharge le français sur l'appareil (une seule fois). Navigateur sans reconnaissance locale (Firefox, Safari, Chrome ancien) : pas de bouton, on tape la note. Le texte dicté s'ajoute à la fin (majuscule en début de phrase) et se relit avant d'enregistrer ; la ponctuation se tape à la main.
+
 **Mon compte** (`/compte`, ou le nom en haut ; « Plus » sur téléphone) : notifications de cet appareil (activer, essai, choix des avis) et double authentification (codes de secours restants, nouvelle série). Une invitation à activer les notifications apparaît une fois dans la relève. Pas de notifications sur un appareil partagé ; sur iPhone/iPad, seulement une fois l'application ajoutée à l'écran d'accueil. Une déconnexion volontaire désabonne l'appareil. Le service worker (`public/sw.js`) affiche les notifications et ouvre la bonne page au toucher ; il est aussi enregistré en développement.
 
 L'interface masque les actions non permises (ex. « Corriger » après 24 h pour un préposé), mais c'est l'API qui fait foi.

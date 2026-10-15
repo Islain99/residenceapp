@@ -86,7 +86,7 @@ VAPID_SUBJECT=mailto:<adresse de contact>
 2. `apps/web/vercel.json` relaie vers `residenceapp-production.up.railway.app`. Si le domaine Railway change, le modifier dans ce fichier (Vercel ne lit pas de variables d'environnement dans `vercel.json`).
 3. Ouvrir `https://<projet>.vercel.app` et se connecter avec un compte fictif (`SEED_PASSWORD`).
 
-`vercel.json` relaie `/api/*` vers l'API (en retirant `/api`, comme le proxy de Vite en développement), renvoie les autres adresses vers `index.html` (routes de l'interface), et ajoute des en-têtes de sécurité. `sw.js` n'est jamais mis en cache par le navigateur, pour que les mises à jour de l'application arrivent tout de suite.
+`vercel.json` relaie `/api/*` vers l'API (en retirant `/api`, comme le proxy de Vite en développement), renvoie les autres adresses vers `index.html` (routes de l'interface), et ajoute des en-têtes de sécurité (`Permissions-Policy` : micro autorisé pour le site lui-même seulement, pour la dictée des notes ; caméra et position refusées). `sw.js` n'est jamais mis en cache par le navigateur, pour que les mises à jour de l'application arrivent tout de suite.
 
 ### 3. Passage à AWS (lancement officiel)
 
