@@ -1,5 +1,13 @@
 // Envoi des courriels (invitations, mot de passe oublié).
+//
+// Trois façons, choisies par la configuration (mailerFromConfig) :
+//   * RESEND_API_KEY : API HTTPS de Resend ;
+//   * BREVO_API_KEY  : API HTTPS de Brevo ;
+//   * sinon SMTP_URL (développement : Mailpit).
+// Les API HTTPS fonctionnent partout ; Railway bloque le SMTP sortant sauf
+// sur le plan Pro.
 import nodemailer from 'nodemailer';
+import type { Config } from '../config.js';
 
 export interface Mail {
   to: string;
@@ -21,6 +29,56 @@ export function smtpMailer(url: string, from: string): Mailer {
     },
   };
 }
+
+// « Journal de bord <no-reply@exemple.ca> » → nom et adresse
+export function parseFrom(from: string): { name?: string; email: string } {
+  const match = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);
+  if (!match) return { email: from.trim() };
+  return match[1] ? { name: match[1].replace(/^"|"$/g, ''), email: match[2]!.trim() } : { email: match[2]!.trim() };
+}
+
+async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<void> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json', ...headers },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => '')).slice(0, 300);
+    throw new Error(`Envoi refusé par le fournisseur (${res.status}) : ${detail}`);
+  }
+}
+
+// Resend : https://resend.com/docs/api-reference/emails/send-email
+export function resendMailer(apiKey: string, from: string): Mailer {
+  return {
+    async send(mail) {
+      await postJson('https://api.resend.com/emails', { authorization: `Bearer ${apiKey}` },
+        { from, to: [mail.to], subject: mail.subject, text: mail.text, html: mail.html });
+    },
+  };
+}
+
+// Brevo : https://developers.brevo.com/reference/sendtransacemail
+export function brevoMailer(apiKey: string, from: string): Mailer {
+  const sender = parseFrom(from);
+  return {
+    async send(mail) {
+      await postJson('https://api.brevo.com/v3/smtp/email', { 'api-key': apiKey },
+        { sender, to: [{ email: mail.to }], subject: mail.subject, textContent: mail.text, htmlContent: mail.html });
+    },
+  };
+}
+
+export function mailerFromConfig(config: Config): Mailer {
+  if (config.RESEND_API_KEY) return resendMailer(config.RESEND_API_KEY, config.MAIL_FROM);
+  if (config.BREVO_API_KEY) return brevoMailer(config.BREVO_API_KEY, config.MAIL_FROM);
+  return smtpMailer(config.SMTP_URL, config.MAIL_FROM);
+}
+
+export const mailerKind = (config: Config) =>
+  config.RESEND_API_KEY ? 'resend' : config.BREVO_API_KEY ? 'brevo' : 'smtp';
 
 // Tests : courriels gardés en mémoire
 export class MemoryMailer implements Mailer {

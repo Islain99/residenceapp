@@ -33,6 +33,10 @@ const ConfigSchema = Type.Object({
   // Serveur d'envoi des courriels. Développement : Mailpit (database/docker-compose.yml)
   SMTP_URL: Type.String({ default: 'smtp://127.0.0.1:1025' }),
   MAIL_FROM: Type.String({ default: 'Journal de bord <no-reply@residence.local>' }),
+  // Envoi par API HTTPS (prioritaire sur SMTP_URL) : une seule des deux.
+  // Railway bloque le SMTP sortant, sauf sur le plan Pro.
+  RESEND_API_KEY: Type.Optional(Type.String({ minLength: 10 })),
+  BREVO_API_KEY: Type.Optional(Type.String({ minLength: 10 })),
   // Double authentification : clé de chiffrement des secrets TOTP (32 caractères
   // minimum). Absente : dérivée de JWT_SECRET — changer JWT_SECRET obligerait
   // alors chaque responsable à reconfigurer son application. À définir en production.

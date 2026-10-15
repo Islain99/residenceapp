@@ -583,3 +583,10 @@ export function useUpdatePushPreferences() {
 
 export const useSendTestPush = () =>
   useMutation({ mutationFn: () => api<{ sent: number }>('/push/test', { method: 'POST' }) });
+
+// Envoi des courriels (admin plateforme)
+export const usePlatformEmail = () =>
+  useQuery({ queryKey: ['platform', 'email'], queryFn: () => api<{ provider: string; from: string }>('/platform/email') });
+
+export const useSendTestEmail = () =>
+  useMutation({ mutationFn: () => api<{ to: string; provider: string }>('/platform/email/test', { method: 'POST' }) });

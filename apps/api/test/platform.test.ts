@@ -281,3 +281,14 @@ describe('accès d’assistance', () => {
     expect((await call('admin', 'POST', `/platform/assistance/${old.id}/start`)).json().error).toBe('assistance_closed');
   });
 });
+
+describe('courriels', () => {
+  it('configuration et courriel d’essai à sa propre adresse', async () => {
+    expect((await call('admin', 'GET', '/platform/email')).json()).toMatchObject({ provider: 'smtp' });
+    const res = await call('admin', 'POST', '/platform/email/test');
+    expect(res.json()).toMatchObject({ to: 'admin@exemple.test' });
+    expect(lastMail()).toMatchObject({ to: 'admin@exemple.test', subject: 'Essai d’envoi — Journal de bord' });
+    expect((await call('responsable', 'POST', '/platform/email/test')).statusCode).toBe(403);
+  });
+});
+

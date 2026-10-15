@@ -1,9 +1,9 @@
 // Plateforme — sécurité : comptes bloqués, refus de connexion, événements suspects.
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { usePlatformAccountAction, usePlatformSecurity } from '../../api/hooks';
+import { usePlatformAccountAction, usePlatformEmail, usePlatformSecurity, useSendTestEmail } from '../../api/hooks';
 import { ROLE_LABELS } from '../../auth/session';
-import { Button, EmptyState, ErrorMessage, Loading, PageHeader } from '../../components/ui';
+import { Button, Card, EmptyState, ErrorMessage, Loading, PageHeader } from '../../components/ui';
 import { formatFull, formatWhen, fullName } from '../../lib/format';
 
 const EVENTS: Record<string, string> = {
@@ -20,6 +20,8 @@ export function PlatformSecurityPage() {
     <>
       <PageHeader title="Sécurité" subtitle="Toutes les résidences. Actualisé chaque minute." />
       {notice && <p role="status" className="mb-4 rounded-lg bg-positive-soft px-4 py-3 text-sm text-positive">{notice}</p>}
+
+      <EmailCheck />
 
       {security.isPending ? <Loading /> : security.isError ? <ErrorMessage error={security.error} /> : (
         <div className="flex flex-col gap-8">
@@ -79,5 +81,34 @@ export function PlatformSecurityPage() {
         </div>
       )}
     </>
+  );
+}
+
+const PROVIDERS: Record<string, string> = { resend: 'Resend (API)', brevo: 'Brevo (API)', smtp: 'SMTP' };
+
+// Envoi des courriels : fournisseur configuré et courriel d'essai
+function EmailCheck() {
+  const email = usePlatformEmail();
+  const test = useSendTestEmail();
+  if (!email.data) return null;
+  return (
+    <Card className="mb-8 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm">
+          <h2 className="text-lg font-semibold">Envoi des courriels</h2>
+          <p className="text-muted">
+            {PROVIDERS[email.data.provider] ?? email.data.provider} · expéditeur {email.data.from}
+          </p>
+          <p className="text-muted">Invitations et mots de passe oubliés en dépendent.</p>
+        </div>
+        <Button busy={test.isPending} onClick={() => test.mutate()}>M’envoyer un courriel d’essai</Button>
+      </div>
+      {test.isSuccess && (
+        <p role="status" className="mt-3 rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">
+          Courriel envoyé à {test.data.to}. Vérifiez la boîte de réception (et les indésirables).
+        </p>
+      )}
+      <div className="mt-3"><ErrorMessage error={test.error} /></div>
+    </Card>
   );
 }
