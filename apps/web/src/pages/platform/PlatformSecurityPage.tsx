@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { usePlatformAccountAction, usePlatformEmail, usePlatformSecurity, useSendTestEmail } from '../../api/hooks';
-import { ROLE_LABELS } from '../../auth/session';
-import { Button, Card, EmptyState, ErrorMessage, Loading, PageHeader } from '../../components/ui';
+import { ROLE_LABELS, useUser } from '../../auth/session';
+import { Button, Card, EmptyState, ErrorMessage, Loading, PageHeader, TextField } from '../../components/ui';
 import { formatFull, formatWhen, fullName } from '../../lib/format';
 
 const EVENTS: Record<string, string> = {
@@ -90,19 +90,27 @@ const PROVIDERS: Record<string, string> = { resend: 'Resend (API)', brevo: 'Brev
 function EmailCheck() {
   const email = usePlatformEmail();
   const test = useSendTestEmail();
+  const me = useUser();
+  const [to, setTo] = useState(me.email);
   if (!email.data) return null;
+  const resendTest = email.data.provider === 'resend' && email.data.from.includes('@resend.dev');
   return (
     <Card className="mb-8 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm">
-          <h2 className="text-lg font-semibold">Envoi des courriels</h2>
-          <p className="text-muted">
-            {PROVIDERS[email.data.provider] ?? email.data.provider} · expéditeur {email.data.from}
-          </p>
-          <p className="text-muted">Invitations et mots de passe oubliés en dépendent.</p>
+      <h2 className="text-lg font-semibold">Envoi des courriels</h2>
+      <p className="text-sm text-muted">
+        {PROVIDERS[email.data.provider] ?? email.data.provider} · expéditeur {email.data.from} · invitations et mots de passe oubliés en dépendent.
+      </p>
+      {resendTest && (
+        <p className="mt-2 rounded-lg bg-priority-soft px-3 py-2 text-sm text-priority">
+          Adresse de test de Resend : il n’envoie qu’à l’adresse de votre compte Resend, tant qu’aucun domaine n’est vérifié.
+        </p>
+      )}
+      <form className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={(e) => { e.preventDefault(); test.mutate(to.trim()); }}>
+        <div className="flex-1">
+          <TextField label="Destinataire de l’essai" type="email" required maxLength={254} value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
-        <Button busy={test.isPending} onClick={() => test.mutate()}>M’envoyer un courriel d’essai</Button>
-      </div>
+        <Button type="submit" busy={test.isPending}>Envoyer un courriel d’essai</Button>
+      </form>
       {test.isSuccess && (
         <p role="status" className="mt-3 rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">
           Courriel envoyé à {test.data.to}. Vérifiez la boîte de réception (et les indésirables).

@@ -578,24 +578,32 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
     schema: { response: { 200: Type.Object({ provider: Type.String(), from: Type.String() }) } },
   }, async () => ({ provider: mailerKind(config), from: config.MAIL_FROM }));
 
-  // Courriel d'essai à sa propre adresse : vérifie la configuration d'envoi
+  // Courriel d'essai : vérifie la configuration d'envoi. Destinataire : sa
+  // propre adresse, ou une autre (ex. l'adresse du compte Resend : sans domaine
+  // vérifié, Resend n'écrit qu'à celle-là)
   app.post('/platform/email/test', {
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
-    schema: { response: { 200: Type.Object({ to: Type.String(), provider: Type.String() }) } },
+    schema: {
+      body: Type.Object({ to: Type.Optional(Type.String({ format: 'email', maxLength: 254 })) }),
+      response: { 200: Type.Object({ to: Type.String(), provider: Type.String() }) },
+    },
   }, async (request) => {
     const me = await db.selectFrom('users').select(['email', 'first_name']).where('id', '=', request.user.sub).executeTakeFirstOrThrow();
+    const to = request.body.to?.trim().toLowerCase() || me.email;
     try {
       await mailer.send({
-        to: me.email,
+        to,
         subject: 'Essai d’envoi — Journal de bord',
         text: `Bonjour ${me.first_name},\n\nCe courriel confirme que l’envoi fonctionne (invitations, mots de passe oubliés).`,
         html: `<p>Bonjour ${me.first_name.replace(/[&<>"']/g, '')},</p><p>Ce courriel confirme que l’envoi fonctionne (invitations, mots de passe oubliés).</p>`,
       });
     } catch {
-      throw new HttpError(502, 'mail_failed', 'Le courriel n’a pas pu être envoyé : vérifier la clé du fournisseur et l’adresse d’expédition (MAIL_FROM). Détail dans le journal du serveur.');
+      throw new HttpError(502, 'mail_failed', mailerKind(config) === 'resend' && config.MAIL_FROM.includes('@resend.dev')
+        ? 'Refusé par Resend : sans domaine vérifié, il n’envoie qu’à l’adresse de votre compte Resend. Indiquez-la comme destinataire.'
+        : 'Le courriel n’a pas pu être envoyé : vérifier la clé du fournisseur et l’adresse d’expédition (MAIL_FROM). Détail dans le journal du serveur.');
     }
-    await audit(db, { action: 'email_test', entity: 'user', entityId: request.user.sub, userId: request.user.sub, ip: request.ip });
-    return { to: me.email, provider: mailerKind(config) };
+    await audit(db, { action: 'email_test', entity: 'user', entityId: request.user.sub, userId: request.user.sub, details: { to }, ip: request.ip });
+    return { to, provider: mailerKind(config) };
   });
 
   // ---------------------------------------------------------------- Sécurité

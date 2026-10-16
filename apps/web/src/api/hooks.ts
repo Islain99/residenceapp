@@ -589,4 +589,6 @@ export const usePlatformEmail = () =>
   useQuery({ queryKey: ['platform', 'email'], queryFn: () => api<{ provider: string; from: string }>('/platform/email') });
 
 export const useSendTestEmail = () =>
-  useMutation({ mutationFn: () => api<{ to: string; provider: string }>('/platform/email/test', { method: 'POST' }) });
+  useMutation({
+    mutationFn: (to?: string) => api<{ to: string; provider: string }>('/platform/email/test', { method: 'POST', body: to ? { to } : {} }),
+  });

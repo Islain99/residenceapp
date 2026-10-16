@@ -16,7 +16,7 @@ export function AccountPage() {
     <>
       <PageHeader title="Mon compte" subtitle={<>{fullName(user)} · {user.email} · {ROLE_LABELS[user.role]}</>} />
       <div className="flex flex-col gap-6">
-        {user.residenceId && <NotificationsSection />}
+        <NotificationsSection forResidence={!!user.residenceId} />
         <MfaSection />
       </div>
     </>
@@ -30,7 +30,9 @@ const KINDS: { key: keyof Omit<PushPreferences, 'devices'>; label: string; hint:
   { key: 'followUps', label: 'Suivis', hint: 'Un suivi m’est confié, ou arrive à échéance.' },
 ];
 
-function NotificationsSection() {
+// Administration de la plateforme : aucun avis à recevoir, mais l'essai
+// permet de vérifier les notifications (clés VAPID) sur un appareil
+function NotificationsSection({ forResidence }: { forResidence: boolean }) {
   const { sharedDevice } = useAuth();
   const config = usePushConfig();
   const prefs = usePushPreferences();
@@ -89,17 +91,19 @@ function NotificationsSection() {
           <Button variant={subscribed ? 'secondary' : 'primary'} busy={busy} onClick={() => void toggle()}>
             {subscribed ? 'Désactiver sur cet appareil' : 'Activer sur cet appareil'}
           </Button>
-          {subscribed && (
+          {(subscribed || (prefs.data?.devices ?? 0) > 0) && (
             <Button variant="ghost" busy={test.isPending} onClick={() => test.mutate(undefined, {
-              onSuccess: (r) => setNotice(r.sent ? 'Notification d’essai envoyée.' : 'Aucun appareil n’a pu être joint.'),
-            })}>Envoyer un essai</Button>
+              onSuccess: (r) => setNotice(r.sent
+                ? `Notification d’essai envoyée (${r.sent} appareil${r.sent > 1 ? 's' : ''}).`
+                : 'Aucun appareil n’a pu être joint : réactiver les notifications sur cet appareil.'),
+            })}>Envoyer une notification d’essai</Button>
           )}
         </div>
       )}
       {notice && <p role="status" className="mb-3 rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">{notice}</p>}
       <ErrorMessage error={error ?? test.error ?? update.error} />
 
-      {prefs.data && (
+      {forResidence && prefs.data && (
         <fieldset className="mt-2 flex flex-col">
           <legend className="mb-1 text-sm font-semibold">
             Recevoir{prefs.data.devices > 0 && <span className="font-normal text-muted"> · {prefs.data.devices} appareil{prefs.data.devices > 1 ? 's' : ''}</span>}
