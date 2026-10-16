@@ -285,10 +285,14 @@ describe('accès d’assistance', () => {
 describe('courriels', () => {
   it('configuration et courriel d’essai à sa propre adresse', async () => {
     expect((await call('admin', 'GET', '/platform/email')).json()).toMatchObject({ provider: 'smtp' });
-    const res = await call('admin', 'POST', '/platform/email/test');
+    const res = await call('admin', 'POST', '/platform/email/test', {});
     expect(res.json()).toMatchObject({ to: 'admin@exemple.test' });
     expect(lastMail()).toMatchObject({ to: 'admin@exemple.test', subject: 'Essai d’envoi — Journal de bord' });
-    expect((await call('responsable', 'POST', '/platform/email/test')).statusCode).toBe(403);
+    const other = await call('admin', 'POST', '/platform/email/test', { to: 'Compte.Resend@Exemple.test' });
+    expect(other.json()).toMatchObject({ to: 'compte.resend@exemple.test' });
+    expect(lastMail().to).toBe('compte.resend@exemple.test');
+    expect((await call('admin', 'POST', '/platform/email/test', { to: 'pas-un-courriel' })).statusCode).toBe(400);
+    expect((await call('responsable', 'POST', '/platform/email/test', {})).statusCode).toBe(403);
   });
 });
 
