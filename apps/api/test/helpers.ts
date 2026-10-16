@@ -19,7 +19,9 @@ export async function buildTestApp(overrides: Parameters<typeof loadConfig>[0] =
   const config = loadConfig({ NODE_ENV: 'test', LOGIN_RATE_LIMIT_MAX: 1000, ...overrides });
   const url = new URL(config.DATABASE_URL);
   url.pathname = `/${TEST_DB}`;
-  const app = await buildApp(config, createDb(url.toString()), new MemoryMailer(), new MemoryPushSender());
+  const mailer = new MemoryMailer();
+  const app = await buildApp(config, createDb(url.toString()), mailer, new MemoryPushSender());
+  mailers.set(app, mailer);
   // Comptes fictifs « !seed » → mot de passe de développement (comme npm run seed:passwords)
   await app.db.updateTable('users').set({ password_hash: await hashPassword(PASSWORD) })
     .where('password_hash', '=', '!seed').execute();
@@ -86,7 +88,8 @@ export async function loginAs(app: App, email: string): Promise<string> {
   return res.json().accessToken;
 }
 
-export const outbox = (app: App) => (app.mailer as MemoryMailer).outbox;
+const mailers = new WeakMap<App, MemoryMailer>();
+export const outbox = (app: App) => mailers.get(app)!.outbox;
 
 // Notifications push envoyées (après app.notifier.flush())
 export const pushSender = (app: App) => app.notifier.sender as MemoryPushSender;

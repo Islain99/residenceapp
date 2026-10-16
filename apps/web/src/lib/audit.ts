@@ -31,6 +31,7 @@ const ACTIONS: Record<string, string> = {
   mfa_enabled: 'a activé la double authentification',
   mfa_backup_codes: 'a généré de nouveaux codes de secours',
   mfa_reset: 'a réinitialisé la double authentification de',
+  email_test: 'a envoyé un courriel d’essai',
 };
 
 const ENTITY_NAMES: Record<string, string> = {
@@ -76,7 +77,7 @@ const ROUTES: Record<string, string> = {
 };
 
 const SELF_ACTIONS = ['login', 'logout', 'login_failed', 'refresh_reuse', 'account_activated',
-  'password_reset', 'password_reset_requested', 'handover', 'mfa_enabled', 'mfa_backup_codes'];
+  'password_reset', 'password_reset_requested', 'handover', 'mfa_enabled', 'mfa_backup_codes', 'email_test'];
 
 export function describeAudit(entry: AuditEntry): string {
   const d = entry.details ?? {};

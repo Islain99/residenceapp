@@ -62,8 +62,8 @@ DATABASE_URL=postgresql://app_user:${{APP_DB_PASSWORD}}@${{Postgres.PGHOST}}:${{
 DATABASE_ADMIN_URL=${{Postgres.DATABASE_URL}}
 JWT_SECRET=<64 caractères hexadécimaux, différent>
 APP_URL=https://<projet>.vercel.app
-SMTP_URL=<SMTP du fournisseur de courriels>
-MAIL_FROM=Journal de bord <no-reply@<domaine>>
+RESEND_API_KEY=<clé d'API Resend>          # ou BREVO_API_KEY=<clé d'API Brevo>
+MAIL_FROM=Journal de bord <no-reply@<domaine vérifié chez le fournisseur>>
 SEED_DEMO=true
 SEED_PASSWORD=<mot de passe des comptes fictifs, 12 caractères min.>
 MFA_ENCRYPTION_KEY=<64 caractères hexadécimaux, encore différent>
@@ -74,7 +74,7 @@ VAPID_SUBJECT=mailto:<adresse de contact>
 
 `MFA_ENCRYPTION_KEY` chiffre les secrets de double authentification ; sans elle, la clé est dérivée de `JWT_SECRET` (changer `JWT_SECRET` obligerait alors chaque responsable à reconfigurer son application). Ne plus la changer une fois des comptes configurés. Sans clés VAPID, les notifications push sont simplement désactivées.
 
-`PORT` est fourni par Railway. `HOST=::` : l'API écoute en IPv6 et en IPv4 ; avec `0.0.0.0` (IPv4 seulement), le test de santé de Railway échoue. Sans `SMTP_URL` valide, les comptes fictifs fonctionnent, mais inviter un employé ou « mot de passe oublié » échouent (aucun courriel ne part) : prévoir un service d'envoi (ex. Resend, Brevo, Amazon SES) avant d'inviter de vraies personnes. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
+`PORT` est fourni par Railway. `HOST=::` : l'API écoute en IPv6 et en IPv4 ; avec `0.0.0.0` (IPv4 seulement), le test de santé de Railway échoue. **Courriels** : Railway bloque le SMTP sortant (sauf plan Pro) ; l'API envoie donc par l'API HTTPS de Resend (`RESEND_API_KEY`) ou de Brevo (`BREVO_API_KEY`), prioritaires sur `SMTP_URL`. Le domaine de `MAIL_FROM` doit être vérifié chez le fournisseur (enregistrements DNS SPF/DKIM qu'il indique). Vérification : Plateforme › Sécurité › « M'envoyer un courriel d'essai » (`POST /platform/email/test`). En cas d'échec, la cause (clé, domaine) est dans le journal de l'API (« envoi de courriel »). Sans envoi, inviter un employé, créer une résidence ou « mot de passe oublié » échouent (502), rien n'est créé. Au premier déploiement, `db:setup` crée les rôles (`app_migrator`, `app_user`, `app_readonly`), applique les migrations et charge les données fictives ; ensuite, il applique seulement les nouvelles migrations. L'API se connecte toujours en `app_user` (aucun DELETE, audit en ajout seul) ; le compte administrateur ne sert qu'à l'étape *pre-deploy*.
 
 `TRUST_PROXY=2` : Vercel puis le proxy de Railway sont devant l'API. Sans ce réglage, toutes les requêtes sembleraient venir de la même adresse, et la limite de connexions par IP s'appliquerait à toutes les résidences ensemble.
 
@@ -351,7 +351,7 @@ Personne d'autre que l'employé ne connaît son mot de passe : la responsable l'
 - Le lien est `APP_URL/mot-de-passe#<jeton>` : le jeton est dans le fragment, jamais envoyé à un serveur ni noté dans un journal.
 - Un compte invité n'a pas de mot de passe (`password_hash` NULL) : connexion refusée avec le message habituel.
 - Audit : `create`, `invite`, `account_activated`, `password_reset_requested`, `password_reset`, `deactivate`, `reactivate`, `update`.
-- Courriels : `SMTP_URL`, `MAIL_FROM`, `APP_URL` (voir `.env.example`). En développement, Mailpit (http://localhost:8025) reçoit tout, rien ne part pour vrai. Les tests gardent les courriels en mémoire.
+- Courriels : `RESEND_API_KEY` ou `BREVO_API_KEY` (API HTTPS), sinon `SMTP_URL` ; `MAIL_FROM`, `APP_URL` (voir `.env.example`). En développement, Mailpit (http://localhost:8025) reçoit tout, rien ne part pour vrai. Les tests gardent les courriels en mémoire.
 
 ## Protéger une route
 

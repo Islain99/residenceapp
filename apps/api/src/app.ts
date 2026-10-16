@@ -5,7 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
-import { smtpMailer, type Mailer } from './lib/mailer.js';
+import { mailerFromConfig, type Mailer } from './lib/mailer.js';
 import { Notifier, webPushSender, type PushSender } from './lib/notifier.js';
 import agendaRoutes from './routes/agenda.js';
 import assistanceRoutes from './routes/assistance.js';
@@ -38,7 +38,7 @@ declare module 'fastify' {
 export async function buildApp(
   config: Config,
   db: Database,
-  mailer: Mailer = smtpMailer(config.SMTP_URL, config.MAIL_FROM),
+  mailer: Mailer = mailerFromConfig(config),
   pushSender: PushSender | null = webPushSender(config),
 ) {
   const app = Fastify({
@@ -52,7 +52,17 @@ export async function buildApp(
 
   app.decorate('db', db);
   app.decorate('config', config);
-  app.decorate('mailer', mailer);
+  // Échec d'envoi : la route répond 502 ; la cause (fournisseur, clé, adresse) va au journal du serveur
+  app.decorate('mailer', {
+    async send(mail) {
+      try {
+        await mailer.send(mail);
+      } catch (err) {
+        app.log.error({ err, to: mail.to.replace(/^(.).*@/, '$1…@') }, 'envoi de courriel');
+        throw err;
+      }
+    },
+  } satisfies Mailer);
   app.decorate('notifier', new Notifier(db, pushSender, app.log));
 
   // Rappels d'échéance des suivis (pas pendant les tests : ils l'appellent eux-mêmes)

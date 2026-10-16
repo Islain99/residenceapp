@@ -31,6 +31,7 @@ import { sql, type Updateable } from 'kysely';
 import { requireRole, type AccessTokenPayload } from '../auth.js';
 import type { Users } from '../db/types.js';
 import { invalidateAccountTokens, inviteMail, issueAccountToken, resetMail } from '../lib/account-tokens.js';
+import { mailerKind } from '../lib/mailer.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, HttpError, notFound } from '../lib/errors.js';
 import type { Db } from '../lib/note-view.js';
@@ -569,6 +570,32 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       return user.id;
     });
     return reply.code(201).send(await findAccount(id));
+  });
+
+  // ---------------------------------------------------------------- Courriels
+
+  app.get('/platform/email', {
+    schema: { response: { 200: Type.Object({ provider: Type.String(), from: Type.String() }) } },
+  }, async () => ({ provider: mailerKind(config), from: config.MAIL_FROM }));
+
+  // Courriel d'essai à sa propre adresse : vérifie la configuration d'envoi
+  app.post('/platform/email/test', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    schema: { response: { 200: Type.Object({ to: Type.String(), provider: Type.String() }) } },
+  }, async (request) => {
+    const me = await db.selectFrom('users').select(['email', 'first_name']).where('id', '=', request.user.sub).executeTakeFirstOrThrow();
+    try {
+      await mailer.send({
+        to: me.email,
+        subject: 'Essai d’envoi — Journal de bord',
+        text: `Bonjour ${me.first_name},\n\nCe courriel confirme que l’envoi fonctionne (invitations, mots de passe oubliés).`,
+        html: `<p>Bonjour ${me.first_name.replace(/[&<>"']/g, '')},</p><p>Ce courriel confirme que l’envoi fonctionne (invitations, mots de passe oubliés).</p>`,
+      });
+    } catch {
+      throw new HttpError(502, 'mail_failed', 'Le courriel n’a pas pu être envoyé : vérifier la clé du fournisseur et l’adresse d’expédition (MAIL_FROM). Détail dans le journal du serveur.');
+    }
+    await audit(db, { action: 'email_test', entity: 'user', entityId: request.user.sub, userId: request.user.sub, ip: request.ip });
+    return { to: me.email, provider: mailerKind(config) };
   });
 
   // ---------------------------------------------------------------- Sécurité
