@@ -3,7 +3,9 @@ import { useState, type FormEvent } from 'react';
 import { useCategories, useResidents } from '../api/hooks';
 import { isSupervisor, useUser } from '../auth/session';
 import type { Note, NoteInput } from '../api/types';
+import { appendDictated } from '../lib/dictation';
 import { fromLocalInput, fullName, toLocalInput } from '../lib/format';
+import { DictationButton } from './Dictation';
 import { Button, Checkbox, ErrorMessage, SelectField, TextArea, TextField } from './ui';
 
 interface Props {
@@ -90,6 +92,7 @@ export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLa
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Décrire les faits observés."
       />
+      <DictationButton field="ce qui s'est passé" onText={(spoken) => setDescription((text) => appendDictated(text, spoken))} />
       <TextArea
         label="Intervention (facultatif)"
         rows={2}
@@ -98,6 +101,7 @@ export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLa
         onChange={(e) => setIntervention(e.target.value)}
         placeholder="Ce qui a été fait, qui a été avisé."
       />
+      <DictationButton field="intervention" onText={(spoken) => setIntervention((text) => appendDictated(text, spoken))} />
 
       <div className="flex flex-wrap gap-x-6">
         {canMarkPriority && (
