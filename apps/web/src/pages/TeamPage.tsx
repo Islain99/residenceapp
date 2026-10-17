@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useAccounts, useInviteAccount, useResendInvite, useUpdateAccount } from '../api/hooks';
 import type { Account, AccountInput } from '../api/types';
 import { ROLE_LABELS, useUser } from '../auth/session';
+import { Avatar } from '../components/Avatar';
 import { Badge, Button, Dialog, EmptyState, ErrorMessage, Loading, PageHeader, SelectField, TextField } from '../components/ui';
 import { formatWhen, fullName } from '../lib/format';
 
@@ -57,19 +58,26 @@ function AccountRow({ account, onNotice }: { account: Account; onNotice: (messag
   return (
     <li className="rounded-xl border border-line bg-surface p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 font-semibold">
-            {fullName(account)}{self && <span className="text-sm font-normal text-muted">(vous)</span>}
-            <Badge tone={status.tone}>{status.label}</Badge>
-          </p>
-          <p className="truncate text-sm text-muted">{account.email}</p>
-          <p className="text-xs text-muted">
-            {account.status === 'invited'
-              ? account.invitationExpiresAt && Date.parse(account.invitationExpiresAt) > openedAt
-                ? `Invitation valable jusqu'à ${formatWhen(account.invitationExpiresAt)}`
-                : 'Invitation expirée : la renvoyer'
-              : account.lastLoginAt ? `Dernière connexion ${formatWhen(account.lastLoginAt)}` : 'Jamais connecté'}
-          </p>
+        <div className="flex min-w-0 items-start gap-3">
+          <Avatar person={account} className="mt-0.5" />
+          <div className="min-w-0">
+            <p className="flex flex-wrap items-center gap-2 font-semibold">
+              {fullName(account)}{self && <span className="text-sm font-normal text-muted">(vous)</span>}
+              <Badge tone={status.tone}>{status.label}</Badge>
+            </p>
+            <p className="truncate text-sm text-muted">
+              {account.email}
+              {/* Téléphone saisi par l'employé dans son profil : un toucher pour appeler */}
+              {account.phone && <> · <a href={`tel:${account.phone.replace(/[^\d+]/g, '')}`} className="text-primary hover:underline">{account.phone}</a></>}
+            </p>
+            <p className="text-xs text-muted">
+              {account.status === 'invited'
+                ? account.invitationExpiresAt && Date.parse(account.invitationExpiresAt) > openedAt
+                  ? `Invitation valable jusqu'à ${formatWhen(account.invitationExpiresAt)}`
+                  : 'Invitation expirée : la renvoyer'
+                : account.lastLoginAt ? `Dernière connexion ${formatWhen(account.lastLoginAt)}` : 'Jamais connecté'}
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

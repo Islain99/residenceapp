@@ -9,6 +9,7 @@ import type {
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
   AssistanceGrant, NewResidenceInput, OpenAssistanceGrant, PlatformAccount, PlatformAuditPage, PlatformResidence,
   PlatformResidenceDetail, PlatformSecurity, MfaStatus, PushConfig, PushPreferences,
+  ProfileInput, User,
 } from './types';
 
 export interface NoteFilters {
@@ -565,6 +566,27 @@ export function useRegenerateBackupCodes() {
     onSuccess: () => invalidate('mfa'),
   });
 }
+
+// ---------------------------------------------------------------------
+// Mon profil
+// ---------------------------------------------------------------------
+export function useUpdateProfile() {
+  const { updateUser } = useAuth();
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (input: ProfileInput) => api<User>('/auth/me', { method: 'PATCH', body: input }),
+    onSuccess: (user) => {
+      updateUser(user);
+      void invalidate('accounts', 'staff');   // nom et couleur dans l'équipe
+    },
+  });
+}
+
+export const useChangePassword = () =>
+  useMutation({
+    mutationFn: (input: { currentPassword: string; newPassword: string; signOutOthers: boolean }) =>
+      api<{ otherSessionsClosed: number }>('/auth/password/change', { method: 'POST', body: input }),
+  });
 
 export const usePushConfig = () =>
   useQuery({ queryKey: ['push', 'config'], queryFn: () => api<PushConfig>('/push/config'), staleTime: Infinity });

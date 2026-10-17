@@ -23,19 +23,12 @@ import {
   looksLikeBackupCode, otpauthUrl, verifyTotp,
 } from '../lib/mfa.js';
 import { generateRefreshToken, hashToken } from '../lib/tokens.js';
+import { toUserBody, USER_COLUMNS, UserBody } from '../lib/user-view.js';
 import { authenticate, MFA_ROLES, type AccessTokenPayload, type MfaTokenPayload, type Role } from '../auth.js';
 import QRCode from 'qrcode';
 
 const ErrorBody = Type.Object({ error: Type.String(), message: Type.String() });
 
-const UserBody = Type.Object({
-  id: Type.String(),
-  email: Type.String(),
-  firstName: Type.String(),
-  lastName: Type.String(),
-  role: Type.String(),
-  residenceId: Type.Union([Type.String(), Type.Null()]),
-});
 
 const MFA_CHALLENGE_MINUTES = 10;
 
@@ -231,7 +224,7 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
   async function completeLogin(reply: FastifyReply, userId: string, useCookie: boolean, sharedDevice: boolean,
     ip: string, userAgent: string | undefined, details?: Record<string, string | number>) {
     const user = await db.selectFrom('users')
-      .select(['id', 'email', 'first_name', 'last_name', 'role', 'residence_id'])
+      .select(USER_COLUMNS)
       .where('id', '=', userId).executeTakeFirstOrThrow();
     const payload: AccessTokenPayload = { sub: user.id, rid: user.residence_id, role: user.role as Role };
     const tokens = await db.transaction().execute(async (trx) => {
@@ -246,10 +239,7 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
     });
     return {
       ...deliver(reply, tokens, useCookie, sharedDevice),
-      user: {
-        id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name,
-        role: user.role, residenceId: user.residence_id,
-      },
+      user: toUserBody(user),
     };
   }
 
@@ -528,16 +518,13 @@ const authRoutes: FastifyPluginAsyncTypebox = async (app) => {
     schema: { response: { 200: UserBody, 401: ErrorBody } },
   }, async (request, reply) => {
     const user = await db.selectFrom('users')
-      .select(['id', 'email', 'first_name', 'last_name', 'role', 'residence_id', 'is_active'])
+      .select([...USER_COLUMNS, 'is_active'])
       .where('id', '=', request.user.sub)
       .executeTakeFirst();
     if (!user || !user.is_active) {
       return reply.code(401).send({ error: 'inactive_account', message: 'Compte désactivé.' });
     }
-    return {
-      id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name,
-      role: user.role, residenceId: user.residence_id,
-    };
+    return toUserBody(user);
   });
 };
 

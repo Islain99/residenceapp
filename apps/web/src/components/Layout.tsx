@@ -5,6 +5,7 @@ import { useEndAssistance, useHandover, useMessagingSummary } from '../api/hooks
 import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
 import { formatWhen, fullName } from '../lib/format';
 import { cx } from '../lib/cx';
+import { Avatar } from './Avatar';
 import { IdleLogout } from './IdleLogout';
 import { Logo } from './Logo';
 import { OfflineBanner } from './OfflineBanner';
@@ -113,9 +114,9 @@ export function Layout() {
   const base = assistance ? LINKS.filter((l) => l.to !== '/messages') : LINKS;
   const links = user.role === 'responsable' ? [...base, ADMIN_LINK] : base;
   const mobileMain = links.filter((l) => MOBILE_MAIN.includes(l.to));
-  // « Mon compte » : dans « Plus » sur téléphone, sous le nom sur ordinateur
+  // « Mon profil » : rond avec les initiales en haut, et aussi dans « Plus » sur téléphone
   const mobileMore = [...links.filter((l) => !MOBILE_MAIN.includes(l.to)),
-    ...(assistance ? [] : [{ to: '/compte', label: 'Mon compte', icon: '☺', end: false }])];
+    ...(assistance ? [] : [{ to: '/compte', label: 'Mon profil', icon: '☺', end: false }])];
   const location = useLocation();
   // Menu « Plus » ouvert sur la page courante : il se referme dès qu'on change de page
   const [moreOpenOn, setMoreOpenOn] = useState<string | null>(null);
@@ -152,10 +153,14 @@ export function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <NavLink to="/compte" title="Mon compte"
-              className="hidden rounded-lg px-2 py-1 text-right leading-tight hover:bg-sunken sm:block md:hidden lg:block">
-              <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
-              <span className="block text-xs text-muted">{assistance ? 'Assistance (lecture seule)' : ROLE_LABELS[user.role]}</span>
+            {/* Rond avec les initiales, puis le nom (le nom seul disparaît quand la place manque) */}
+            <NavLink to="/compte" title="Mon profil" aria-label={`Mon profil (${fullName(user)})`}
+              className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-sunken lg:rounded-lg lg:pr-2">
+              <Avatar person={user} />
+              <span className="hidden text-left leading-tight sm:block md:hidden lg:block">
+                <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
+                <span className="block text-xs text-muted">{assistance ? 'Assistance (lecture seule)' : ROLE_LABELS[user.role]}</span>
+              </span>
             </NavLink>
             <button type="button" onClick={() => void logout()} className="whitespace-nowrap rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
               Déconnexion

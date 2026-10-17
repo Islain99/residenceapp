@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router';
 import { useAuth, useUser } from '../auth/session';
 import { cx } from '../lib/cx';
 import { fullName } from '../lib/format';
+import { Avatar } from './Avatar';
 import { Logo } from './Logo';
 import { OfflineBanner } from './OfflineBanner';
 
@@ -11,7 +12,7 @@ const LINKS = [
   { to: '/plateforme/securite', label: 'Sécurité', end: false },
   { to: '/plateforme/journal', label: 'Journal', end: false },
   { to: '/plateforme/administrateurs', label: 'Administrateurs', end: false },
-  { to: '/plateforme/compte', label: 'Mon compte', end: false },
+  { to: '/plateforme/compte', label: 'Mon profil', end: false },
 ];
 
 export function PlatformLayout() {
@@ -47,10 +48,15 @@ export function PlatformLayout() {
           </span>
           {nav('hidden gap-1 md:flex')}
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="hidden text-right leading-tight sm:block">
-              <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
-              <span className="block text-xs text-muted">Administration de la plateforme</span>
-            </span>
+            {/* Rond avec les initiales, puis le nom (à partir de la largeur d'une tablette) */}
+            <NavLink to="/plateforme/compte" title="Mon profil" aria-label={`Mon profil (${fullName(user)})`}
+              className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-sunken sm:rounded-lg sm:pr-2">
+              <Avatar person={user} />
+              <span className="hidden text-left leading-tight sm:block">
+                <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
+                <span className="block text-xs text-muted">Administration de la plateforme</span>
+              </span>
+            </NavLink>
             <button type="button" onClick={() => void logout()} className="whitespace-nowrap rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
               Déconnexion
             </button>

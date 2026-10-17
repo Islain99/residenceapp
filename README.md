@@ -9,6 +9,7 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Horaires** : la responsable place les quarts de l'équipe (Jour, Soir, Nuit…) semaine par semaine ; chacun voit son horaire.
 - **Résidents** : fiches, consignes particulières, notes réservées aux infirmières et responsables ; statistiques par mois ou par année (tendances par catégorie, moments de la journée) pour l'infirmière et la responsable.
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
+- **Mon profil** : chacun modifie son nom, son téléphone et la couleur du rond avec ses initiales (en haut à droite), et change son mot de passe (avec l'actuel ; option « déconnecter mes autres appareils » ; avis par courriel).
 - **Messagerie** : messages privés, groupes, fil de toute l'équipe et annonces de la direction avec confirmation de lecture. Un message se corrige ou se retire pendant 15 minutes, rien n'est supprimé.
 - **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
 - **Plateforme** (plusieurs résidences) : l'administrateur crée les résidences et leurs responsables, suspend une résidence, débloque un compte, surveille la sécurité ; il ne voit que des chiffres. La responsable peut lui accorder un **accès d'assistance** limité dans le temps, en lecture seule et tracé.

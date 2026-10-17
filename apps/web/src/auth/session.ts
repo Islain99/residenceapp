@@ -30,6 +30,8 @@ export interface AuthState {
   // une fois les codes de secours notés
   enableMfa: (mfaToken: string, code: string) => Promise<{ backupCodes: string[]; finish: () => void }>;
   logout: (notice?: string) => Promise<void>;
+  // Profil modifié (nom, couleur…) : en-tête et pages à jour sans recharger
+  updateUser: (user: User) => void;
 }
 
 export const AuthContext = createContext<AuthState | null>(null);

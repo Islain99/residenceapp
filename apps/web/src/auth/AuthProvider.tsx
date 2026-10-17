@@ -128,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clear]);
 
   const clearPlatformNotice = useCallback(() => setPlatformNotice(null), []);
+  const updateUser = useCallback((next: User) => setUser(next), []);
 
   // Mode assistance : l'admin voit la résidence comme sa responsable (lecture seule)
   const effectiveUser = useMemo(
@@ -138,10 +139,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       user: effectiveUser, ready, sharedDevice, notice, login, logout, verifyMfa, setupMfa, enableMfa,
-      assistance, startAssistance, leaveAssistance, platformNotice, clearPlatformNotice,
+      assistance, startAssistance, leaveAssistance, platformNotice, clearPlatformNotice, updateUser,
     }),
     [effectiveUser, ready, sharedDevice, notice, login, logout, verifyMfa, setupMfa, enableMfa, assistance, startAssistance, leaveAssistance,
-      platformNotice, clearPlatformNotice],
+      platformNotice, clearPlatformNotice, updateUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
