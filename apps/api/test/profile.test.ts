@@ -26,6 +26,16 @@ describe('coordonnées', () => {
     expect(audited.details).toEqual({ fields: ['phone', 'avatarColor', 'firstName'] });
   });
 
+  it('avatar illustré de la galerie ; null : retour aux initiales ; forme inconnue refusée', async () => {
+    expect((await call('prepose3', 'PATCH', '/auth/me', { avatar: 'lorelei:aurore' })).json().avatar).toBe('lorelei:aurore');
+    expect((await call('responsable', 'GET', '/users')).json()
+      .find((u: { email: string }) => u.email === 'prepose3@exemple.test').avatar).toBe('lorelei:aurore');
+    for (const bad of ['dessin:aurore', 'lorelei:Aurore', 'lorelei:', 'https://exemple.com/photo.png']) {
+      expect((await call('prepose3', 'PATCH', '/auth/me', { avatar: bad })).statusCode, bad).toBe(400);
+    }
+    expect((await call('prepose3', 'PATCH', '/auth/me', { avatar: null })).json().avatar).toBeNull();
+  });
+
   it('la responsable voit le téléphone dans l’équipe', async () => {
     const team = (await call('responsable', 'GET', '/users')).json() as { email: string; phone: string | null }[];
     expect(team.find((u) => u.email === 'prepose3@exemple.test')?.phone).toBe('514 555-0199');

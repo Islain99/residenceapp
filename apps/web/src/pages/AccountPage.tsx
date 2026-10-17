@@ -8,7 +8,7 @@ import {
 import type { PushPreferences, User } from '../api/types';
 import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
 import { Avatar } from '../components/Avatar';
-import { AVATAR_COLORS, avatarColorOf, type AvatarColor } from '../lib/avatar';
+import { AVATAR_COLORS, avatarColorOf, GALLERY, STYLE_LABELS, type AvatarColor } from '../lib/avatar';
 import { BackupCodes, CodeForm } from '../components/mfa';
 import { Badge, Button, Card, Checkbox, Dialog, ErrorMessage, Loading, TextField } from '../components/ui';
 import { cx } from '../lib/cx';
@@ -40,32 +40,78 @@ export function AccountPage() {
   );
 }
 
-// Prénom, nom, téléphone, couleur du rond. Le courriel et le rôle sont gérés
-// par la responsable (ou l'administration de la plateforme).
+// Avatar (illustration de la galerie ou initiales, couleur du fond), prénom,
+// nom, téléphone. Le courriel et le rôle sont gérés par la responsable (ou
+// l'administration de la plateforme).
 function ProfileSection({ user }: { user: User }) {
   const update = useUpdateProfile();
   const [firstName, setFirstName] = useState(user.firstName);
   const [lastName, setLastName] = useState(user.lastName);
   const [phone, setPhone] = useState(user.phone ?? '');
+  const [avatar, setAvatar] = useState<string | null>(user.avatar);
   const [color, setColor] = useState<AvatarColor>(() => avatarColorOf(user));
   const [saved, setSaved] = useState(false);
-  // Aperçu du rond avec les valeurs en cours de saisie
-  const preview = { id: user.id, firstName: firstName || user.firstName, lastName: lastName || user.lastName, avatarColor: color };
+  // Aperçu avec les valeurs en cours de saisie
+  const preview = { id: user.id, firstName: firstName || user.firstName, lastName: lastName || user.lastName, avatar, avatarColor: color };
+  const pick = (next: string | null) => { setAvatar(next); setSaved(false); };
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaved(false);
-    await update.mutateAsync({ firstName, lastName, phone: phone.trim() || null, avatarColor: color });
+    await update.mutateAsync({ firstName, lastName, phone: phone.trim() || null, avatar, avatarColor: color });
     setSaved(true);
   }
 
+  // Une tuile de la galerie (bouton radio) : l'avatar sur la couleur choisie
+  const tile = (id: string | null, label: string) => (
+    <button key={id ?? 'initiales'} type="button" role="radio" aria-checked={avatar === id} aria-label={label} title={label}
+      onClick={() => pick(id)}
+      className={cx('rounded-full p-0.5 ring-offset-2 ring-offset-surface transition',
+        avatar === id ? 'ring-2 ring-primary' : 'hover:scale-110')}>
+      <Avatar person={{ ...preview, avatar: id }} />
+    </button>
+  );
+
   return (
     <Card className="p-5">
-      <h2 className="mb-1 text-lg font-semibold">Mes coordonnées</h2>
-      <p className="mb-4 text-sm text-muted">
-        Visibles par la responsable dans l’équipe. Le courriel et le rôle se changent auprès d’elle.
-      </p>
       <form onSubmit={submit} onChange={() => setSaved(false)} className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Mon avatar</h2>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <Avatar person={preview} size="lg" className="self-center sm:self-start" />
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            {GALLERY.map((group) => (
+              <fieldset key={group.style}>
+                <legend className="mb-2 text-sm font-medium">{STYLE_LABELS[group.style]}</legend>
+                <div role="radiogroup" aria-label={`Avatars : ${STYLE_LABELS[group.style]}`} className="flex flex-wrap gap-2">
+                  {group.ids.map((id, i) => tile(id, `${STYLE_LABELS[group.style]} ${i + 1}`))}
+                </div>
+              </fieldset>
+            ))}
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium">Sans illustration</legend>
+              <div role="radiogroup" aria-label="Sans illustration" className="flex gap-2">
+                {tile(null, 'Mes initiales')}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="mb-2 text-sm font-medium">Couleur du fond</legend>
+              <div role="radiogroup" aria-label="Couleur du fond" className="flex flex-wrap gap-2">
+                {(Object.keys(AVATAR_COLORS) as AvatarColor[]).map((c) => (
+                  <button key={c} type="button" role="radio" aria-checked={c === color} aria-label={AVATAR_COLORS[c].label}
+                    title={AVATAR_COLORS[c].label} onClick={() => { setColor(c); setSaved(false); }}
+                    className={cx('size-8 rounded-full ring-offset-2 ring-offset-surface transition',
+                      c === color ? 'ring-2 ring-ink' : 'hover:scale-110')}
+                    style={{ backgroundColor: AVATAR_COLORS[c].hex }} />
+                ))}
+              </div>
+            </fieldset>
+          </div>
+        </div>
+
+        <h2 className="mt-2 border-t border-line pt-5 text-lg font-semibold">Mes coordonnées</h2>
+        <p className="-mt-2 text-sm text-muted">
+          Visibles par la responsable dans l’équipe. Le courriel et le rôle se changent auprès d’elle.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Prénom" required maxLength={100} autoComplete="given-name" value={firstName}
             onChange={(e) => setFirstName(e.target.value)} />
@@ -75,22 +121,6 @@ function ProfileSection({ user }: { user: User }) {
         <TextField label="Téléphone (facultatif)" type="tel" maxLength={30} autoComplete="tel" value={phone}
           pattern="[0-9 +().\-]{7,30}" title="Chiffres, espaces, + ( ) . - (7 caractères au moins)"
           onChange={(e) => setPhone(e.target.value)} placeholder="Ex. : 514 555-0123" />
-
-        <fieldset>
-          <legend className="mb-2 text-sm font-medium">Couleur de mon rond</legend>
-          <div className="flex flex-wrap items-center gap-3">
-            <Avatar person={preview} size="md" />
-            <div role="radiogroup" aria-label="Couleur de mon rond" className="flex flex-wrap gap-2">
-              {(Object.keys(AVATAR_COLORS) as AvatarColor[]).map((c) => (
-                <button key={c} type="button" role="radio" aria-checked={c === color} aria-label={AVATAR_COLORS[c].label}
-                  title={AVATAR_COLORS[c].label} onClick={() => { setColor(c); setSaved(false); }}
-                  className={cx('size-8 rounded-full ring-offset-2 ring-offset-surface transition',
-                    c === color ? 'ring-2 ring-ink' : 'hover:scale-110')}
-                  style={{ backgroundColor: AVATAR_COLORS[c].hex }} />
-              ))}
-            </div>
-          </div>
-        </fieldset>
 
         <ErrorMessage error={update.error} />
         {saved && <p role="status" className="rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">Profil enregistré.</p>}

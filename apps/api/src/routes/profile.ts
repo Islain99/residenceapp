@@ -1,6 +1,6 @@
 // Mon profil : chacun modifie ses coordonnées et change son mot de passe.
 //
-//   PATCH /auth/me               { firstName?, lastName?, phone?, avatarColor? }
+//   PATCH /auth/me               { firstName?, lastName?, phone?, avatar?, avatarColor? }
 //   POST  /auth/password/change  { currentPassword, newPassword, signOutOthers? }
 //
 // Le courriel et le rôle ne se changent pas ici : la responsable (ou
@@ -15,7 +15,7 @@ import { linkMail } from '../lib/mailer.js';
 import { hashPassword, verifyPassword } from '../lib/passwords.js';
 import { Nullable } from '../lib/schemas.js';
 import { hashToken } from '../lib/tokens.js';
-import { AvatarColor, toUserBody, USER_COLUMNS, UserBody } from '../lib/user-view.js';
+import { Avatar, AvatarColor, toUserBody, USER_COLUMNS, UserBody } from '../lib/user-view.js';
 import { REFRESH_COOKIE } from './auth.js';
 import { PASSWORD_MIN_LENGTH } from './password.js';
 
@@ -36,13 +36,16 @@ const profileRoutes: FastifyPluginAsyncTypebox = async (app) => {
         firstName: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
         lastName: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
         phone: Type.Optional(Nullable(Type.String({ maxLength: 30 }))),   // vide ou null : retiré
+        avatar: Type.Optional(Nullable(Avatar)),                         // null : initiales
         avatarColor: Type.Optional(Nullable(AvatarColor)),               // null : couleur par défaut
       }, { minProperties: 1 }),
       response: { 200: UserBody },
     },
   }, async (request) => {
     const b = request.body;
-    const changes: { first_name?: string; last_name?: string; phone?: string | null; avatar_color?: string | null } = {};
+    const changes: {
+      first_name?: string; last_name?: string; phone?: string | null; avatar?: string | null; avatar_color?: string | null;
+    } = {};
     if (b.firstName !== undefined) {
       changes.first_name = b.firstName.trim();
       if (!changes.first_name) throw badRequest('invalid_name', 'Le prénom est obligatoire.');
@@ -57,6 +60,7 @@ const profileRoutes: FastifyPluginAsyncTypebox = async (app) => {
         throw badRequest('invalid_phone', 'Numéro de téléphone invalide (chiffres, espaces, + ( ) . - ; 7 caractères au moins).');
       }
     }
+    if (b.avatar !== undefined) changes.avatar = b.avatar;
     if (b.avatarColor !== undefined) changes.avatar_color = b.avatarColor;
     // Champs inconnus (courriel, rôle…) : retirés par la validation, il ne reste rien
     if (Object.keys(changes).length === 0) throw badRequest('nothing_to_update', 'Aucun champ modifiable.');

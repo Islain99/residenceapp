@@ -295,6 +295,7 @@ export interface ShiftTypes {
 }
 
 export interface Users {
+  avatar: string | null;
   avatar_color: string | null;
   created_at: Generated<Timestamp>;
   email: string;

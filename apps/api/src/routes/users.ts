@@ -30,6 +30,7 @@ const Account = Type.Object({
   lastLoginAt: Nullable(Type.String()),
   invitationExpiresAt: Nullable(Type.String()),   // invitation en attente
   phone: Nullable(Type.String()),                 // saisi par l'employé dans son profil
+  avatar: Nullable(Type.String()),                // avatar illustré choisi (null : initiales)
   avatarColor: Nullable(Type.String()),
 });
 
@@ -38,7 +39,7 @@ function accountQuery(db: Db, residenceId: string) {
     .where('u.residence_id', '=', residenceId)
     .select((eb) => [
       'u.id', 'u.email', 'u.first_name', 'u.last_name', 'u.role', 'u.is_active', 'u.last_login_at',
-      'u.phone', 'u.avatar_color',
+      'u.phone', 'u.avatar', 'u.avatar_color',
       sql<boolean>`u.password_hash IS NULL`.as('invited'),
       eb.selectFrom('account_tokens as t').whereRef('t.user_id', '=', 'u.id')
         .where('t.purpose', '=', 'invite').where('t.used_at', 'is', null)
@@ -59,6 +60,7 @@ const toAccount = (row: AccountRow) => ({
   lastLoginAt: row.last_login_at?.toISOString() ?? null,
   invitationExpiresAt: row.invitation_expires_at ? new Date(row.invitation_expires_at).toISOString() : null,
   phone: row.phone,
+  avatar: row.avatar,
   avatarColor: row.avatar_color,
 });
 
