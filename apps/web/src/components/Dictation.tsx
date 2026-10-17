@@ -158,7 +158,7 @@ function MicButton({ label, onClick, disabled, tone = 'idle', badge, children }:
       onClick={onClick}
       disabled={disabled}
       className={cx(
-        'relative inline-flex size-11 shrink-0 items-center justify-center rounded-full transition-colors',
+        'relative inline-flex size-10 shrink-0 items-center justify-center rounded-full transition-colors',
         'disabled:cursor-wait disabled:opacity-70',
         tone === 'listening'
           ? 'bg-danger text-white shadow-md hover:opacity-90'
