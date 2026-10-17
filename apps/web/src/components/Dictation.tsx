@@ -2,21 +2,25 @@
 // l'appareil (lib/dictation.ts) et ajoutée au texte. Absent si l'appareil ne
 // sait pas transcrire localement.
 //
-// Trois affichages possibles :
-//   « 🎤 Activer la dictée »  le français n'est pas encore installé : clic =
-//                            téléchargement (une fois), puis l'écoute commence
-//   « 🎤 Dicter »            prêt : clic = le micro s'ouvre
-//   « ■ Arrêter »            écoute en cours, avec l'aperçu de ce qui est entendu
+// Bouton rond, icône seule (le libellé est lu par les lecteurs d'écran et
+// s'affiche en infobulle). Quatre affichages :
+//   micro + flèche     le français n'est pas encore installé : clic =
+//                      téléchargement (une fois), puis l'écoute commence
+//   roue qui tourne    téléchargement en cours
+//   micro              prêt : clic = le micro s'ouvre
+//   carré, fond rouge  écoute en cours (halo qui pulse), avec l'aperçu de ce
+//                      qui est entendu ; clic = arrêt
 //
 // Utilisation (components/NoteForm.tsx) :
 //   <DictationButton field="intervention"
 //     onText={(spoken) => setIntervention((text) => appendDictated(text, spoken))} />
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { cx } from '../lib/cx';
 import {
   createRecognition, DICTATION_ERRORS, dictationStatus, installDictation, releaseRecognition,
   type DictationStatus, type Recognition,
 } from '../lib/dictation';
-import { Button } from './ui';
+import { Spinner } from './ui';
 
 // Vérifiée une fois par page : la réponse ne change pas d'un champ à l'autre
 // (les deux boutons du formulaire partagent la même vérification)
@@ -116,23 +120,80 @@ export function DictationButton({ onText, field }: Props) {
         )}
         {listening ? (
           // stop() et non abort() : la fin de la dernière phrase est encore transcrite
-          <Button className="min-h-9" onClick={() => recognition.current?.stop()} aria-label={`Arrêter la dictée (${field})`}>
-            ■ Arrêter
-          </Button>
+          <MicButton tone="listening" label={`Arrêter la dictée (${field})`} onClick={() => recognition.current?.stop()}>
+            <StopIcon />
+          </MicButton>
         ) : status.state === 'available' ? (
-          <Button variant="ghost" className="min-h-9 text-primary" onClick={start} aria-label={`Dicter : ${field}`}>
-            🎤 Dicter
-          </Button>
+          <MicButton label={`Dicter : ${field}`} onClick={start}>
+            <MicIcon />
+          </MicButton>
+        ) : installing || status.state === 'downloading' ? (
+          <MicButton label="Installation du français pour la dictée…" disabled>
+            <Spinner small />
+          </MicButton>
         ) : (
-          // downloadable ou downloading : modèle français à installer
-          <Button variant="ghost" className="min-h-9 text-primary" busy={installing || status.state === 'downloading'}
-            onClick={() => void enable()}
-            title="Télécharge une seule fois le français sur cet appareil. Ensuite, la voix est transcrite sur l’appareil, sans rien envoyer.">
-            🎤 Activer la dictée
-          </Button>
+          // downloadable : modèle français à installer (une fois), puis l'écoute commence
+          <MicButton label={`Activer la dictée : ${field} (télécharge une seule fois le français sur cet appareil ; la voix reste sur l’appareil)`}
+            onClick={() => void enable()} badge>
+            <MicIcon />
+          </MicButton>
         )}
       </div>
       {error && <p role="alert" className="text-right text-sm text-danger">{error}</p>}
     </div>
+  );
+}
+
+// Bouton rond, icône seule. Le libellé (lecteurs d'écran) sert aussi d'infobulle.
+//   tone « listening » : rouge plein, avec un halo qui pulse pendant l'écoute
+//   badge : petite flèche de téléchargement (français à installer)
+function MicButton({ label, onClick, disabled, tone = 'idle', badge, children }: {
+  label: string; onClick?: () => void; disabled?: boolean; tone?: 'idle' | 'listening'; badge?: boolean; children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cx(
+        'relative inline-flex size-11 shrink-0 items-center justify-center rounded-full transition-colors',
+        'disabled:cursor-wait disabled:opacity-70',
+        tone === 'listening'
+          ? 'bg-danger text-white shadow-md hover:opacity-90'
+          : 'border border-line bg-surface text-primary shadow-sm hover:border-primary hover:bg-info-soft',
+      )}
+    >
+      {tone === 'listening' && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-danger opacity-30" />}
+      <span className="relative">{children}</span>
+      {badge && (
+        <span aria-hidden className="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-on-primary">
+          <svg viewBox="0 0 16 16" className="size-2.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 3v8M4.5 7.5 8 11l3.5-3.5" />
+          </svg>
+        </span>
+      )}
+    </button>
+  );
+}
+
+// Micro : capsule, arceau, pied
+function MicIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2.5" width="6" height="12" rx="3" fill="currentColor" fillOpacity="0.15" />
+      <path d="M5.5 11a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 17.5V21M8.5 21h7" />
+    </svg>
+  );
+}
+
+// Arrêt : carré aux coins arrondis
+function StopIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="size-4" fill="currentColor">
+      <rect x="5" y="5" width="14" height="14" rx="3" />
+    </svg>
   );
 }
