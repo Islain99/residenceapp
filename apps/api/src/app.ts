@@ -18,6 +18,7 @@ import healthRoutes from './routes/health.js';
 import messageRoutes from './routes/messages.js';
 import noteRoutes from './routes/notes.js';
 import passwordRoutes from './routes/password.js';
+import profileRoutes from './routes/profile.js';
 import platformRoutes from './routes/platform.js';
 import pushRoutes from './routes/push.js';
 import residentRoutes from './routes/residents.js';
@@ -142,6 +143,7 @@ export async function buildApp(
   await app.register(messageRoutes);
   await app.register(userRoutes);
   await app.register(passwordRoutes);
+  await app.register(profileRoutes);
   await app.register(auditRoutes);
   await app.register(agendaRoutes);
   await app.register(scheduleRoutes);

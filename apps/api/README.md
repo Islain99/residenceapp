@@ -112,6 +112,8 @@ Mêmes commandes : `npm run db:setup` (`DATABASE_ADMIN_URL` = compte maître RDS
 | `POST /auth/refresh` | `{ refreshToken }` (ou `{}` + cookie) | `{ accessToken, refreshToken, expiresIn }` |
 | `POST /auth/logout` | `{ refreshToken }` (ou `{}` + cookie) | 204 |
 | `GET /staff` | — | Employés actifs de ma résidence (`id`, nom, rôle), pour assigner un suivi |
+| `PATCH /auth/me` | `{ firstName?, lastName?, phone?, avatar?, avatarColor? }` | Mon profil, comme `GET /auth/me`. `phone` : chiffres, espaces, `+ ( ) . -`, 7 à 30 caractères (vide ou `null` : retiré). `avatar` : avatar illustré de la galerie, `lorelei:<nom>` ou `notionists:<nom>` (minuscules ; dessiné par l'interface, aucune image stockée ; `null` : initiales). `avatarColor` : `teal`, `blue`, `indigo`, `violet`, `pink`, `red`, `orange`, `green`, `slate` (`null` : couleur tirée de l'id). Courriel et rôle : non modifiables ici. Audité (`profile_update`, noms des champs seulement) |
+| `POST /auth/password/change` | `{ currentPassword, newPassword, signOutOthers? }` | `{ otherSessionsClosed }`. Mot de passe actuel exigé ; un mauvais compte dans le blocage du compte (comme à la connexion). Nouveau : 12 caractères au moins, différent de l'actuel et du courriel. `signOutOthers` (vrai par défaut) : les sessions des autres appareils **expirent** (pas révoquées : l'autre appareil voit « session expirée » sans déclencher l'alerte de vol), celle de cet appareil reste (cookie, ou `refreshToken` en mode jeton). Courriel d'avis à la personne. Audité (`password_change`, `password_change_failed`) |
 | `GET /auth/me` | — (`Authorization: Bearer <accessToken>`) | profil |
 | `GET /health` | — | `{ status, db }` (503 si la base ne répond pas) |
 

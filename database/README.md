@@ -81,7 +81,7 @@ Garanties au niveau de la base (pas seulement dans l'API) :
 | `scripts/status.sh` | Chaque jour, et avant toute opération |
 | `scripts/backup.sh full` | 1 fois par semaine (dimanche nuit) |
 | `scripts/backup.sh diff` | Chaque nuit |
-| `scripts/migrate.sh` | Après l'ajout d'un fichier dans `migrations/` (`NNNN_nom.sql`, appliqués dans l'ordre ; la version est enregistrée automatiquement dans `schema_migrations`) |
+| `scripts/migrate.sh` | Après l'ajout d'un fichier dans `migrations/` (`NNNN_nom.sql`, appliqués dans l'ordre ; la version est enregistrée automatiquement dans `schema_migrations`). Le conteneur reçoit exactement les migrations du dépôt (un fichier resté d'une branche abandonnée est retiré) |
 | `scripts/restore-test.sh` | **1 fois par mois** : prouve que les sauvegardes sont restaurables |
 
 Planifier les sauvegardes avec cron (Linux) ou le Planificateur de tâches (Windows) :
@@ -184,7 +184,8 @@ database/
 │   ├── 0008_note_reads_logic.sql  # lectures : auteur, corrections de fond (à relire)
 │   ├── 0009_messaging.sql         # messagerie : conversations, messages, lectures, annonces
 │   ├── 0010_platform.sql          # plateforme : accès d'assistance, index du journal
-│   └── 0011_security_push.sql     # sessions (délai de grâce), double authentification, notifications
+│   ├── 0011_security_push.sql     # sessions (délai de grâce), double authentification, notifications
+│   └── 0012_profile.sql           # profil : téléphone, avatar choisi, couleur de fond
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

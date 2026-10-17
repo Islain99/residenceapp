@@ -9,6 +9,18 @@ export interface User {
   lastName: string;
   role: Role;
   residenceId: string | null;
+  phone: string | null;
+  avatar: string | null;         // avatar illustré « style:nom » (lib/avatar.ts) ; null : initiales
+  avatarColor: string | null;    // null : couleur tirée de l'id (lib/avatar.ts)
+}
+
+// Mon profil (PATCH /auth/me)
+export interface ProfileInput {
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+  avatar?: string | null;
+  avatarColor?: string | null;
 }
 
 export interface Person {
@@ -163,6 +175,9 @@ export interface Account extends StaffMember {
   status: 'invited' | 'active' | 'inactive';
   lastLoginAt: string | null;
   invitationExpiresAt: string | null;
+  phone: string | null;
+  avatar: string | null;
+  avatarColor: string | null;
 }
 
 export interface AccountInput {

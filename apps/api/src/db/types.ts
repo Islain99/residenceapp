@@ -295,6 +295,8 @@ export interface ShiftTypes {
 }
 
 export interface Users {
+  avatar: string | null;
+  avatar_color: string | null;
   created_at: Generated<Timestamp>;
   email: string;
   failed_login_count: Generated<number>;
@@ -308,6 +310,7 @@ export interface Users {
   mfa_last_step: Int8 | null;
   mfa_secret: string | null;
   password_hash: string | null;
+  phone: string | null;
   residence_id: string | null;
   role: string;
   updated_at: Generated<Timestamp>;
