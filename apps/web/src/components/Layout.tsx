@@ -1,5 +1,5 @@
 // Cadre des pages connectées : barre du haut (ordinateur) et barre du bas (téléphone).
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useEndAssistance, useHandover, useMessagingSummary } from '../api/hooks';
 import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
@@ -8,21 +8,24 @@ import { cx } from '../lib/cx';
 import { Avatar } from './Avatar';
 import { IdleLogout } from './IdleLogout';
 import { Logo } from './Logo';
+import { NavIcon, type NavIconName } from './NavIcon';
 import { OfflineBanner } from './OfflineBanner';
 
-const LINKS = [
-  { to: '/', label: 'Relève', icon: '◷', end: true },
-  { to: '/journal', label: 'Journal', icon: '☰', end: false },
-  { to: '/suivis', label: 'Suivis', icon: '✓', end: false },
-  { to: '/messages', label: 'Messages', icon: '✉', end: false },
-  { to: '/agenda', label: 'Agenda', icon: '▦', end: false },
-  { to: '/horaires', label: 'Horaires', icon: '⏱', end: false },
-  { to: '/residents', label: 'Résidents', icon: '⌂', end: false },
+interface NavItem { to: string; label: string; icon: NavIconName; end: boolean }
+
+const LINKS: NavItem[] = [
+  { to: '/', label: 'Relève', icon: 'releve', end: true },
+  { to: '/journal', label: 'Journal', icon: 'journal', end: false },
+  { to: '/suivis', label: 'Suivis', icon: 'suivis', end: false },
+  { to: '/messages', label: 'Messages', icon: 'messages', end: false },
+  { to: '/agenda', label: 'Agenda', icon: 'agenda', end: false },
+  { to: '/horaires', label: 'Horaires', icon: 'horaires', end: false },
+  { to: '/residents', label: 'Résidents', icon: 'residents', end: false },
 ];
 // Responsable : équipe, catégories, quarts, journal d'audit
-const ADMIN_LINK = { to: '/administration', label: 'Admin', icon: '⚙', end: false };
+const ADMIN_LINK: NavItem = { to: '/administration', label: 'Admin', icon: 'admin', end: false };
 
-// Téléphone : les 4 écrans du quotidien en bas, le reste dans « Plus »
+// Téléphone : les 5 écrans du quotidien en bas, le reste dans « Plus »
 const MOBILE_MAIN = ['/', '/journal', '/suivis', '/messages', '/residents'];
 
 // Pastille : non lues de la relève, ou messages non lus + annonces à confirmer
@@ -107,6 +110,23 @@ function AssistanceBanner() {
   );
 }
 
+// Un onglet de la barre du bas : icône (dans une pastille si actif), pastille
+// de compteur sur l'icône, libellé dessous
+function MobileTab({ icon, label, active, badge }: { icon: NavIconName; label: string; active: boolean; badge?: ReactNode }) {
+  return (
+    <span className={cx('flex h-16 flex-col items-center justify-center gap-1 text-[11px]',
+      active ? 'font-semibold text-primary' : 'font-medium text-muted')}>
+      <span className={cx('relative flex h-8 w-14 items-center justify-center rounded-full transition-colors',
+        active && 'bg-info-soft')}>
+        <NavIcon name={icon} />
+        {/* Pastille sur l'icône : le libellé garde toute la largeur */}
+        <span className="absolute -top-1 left-8 text-[11px] leading-4">{badge}</span>
+      </span>
+      <span className="max-w-full truncate px-0.5">{label}</span>
+    </span>
+  );
+}
+
 export function Layout() {
   const user = useUser();
   const { logout, sharedDevice, assistance } = useAuth();
@@ -115,8 +135,8 @@ export function Layout() {
   const links = user.role === 'responsable' ? [...base, ADMIN_LINK] : base;
   const mobileMain = links.filter((l) => MOBILE_MAIN.includes(l.to));
   // « Mon profil » : rond avec les initiales en haut, et aussi dans « Plus » sur téléphone
-  const mobileMore = [...links.filter((l) => !MOBILE_MAIN.includes(l.to)),
-    ...(assistance ? [] : [{ to: '/compte', label: 'Mon profil', icon: '☺', end: false }])];
+  const mobileMore: NavItem[] = [...links.filter((l) => !MOBILE_MAIN.includes(l.to)),
+    ...(assistance ? [] : [{ to: '/compte', label: 'Mon profil', icon: 'profil' as const, end: false }])];
   const location = useLocation();
   // Menu « Plus » ouvert sur la page courante : il se referme dès qu'on change de page
   const [moreOpenOn, setMoreOpenOn] = useState<string | null>(null);
@@ -125,7 +145,7 @@ export function Layout() {
   const inMore = mobileMore.some((l) => location.pathname.startsWith(l.to));
 
   return (
-    <div className="min-h-dvh pb-20 md:pb-0">
+    <div className="min-h-dvh pb-[var(--nav-h)] md:pb-0">
       {sharedDevice && <IdleLogout />}
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
         <OfflineBanner />
@@ -173,60 +193,45 @@ export function Layout() {
         <Outlet />
       </main>
 
+      {/* Menu « Plus » : panneau qui monte du bas, au-dessus de la barre */}
       {moreOpen && (
         <>
-          <button type="button" aria-label="Fermer le menu" className="fixed inset-0 z-10 bg-ink/20 md:hidden"
+          <button type="button" aria-label="Fermer le menu" className="fixed inset-0 z-10 bg-ink/30 md:hidden"
             onClick={() => setMoreOpen(false)} />
-          <div id="menu-plus" className="fixed inset-x-0 bottom-16 z-20 border-t border-line bg-surface p-2 shadow-lg md:hidden">
-            {mobileMore.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) => cx(
-                  'flex min-h-12 items-center gap-3 rounded-lg px-4 font-medium',
-                  isActive ? 'bg-info-soft text-primary' : 'text-ink hover:bg-sunken',
-                )}
-              >
-                <span aria-hidden className="w-6 text-center text-lg">{link.icon}</span>
-                {link.label}
-              </NavLink>
-            ))}
+          <div id="menu-plus"
+            className="fixed inset-x-0 bottom-[var(--nav-h)] z-20 rounded-t-2xl border-t border-line bg-surface px-3 pt-2 pb-3 shadow-[0_-8px_24px_rgb(0_0_0/0.12)] md:hidden">
+            <span aria-hidden className="mx-auto mb-2 block h-1 w-10 rounded-full bg-line" />
+            <div className="grid grid-cols-2 gap-1">
+              {mobileMore.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={({ isActive }) => cx(
+                    'flex min-h-12 items-center gap-3 rounded-xl px-3 font-medium',
+                    isActive ? 'bg-info-soft text-primary' : 'text-ink hover:bg-sunken',
+                  )}
+                >
+                  <NavIcon name={link.icon} className="size-5 shrink-0" />
+                  {link.label}
+                </NavLink>
+              ))}
+            </div>
           </div>
         </>
       )}
 
-      <nav aria-label="Navigation principale" className="fixed inset-x-0 bottom-0 z-20 grid border-t border-line bg-surface md:hidden"
+      {/* Téléphone : barre du bas, au-dessus de la barre d'accueil de l'iPhone
+          (--nav-h, index.css). Onglet actif : icône dans une pastille colorée. */}
+      <nav aria-label="Navigation principale"
+        className="fixed inset-x-0 bottom-0 z-20 grid h-[var(--nav-h)] border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgb(0_0_0/0.06)] md:hidden"
         style={{ gridTemplateColumns: `repeat(${mobileMain.length + 1}, minmax(0, 1fr))` }}>
         {mobileMain.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            end={link.end}
-            className={({ isActive }) => cx(
-              'flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
-              isActive && !moreOpen ? 'text-primary' : 'text-muted',
-            )}
-          >
-            {/* Pastille sur l'icône : le libellé garde toute la largeur */}
-            <span className="relative text-lg leading-none">
-              <span aria-hidden>{link.icon}</span>
-              <span className="absolute -top-2 left-3 text-[11px] leading-4"><NavBadge to={link.to} /></span>
-            </span>
-            <span className="max-w-full truncate">{link.label}</span>
+          <NavLink key={link.to} to={link.to} end={link.end} className="min-w-0">
+            {({ isActive }) => <MobileTab icon={link.icon} label={link.label} active={isActive && !moreOpen} badge={<NavBadge to={link.to} />} />}
           </NavLink>
         ))}
-        <button
-          type="button"
-          aria-expanded={moreOpen}
-          aria-controls="menu-plus"
-          onClick={() => setMoreOpen(!moreOpen)}
-          className={cx(
-            'flex min-h-16 min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
-            moreOpen || inMore ? 'text-primary' : 'text-muted',
-          )}
-        >
-          <span aria-hidden className="text-lg leading-none">⋯</span>
-          <span>Plus</span>
+        <button type="button" aria-expanded={moreOpen} aria-controls="menu-plus" onClick={() => setMoreOpen(!moreOpen)} className="min-w-0">
+          <MobileTab icon="plus" label="Plus" active={moreOpen || inMore} />
         </button>
       </nav>
     </div>

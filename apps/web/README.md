@@ -1,6 +1,6 @@
 # Interface web
 
-React 19 + TypeScript + Vite, [TanStack Query](https://tanstack.com/query) pour les données, React Router, Tailwind CSS. Écrans pensés aussi pour tablette et téléphone (barre de navigation en bas), thème sombre automatique pour les quarts de nuit.
+React 19 + TypeScript + Vite, [TanStack Query](https://tanstack.com/query) pour les données, React Router, Tailwind CSS. Écrans pensés aussi pour tablette et téléphone (barre de navigation en bas), thème **clair par défaut** (même sur un téléphone réglé en mode sombre) ; thème sombre ou « comme l’appareil » au choix dans « Mon profil › Apparence », gardé sur l’appareil (`src/lib/theme.ts`, attribut `data-theme` de `<html>`, posé dans `index.html` avant le premier affichage).
 
 ## Démarrage
 
@@ -44,7 +44,7 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 
 **Suivis** : « Je m'en occupe » m'assigne le suivi ; les suivis terminés apparaissent dans le dossier du résident.
 
-**Téléphone** : 5 onglets en bas (Relève, Journal, Suivis, Messages, Résidents) et un menu « Plus » (Agenda, Horaires, Admin).
+**Téléphone** : 5 onglets en bas (Relève, Journal, Suivis, Messages, Résidents) avec des icônes dessinées (`components/NavIcon.tsx`, identiques sur iPhone et Android ; onglet actif dans une pastille colorée), et un menu « Plus » qui monte du bas (Agenda, Horaires, Admin, Mon profil). La barre tient compte de la barre d’accueil de l’iPhone : sa hauteur est `--nav-h` (`index.css`, avec `viewport-fit=cover`), sur laquelle se calent la barre « J’ai pris connaissance de la relève » (fixée juste au-dessus) et la messagerie.
 
 **Messagerie** (`/messages`, `/messages/:id`) : liste à gauche et fil à droite sur ordinateur ; liste puis fil en plein écran sur téléphone. Entrée envoie, Maj+Entrée va à la ligne. Mes messages se modifient ou se retirent pendant 15 minutes. Annonces : « J'ai lu cette annonce » (aussi en tête de la relève) ; l'autrice voit « Lue par N — voir qui manque ». Groupe : renommer, ajouter des collègues, quitter. Pastille de non-lus sur l'onglet Messages. Responsable : Administration › Messagerie pour consulter une conversation avec un motif (tracé).
 
