@@ -3,8 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/icons/favicon-64.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <!-- viewport-fit=cover : la barre du bas tient compte de la barre d'accueil de l'iPhone -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Thème choisi dans « Mon profil » (src/lib/theme.ts), posé avant le premier affichage -->
+    <script>
+      try {
+        var t = localStorage.getItem('theme');
+        document.documentElement.dataset.theme = t === 'dark' || t === 'system' ? t : 'light';
+      } catch (e) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    </script>
     <meta name="theme-color" content="#0f766e" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />

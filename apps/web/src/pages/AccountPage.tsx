@@ -1,4 +1,4 @@
-// Mon profil : coordonnées, mot de passe, notifications sur cet appareil,
+// Mon profil : avatar et coordonnées, mot de passe, apparence (thème), notifications sur cet appareil,
 // double authentification.
 import { useEffect, useState, type FormEvent } from 'react';
 import {
@@ -14,6 +14,7 @@ import { Badge, Button, Card, Checkbox, Dialog, ErrorMessage, Loading, TextField
 import { cx } from '../lib/cx';
 import { formatFull, fullName } from '../lib/format';
 import { currentSubscription, disablePush, enablePush, needsInstallForPush, permission, pushSupported } from '../lib/push';
+import { setThemePreference, THEME_LABELS, useThemePreference, type ThemePreference } from '../lib/theme';
 
 const PASSWORD_MIN_LENGTH = 12;   // même règle que l'API
 
@@ -33,6 +34,7 @@ export function AccountPage() {
         {/* Accès d'assistance : consultation seulement, le profil de l'admin ne se modifie pas ici */}
         {!assistance && <ProfileSection user={user} />}
         {!assistance && <PasswordSection email={user.email} />}
+        <AppearanceSection />
         <NotificationsSection forResidence={!!user.residenceId} />
         <MfaSection />
       </div>
@@ -128,6 +130,26 @@ function ProfileSection({ user }: { user: User }) {
           <Button type="submit" variant="primary" busy={update.isPending}>Enregistrer</Button>
         </div>
       </form>
+    </Card>
+  );
+}
+
+// Thème de cet appareil (lib/theme.ts) : clair par défaut
+function AppearanceSection() {
+  const theme = useThemePreference();
+  return (
+    <Card className="p-5">
+      <h2 className="mb-1 text-lg font-semibold">Apparence</h2>
+      <p className="mb-4 text-sm text-muted">Sur cet appareil seulement. Le thème sombre repose les yeux pendant les quarts de nuit.</p>
+      <div role="radiogroup" aria-label="Thème" className="inline-flex flex-wrap gap-1 rounded-xl bg-sunken p-1">
+        {(Object.keys(THEME_LABELS) as ThemePreference[]).map((t) => (
+          <button key={t} type="button" role="radio" aria-checked={theme === t} onClick={() => setThemePreference(t)}
+            className={cx('min-h-10 rounded-lg px-4 text-sm font-medium transition-colors',
+              theme === t ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink')}>
+            {THEME_LABELS[t]}
+          </button>
+        ))}
+      </div>
     </Card>
   );
 }

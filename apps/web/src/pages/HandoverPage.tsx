@@ -102,8 +102,12 @@ export function HandoverPage() {
         )}
       </section>
 
-      {/* Barre de confirmation : pleine largeur au-dessus de la navigation sur téléphone */}
-      <div className="sticky bottom-16 z-[5] -mx-4 flex flex-col items-center gap-1 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:bottom-4 md:mx-0 md:rounded-xl md:border md:shadow-lg">
+      {/* Téléphone : espace réservé sous la dernière note, que la barre fixe ne cache pas */}
+      <div aria-hidden className="h-24 md:hidden" />
+      {/* Barre de confirmation. Téléphone : fixée juste au-dessus de la barre du
+          bas (--nav-h), même quand la relève est courte. Ordinateur : carte
+          collée au bas de l'écran en défilant. */}
+      <div className="fixed inset-x-0 bottom-[var(--nav-h)] z-[5] flex flex-col items-center gap-1 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:sticky md:inset-x-auto md:bottom-4 md:rounded-xl md:border md:shadow-lg">
         <Button variant="primary" className="w-full sm:w-auto" busy={ack.isPending} disabled={pending > 0} onClick={acknowledge}>
           J'ai pris connaissance de la relève
         </Button>

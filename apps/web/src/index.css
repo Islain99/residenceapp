@@ -27,8 +27,48 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Thème choisi dans « Mon profil » (lib/theme.ts) : clair par défaut ; sombre
+   choisi, ou « comme l'appareil » sur un appareil en mode sombre. */
+:root {
+  color-scheme: light;   /* champs, barres de défilement… du navigateur */
+  /* Hauteur de la barre du bas (téléphone) : 4rem + la barre d'accueil de
+     l'iPhone (viewport-fit=cover, index.html). Les éléments collés au bas
+     (barre de relève, menu « Plus », messagerie) se placent au-dessus. */
+  --nav-h: calc(4rem + env(safe-area-inset-bottom));
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme="system"] {
+    color-scheme: dark;
+  }
+}
+
+/* Couleurs du thème sombre (quarts de nuit) : mêmes valeurs dans les deux blocs */
+:root[data-theme="dark"] {
+  --color-page: #0e1514;
+  --color-surface: #162120;
+  --color-sunken: #111a19;
+  --color-line: #2a3837;
+  --color-ink: #e6eeed;
+  --color-muted: #9aa8a6;
+  --color-primary: #2dd4bf;
+  --color-primary-hover: #5eead4;
+  --color-on-primary: #062420;
+  --color-priority: #fbbf24;
+  --color-priority-soft: #3a2a0a;
+  --color-positive: #4ade80;
+  --color-positive-soft: #0f2e1b;
+  --color-danger: #f87171;
+  --color-danger-soft: #3b1414;
+  --color-info-soft: #12302d;
+  --color-chart: #11a090;
+  --color-chart-previous: #4b5c5a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] {
     --color-page: #0e1514;
     --color-surface: #162120;
     --color-sunken: #111a19;

@@ -18,7 +18,7 @@ export function MessagesPage() {
 
   return (
     // Hauteur fixe : seul le fil défile (en-tête 56 px, barre du bas 64 px sur téléphone)
-    <div className="-my-6 flex h-[calc(100dvh-7.5rem)] gap-4 py-3 md:h-[calc(100dvh-3.5rem)] md:py-6">
+    <div className="-my-6 flex h-[calc(100dvh-3.5rem-var(--nav-h))] gap-4 py-3 md:h-[calc(100dvh-3.5rem)] md:py-6">
       <aside className={cx('flex min-h-0 w-full flex-col md:w-80 md:shrink-0', id && 'hidden md:flex')}>
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-2xl font-bold">Messages</h1>
