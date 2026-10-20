@@ -1,31 +1,35 @@
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { useFollowUps, type FollowUpFilter } from '../api/hooks';
 import { FollowUpItem } from '../components/FollowUps';
 import { Chip, EmptyState, ErrorMessage, Loading, PageHeader } from '../components/ui';
 
-const VIEWS: Record<string, { label: string; filter: FollowUpFilter; empty: string }> = {
-  mine: { label: 'Pour moi', filter: { status: 'open', assignedTo: 'me' }, empty: 'Aucun suivi ouvert qui vous est assigné.' },
-  team: { label: "Pour l'équipe", filter: { status: 'open', assignedTo: 'team' }, empty: "Aucun suivi ouvert pour l'équipe." },
-  open: { label: 'Tous les ouverts', filter: { status: 'open' }, empty: 'Aucun suivi ouvert.' },
-  closed: { label: 'Faits', filter: { status: 'closed' }, empty: 'Aucun suivi fait.' },
+type View = 'mine' | 'team' | 'open' | 'closed';
+const VIEWS: Record<View, FollowUpFilter> = {
+  mine: { status: 'open', assignedTo: 'me' },
+  team: { status: 'open', assignedTo: 'team' },
+  open: { status: 'open' },
+  closed: { status: 'closed' },
 };
+const isView = (v: string | null): v is View => v !== null && v in VIEWS;
 
 export function FollowUpsPage() {
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
-  const key = params.get('vue') ?? 'open';
-  const view = VIEWS[key] ?? VIEWS.open!;
-  const followUps = useFollowUps(view.filter);
+  const vue = params.get('vue');
+  const key: View = isView(vue) ? vue : 'open';
+  const followUps = useFollowUps(VIEWS[key]);
 
   return (
     <>
-      <PageHeader title="Suivis" subtitle="Actions à faire issues des notes. On ajoute un suivi depuis une note." />
-      <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label="Filtrer les suivis">
-        {Object.entries(VIEWS).map(([k, v]) => (
-          <Chip key={k} active={k === key} onClick={() => setParams({ vue: k }, { replace: true })}>{v.label}</Chip>
+      <PageHeader title={t('journal.followUp.title')} subtitle={t('journal.followUp.subtitle')} />
+      <div className="mb-5 flex flex-wrap gap-2" role="group" aria-label={t('journal.followUp.filter')}>
+        {(Object.keys(VIEWS) as View[]).map((k) => (
+          <Chip key={k} active={k === key} onClick={() => setParams({ vue: k }, { replace: true })}>{t(`journal.followUp.views.${k}`)}</Chip>
         ))}
       </div>
       {followUps.isPending ? <Loading /> : followUps.isError ? <ErrorMessage error={followUps.error} /> :
-        followUps.data.length === 0 ? <EmptyState>{view.empty}</EmptyState> : (
+        followUps.data.length === 0 ? <EmptyState>{t(`journal.followUp.empty.${key}`)}</EmptyState> : (
           <ul className="flex flex-col gap-3">
             {followUps.data.map((f) => <FollowUpItem key={f.id} followUp={f} />)}
           </ul>

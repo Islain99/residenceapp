@@ -2,18 +2,20 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../auth/session';
+import i18n from '../i18n';
+import type platformFr from '../i18n/fr/platform';
 
-export const TIMEZONES = [
-  { id: 'America/Toronto', label: 'Heure de l’Est (Québec, Ontario)' },
-  { id: 'America/Halifax', label: 'Heure de l’Atlantique' },
-  { id: 'America/Moncton', label: 'Heure de l’Atlantique (Nouveau-Brunswick)' },
-  { id: 'America/St_Johns', label: 'Heure de Terre-Neuve' },
-  { id: 'America/Winnipeg', label: 'Heure du Centre' },
-  { id: 'America/Edmonton', label: 'Heure des Rocheuses' },
-  { id: 'America/Vancouver', label: 'Heure du Pacifique' },
-];
+// Fuseaux proposés (libellés : i18n, platform.timezones)
+export const TIMEZONES = Object.keys({
+  'America/Toronto': 0, 'America/Halifax': 0, 'America/Moncton': 0, 'America/St_Johns': 0,
+  'America/Winnipeg': 0, 'America/Edmonton': 0, 'America/Vancouver': 0,
+} satisfies Record<keyof typeof platformFr.timezones, 0>) as (keyof typeof platformFr.timezones)[];
 
-export const RESIDENCE_TYPES = { RPA: 'RPA — résidence privée pour aînés', RI: 'RI — ressource intermédiaire' } as const;
+// Libellé d'un fuseau ; fuseau hors liste : son identifiant
+export const timezoneLabel = (id: string) =>
+  (TIMEZONES as string[]).includes(id) ? i18n.t(`platform.timezones.${id as (typeof TIMEZONES)[number]}`) : id;
+
+export const RESIDENCE_TYPES = ['RPA', 'RI'] as const;   // libellés : i18n, platform.types
 
 // Ouvre l'accès d'assistance puis affiche la résidence (lecture seule)
 export function useEnterAssistance() {
@@ -35,4 +37,3 @@ export function useEnterAssistance() {
   };
   return { enter, error, busy };
 }
-

@@ -5,6 +5,7 @@ import {
   type SelectHTMLAttributes, type TextareaHTMLAttributes,
 } from 'react';
 
+import i18n from '../i18n';
 import { cx } from '../lib/cx';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -60,7 +61,7 @@ export function Spinner({ small }: { small?: boolean }) {
   return (
     <span
       role="status"
-      aria-label="Chargement"
+      aria-label={i18n.t('common.loading')}
       className={cx('inline-block animate-spin rounded-full border-2 border-current border-t-transparent', small ? 'size-4' : 'size-6')}
     />
   );
@@ -72,7 +73,7 @@ export function Loading() {
 
 export function ErrorMessage({ error }: { error: unknown }) {
   if (!error) return null;
-  const message = error instanceof Error ? error.message : 'Une erreur est survenue.';
+  const message = error instanceof Error ? error.message : i18n.t('common.errorGeneric');
   return <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{message}</p>;
 }
 
@@ -156,7 +157,7 @@ export function Dialog({ open, onClose, title, children }:
         <div className="flex max-h-[90dvh] flex-col">
           <div className="flex items-center justify-between border-b border-line px-5 py-3">
             <h2 className="text-lg font-semibold">{title}</h2>
-            <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg p-2 text-muted hover:bg-sunken">✕</button>
+            <button type="button" onClick={onClose} aria-label={i18n.t('common.close')} className="rounded-lg p-2 text-muted hover:bg-sunken">✕</button>
           </div>
           <div className="overflow-y-auto px-5 py-4">{children}</div>
         </div>

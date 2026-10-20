@@ -1,8 +1,10 @@
 // Cadre des pages connectées : barre du haut (ordinateur) et barre du bas (téléphone).
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import type shellFr from '../i18n/fr/shell';
 import { useEndAssistance, useHandover, useMessagingSummary } from '../api/hooks';
-import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
+import { useAuth, useUser } from '../auth/session';
 import { formatWhen, fullName } from '../lib/format';
 import { cx } from '../lib/cx';
 import { Avatar } from './Avatar';
@@ -11,19 +13,20 @@ import { Logo } from './Logo';
 import { NavIcon, type NavIconName } from './NavIcon';
 import { OfflineBanner } from './OfflineBanner';
 
-interface NavItem { to: string; label: string; icon: NavIconName; end: boolean }
+type NavLabel = keyof typeof shellFr.nav;
+interface NavItem { to: string; label: NavLabel; icon: NavIconName; end: boolean }
 
 const LINKS: NavItem[] = [
-  { to: '/', label: 'Relève', icon: 'releve', end: true },
-  { to: '/journal', label: 'Journal', icon: 'journal', end: false },
-  { to: '/suivis', label: 'Suivis', icon: 'suivis', end: false },
-  { to: '/messages', label: 'Messages', icon: 'messages', end: false },
-  { to: '/agenda', label: 'Agenda', icon: 'agenda', end: false },
-  { to: '/horaires', label: 'Horaires', icon: 'horaires', end: false },
-  { to: '/residents', label: 'Résidents', icon: 'residents', end: false },
+  { to: '/', label: 'handover', icon: 'releve', end: true },
+  { to: '/journal', label: 'journal', icon: 'journal', end: false },
+  { to: '/suivis', label: 'followUps', icon: 'suivis', end: false },
+  { to: '/messages', label: 'messages', icon: 'messages', end: false },
+  { to: '/agenda', label: 'agenda', icon: 'agenda', end: false },
+  { to: '/horaires', label: 'schedule', icon: 'horaires', end: false },
+  { to: '/residents', label: 'residents', icon: 'residents', end: false },
 ];
 // Responsable : équipe, catégories, quarts, journal d'audit
-const ADMIN_LINK: NavItem = { to: '/administration', label: 'Admin', icon: 'admin', end: false };
+const ADMIN_LINK: NavItem = { to: '/administration', label: 'admin', icon: 'admin', end: false };
 
 // Téléphone : les 5 écrans du quotidien en bas, le reste dans « Plus »
 const MOBILE_MAIN = ['/', '/journal', '/suivis', '/messages', '/residents'];
@@ -36,22 +39,24 @@ function NavBadge({ to }: { to: string }) {
 }
 
 function MessagesBadge() {
+  const { t } = useTranslation();
   const summary = useMessagingSummary();
   const count = (summary.data?.unread ?? 0) + (summary.data?.announcements.length ?? 0);
   if (!count) return null;
   return (
-    <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-bold text-on-primary" aria-label={count > 1 ? `${count} messages non lus` : '1 message non lu'}>
+    <span className="ml-1 rounded-full bg-primary px-1.5 text-xs font-bold text-on-primary" aria-label={t('shell.badges.messages', { count })}>
       {count > 99 ? '99+' : count}
     </span>
   );
 }
 
 function HandoverBadge() {
+  const { t } = useTranslation();
   const handover = useHandover();
   const unread = handover.data?.counts.unread ?? 0;
   if (!unread) return null;
   return (
-    <span className="ml-1 rounded-full bg-priority px-1.5 text-xs font-bold text-white" aria-label={`${unread} non lues`}>
+    <span className="ml-1 rounded-full bg-priority px-1.5 text-xs font-bold text-white" aria-label={t('shell.badges.unread', { count: unread })}>
       {unread > 99 ? '99+' : unread}
     </span>
   );
@@ -59,6 +64,7 @@ function HandoverBadge() {
 
 // Admin plateforme en consultation : bandeau toujours visible, sortie en un clic
 function AssistanceBanner() {
+  const { t } = useTranslation();
   const { assistance, leaveAssistance } = useAuth();
   const end = useEndAssistance();
   const navigate = useNavigate();
@@ -85,24 +91,24 @@ function AssistanceBanner() {
         <p className="min-w-0 flex-1">
           {refusedAt > 0 && (
             <strong role="alert" className="mr-2 inline-block rounded bg-white px-2 text-priority">
-              Modification refusée : consultation seulement.
+              {t('shell.assistance.refused')}
             </strong>
           )}
-          <strong>Accès d’assistance — {assistance.residence.name}</strong>
-          {' · '}lecture seule, messagerie exclue, chaque page consultée est inscrite au journal de la résidence
-          {' · '}jusqu’à {formatWhen(assistance.expiresAt)}
+          <strong>{t('shell.assistance.title', { residence: assistance.residence.name })}</strong>
+          {' · '}{t('shell.assistance.rules')}
+          {' · '}{t('shell.assistance.until', { when: formatWhen(assistance.expiresAt) })}
         </p>
         <div className="flex gap-2">
           <button type="button" onClick={() => leave()} className="min-h-9 rounded-lg bg-white/15 px-3 font-medium hover:bg-white/25">
-            Revenir à la plateforme
+            {t('shell.assistance.backToPlatform')}
           </button>
           <button
             type="button"
             disabled={end.isPending}
-            onClick={() => end.mutate(assistance.grantId, { onSettled: () => leave('Accès d’assistance terminé.') })}
+            onClick={() => end.mutate(assistance.grantId, { onSettled: () => leave(t('shell.assistance.ended')) })}
             className="min-h-9 rounded-lg bg-white px-3 font-medium text-priority hover:bg-white/90"
           >
-            Terminer l’accès
+            {t('shell.assistance.end')}
           </button>
         </div>
       </div>
@@ -128,6 +134,7 @@ function MobileTab({ icon, label, active, badge }: { icon: NavIconName; label: s
 }
 
 export function Layout() {
+  const { t } = useTranslation();
   const user = useUser();
   const { logout, sharedDevice, assistance } = useAuth();
   // Assistance : la messagerie reste privée (l'API la refuse aussi)
@@ -136,7 +143,7 @@ export function Layout() {
   const mobileMain = links.filter((l) => MOBILE_MAIN.includes(l.to));
   // « Mon profil » : rond avec les initiales en haut, et aussi dans « Plus » sur téléphone
   const mobileMore: NavItem[] = [...links.filter((l) => !MOBILE_MAIN.includes(l.to)),
-    ...(assistance ? [] : [{ to: '/compte', label: 'Mon profil', icon: 'profil' as const, end: false }])];
+    ...(assistance ? [] : [{ to: '/compte', label: 'profile' as const, icon: 'profil' as const, end: false }])];
   const location = useLocation();
   // Menu « Plus » ouvert sur la page courante : il se referme dès qu'on change de page
   const [moreOpenOn, setMoreOpenOn] = useState<string | null>(null);
@@ -154,9 +161,9 @@ export function Layout() {
           <span className="flex shrink-0 items-center gap-2 font-bold">
             <Logo className="size-10" />
             {/* Ordinateur : le nom laisse la place aux onglets, sauf sur grand écran */}
-            <span className="whitespace-nowrap md:hidden xl:inline">Journal de bord</span>
+            <span className="whitespace-nowrap md:hidden xl:inline">{t('common.appName')}</span>
           </span>
-          <nav aria-label="Navigation principale" className="hidden gap-1 md:flex">
+          <nav aria-label={t('shell.nav.main')} className="hidden gap-1 md:flex">
             {links.map((link) => (
               <NavLink
                 key={link.to}
@@ -167,23 +174,23 @@ export function Layout() {
                   isActive ? 'bg-info-soft text-primary' : 'text-muted hover:bg-sunken hover:text-ink',
                 )}
               >
-                {link.label}
+                {t(`shell.nav.${link.label}`)}
                 <NavBadge to={link.to} />
               </NavLink>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {/* Rond avec les initiales, puis le nom (le nom seul disparaît quand la place manque) */}
-            <NavLink to="/compte" title="Mon profil" aria-label={`Mon profil (${fullName(user)})`}
+            <NavLink to="/compte" title={t('shell.nav.profile')} aria-label={t('shell.nav.profileOf', { name: fullName(user) })}
               className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-sunken lg:rounded-lg lg:pr-2">
               <Avatar person={user} />
               <span className="hidden text-left leading-tight sm:block md:hidden lg:block">
                 <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
-                <span className="block text-xs text-muted">{assistance ? 'Assistance (lecture seule)' : ROLE_LABELS[user.role]}</span>
+                <span className="block text-xs text-muted">{assistance ? t('shell.assistance.role') : t(`common.roles.${user.role}`)}</span>
               </span>
             </NavLink>
             <button type="button" onClick={() => void logout()} className="whitespace-nowrap rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
-              Déconnexion
+              {t('common.logout')}
             </button>
           </div>
         </div>
@@ -196,7 +203,7 @@ export function Layout() {
       {/* Menu « Plus » : panneau qui monte du bas, au-dessus de la barre */}
       {moreOpen && (
         <>
-          <button type="button" aria-label="Fermer le menu" className="fixed inset-0 z-10 bg-ink/30 md:hidden"
+          <button type="button" aria-label={t('shell.nav.closeMenu')} className="fixed inset-0 z-10 bg-ink/30 md:hidden"
             onClick={() => setMoreOpen(false)} />
           <div id="menu-plus"
             className="fixed inset-x-0 bottom-[var(--nav-h)] z-20 rounded-t-2xl border-t border-line bg-surface px-3 pt-2 pb-3 shadow-[0_-8px_24px_rgb(0_0_0/0.12)] md:hidden">
@@ -212,7 +219,7 @@ export function Layout() {
                   )}
                 >
                   <NavIcon name={link.icon} className="size-5 shrink-0" />
-                  {link.label}
+                  {t(`shell.nav.${link.label}`)}
                 </NavLink>
               ))}
             </div>
@@ -222,16 +229,16 @@ export function Layout() {
 
       {/* Téléphone : barre du bas, au-dessus de la barre d'accueil de l'iPhone
           (--nav-h, index.css). Onglet actif : icône dans une pastille colorée. */}
-      <nav aria-label="Navigation principale"
+      <nav aria-label={t('shell.nav.main')}
         className="fixed inset-x-0 bottom-0 z-20 grid h-[var(--nav-h)] border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgb(0_0_0/0.06)] md:hidden"
         style={{ gridTemplateColumns: `repeat(${mobileMain.length + 1}, minmax(0, 1fr))` }}>
         {mobileMain.map((link) => (
           <NavLink key={link.to} to={link.to} end={link.end} className="min-w-0">
-            {({ isActive }) => <MobileTab icon={link.icon} label={link.label} active={isActive && !moreOpen} badge={<NavBadge to={link.to} />} />}
+            {({ isActive }) => <MobileTab icon={link.icon} label={t(`shell.nav.${link.label}`)} active={isActive && !moreOpen} badge={<NavBadge to={link.to} />} />}
           </NavLink>
         ))}
         <button type="button" aria-expanded={moreOpen} aria-controls="menu-plus" onClick={() => setMoreOpen(!moreOpen)} className="min-w-0">
-          <MobileTab icon="plus" label="Plus" active={moreOpen || inMore} />
+          <MobileTab icon="plus" label={t('shell.nav.more')} active={moreOpen || inMore} />
         </button>
       </nav>
     </div>

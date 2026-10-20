@@ -23,6 +23,7 @@ import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typ
 import { sql } from 'kysely';
 import { authenticate, isSupervisor, requireRole, residenceOf, type Role } from '../auth.js';
 import { audit } from '../lib/audit.js';
+import { pushIn } from '../lib/locale.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
 import type { Db } from '../lib/note-view.js';
 import { IdParams, Nullable, Person, Uuid } from '../lib/schemas.js';
@@ -243,12 +244,12 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const url = `/messages/${conversation.id}`;
     if (conversation.kind === 'announcements') {
       app.notifier.notify(recipients, 'announcements', {
-        title: `Annonce de ${who}`, body: 'Nouvelle annonce à lire et à confirmer.', url, tag: `conversation-${conversation.id}`,
+        text: pushIn((t) => t.announcement(who)), url, tag: `conversation-${conversation.id}`,
       });
     } else {
       app.notifier.notify(recipients, 'messages', {
-        title: conversation.kind === 'direct' ? `Message de ${who}` : `${conversation.title} — ${who}`,
-        body: 'Nouveau message. Ouvrez l’application pour le lire.', url, tag: `conversation-${conversation.id}`,
+        text: pushIn((t) => (conversation.kind === 'direct' ? t.message(who) : t.groupMessage(conversation.title, who))),
+        url, tag: `conversation-${conversation.id}`,
       });
     }
   }

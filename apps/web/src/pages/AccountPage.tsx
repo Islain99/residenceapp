@@ -1,24 +1,27 @@
-// Mon profil : avatar et coordonnées, mot de passe, apparence (thème), notifications sur cet appareil,
-// double authentification.
+// Mon profil : avatar et coordonnées, mot de passe, apparence (thème et
+// langue), notifications sur cet appareil, double authentification.
 import { useEffect, useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   useChangePassword, useMfaStatus, usePushConfig, usePushPreferences, useRegenerateBackupCodes, useSendTestPush,
   useUpdateProfile, useUpdatePushPreferences,
 } from '../api/hooks';
 import type { PushPreferences, User } from '../api/types';
-import { ROLE_LABELS, useAuth, useUser } from '../auth/session';
+import { useAuth, useUser } from '../auth/session';
 import { Avatar } from '../components/Avatar';
-import { AVATAR_COLORS, avatarColorOf, GALLERY, STYLE_LABELS, type AvatarColor } from '../lib/avatar';
+import { LanguageSwitch } from '../components/LanguageSwitch';
 import { BackupCodes, CodeForm } from '../components/mfa';
 import { Badge, Button, Card, Checkbox, Dialog, ErrorMessage, Loading, TextField } from '../components/ui';
+import { AVATAR_COLORS, avatarColorOf, GALLERY, type AvatarColor } from '../lib/avatar';
 import { cx } from '../lib/cx';
 import { formatFull, fullName } from '../lib/format';
 import { currentSubscription, disablePush, enablePush, needsInstallForPush, permission, pushSupported } from '../lib/push';
-import { setThemePreference, THEME_LABELS, useThemePreference, type ThemePreference } from '../lib/theme';
+import { setThemePreference, THEMES, useThemePreference } from '../lib/theme';
 
 const PASSWORD_MIN_LENGTH = 12;   // même règle que l'API
 
 export function AccountPage() {
+  const { t } = useTranslation();
   const user = useUser();
   const { assistance } = useAuth();
   return (
@@ -26,8 +29,8 @@ export function AccountPage() {
       <div className="mb-6 flex items-center gap-4">
         <Avatar person={user} size="lg" />
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight">Mon profil</h1>
-          <p className="mt-1 break-words text-sm text-muted">{fullName(user)} · {user.email} · {ROLE_LABELS[user.role]}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('account.title')}</h1>
+          <p className="mt-1 break-words text-sm text-muted">{fullName(user)} · {user.email} · {t(`common.roles.${user.role}`)}</p>
         </div>
       </div>
       <div className="flex flex-col gap-6">
@@ -46,6 +49,7 @@ export function AccountPage() {
 // nom, téléphone. Le courriel et le rôle sont gérés par la responsable (ou
 // l'administration de la plateforme).
 function ProfileSection({ user }: { user: User }) {
+  const { t } = useTranslation();
   const update = useUpdateProfile();
   const [firstName, setFirstName] = useState(user.firstName);
   const [lastName, setLastName] = useState(user.lastName);
@@ -77,30 +81,33 @@ function ProfileSection({ user }: { user: User }) {
   return (
     <Card className="p-5">
       <form onSubmit={submit} onChange={() => setSaved(false)} className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold">Mon avatar</h2>
+        <h2 className="text-lg font-semibold">{t('account.avatar.title')}</h2>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <Avatar person={preview} size="lg" className="self-center sm:self-start" />
           <div className="flex min-w-0 flex-1 flex-col gap-4">
-            {GALLERY.map((group) => (
-              <fieldset key={group.style}>
-                <legend className="mb-2 text-sm font-medium">{STYLE_LABELS[group.style]}</legend>
-                <div role="radiogroup" aria-label={`Avatars : ${STYLE_LABELS[group.style]}`} className="flex flex-wrap gap-2">
-                  {group.ids.map((id, i) => tile(id, `${STYLE_LABELS[group.style]} ${i + 1}`))}
-                </div>
-              </fieldset>
-            ))}
+            {GALLERY.map((group) => {
+              const style = t(`account.avatar.styles.${group.style}`);
+              return (
+                <fieldset key={group.style}>
+                  <legend className="mb-2 text-sm font-medium">{style}</legend>
+                  <div role="radiogroup" aria-label={t('account.avatar.gallery', { style })} className="flex flex-wrap gap-2">
+                    {group.ids.map((id, i) => tile(id, t('account.avatar.tile', { style, n: i + 1 })))}
+                  </div>
+                </fieldset>
+              );
+            })}
             <fieldset>
-              <legend className="mb-2 text-sm font-medium">Sans illustration</legend>
-              <div role="radiogroup" aria-label="Sans illustration" className="flex gap-2">
-                {tile(null, 'Mes initiales')}
+              <legend className="mb-2 text-sm font-medium">{t('account.avatar.none')}</legend>
+              <div role="radiogroup" aria-label={t('account.avatar.none')} className="flex gap-2">
+                {tile(null, t('account.avatar.initials'))}
               </div>
             </fieldset>
             <fieldset>
-              <legend className="mb-2 text-sm font-medium">Couleur du fond</legend>
-              <div role="radiogroup" aria-label="Couleur du fond" className="flex flex-wrap gap-2">
+              <legend className="mb-2 text-sm font-medium">{t('account.avatar.background')}</legend>
+              <div role="radiogroup" aria-label={t('account.avatar.background')} className="flex flex-wrap gap-2">
                 {(Object.keys(AVATAR_COLORS) as AvatarColor[]).map((c) => (
-                  <button key={c} type="button" role="radio" aria-checked={c === color} aria-label={AVATAR_COLORS[c].label}
-                    title={AVATAR_COLORS[c].label} onClick={() => { setColor(c); setSaved(false); }}
+                  <button key={c} type="button" role="radio" aria-checked={c === color} aria-label={t(`account.avatar.colors.${c}`)}
+                    title={t(`account.avatar.colors.${c}`)} onClick={() => { setColor(c); setSaved(false); }}
                     className={cx('size-8 rounded-full ring-offset-2 ring-offset-surface transition',
                       c === color ? 'ring-2 ring-ink' : 'hover:scale-110')}
                     style={{ backgroundColor: AVATAR_COLORS[c].hex }} />
@@ -110,52 +117,56 @@ function ProfileSection({ user }: { user: User }) {
           </div>
         </div>
 
-        <h2 className="mt-2 border-t border-line pt-5 text-lg font-semibold">Mes coordonnées</h2>
-        <p className="-mt-2 text-sm text-muted">
-          Visibles par la responsable dans l’équipe. Le courriel et le rôle se changent auprès d’elle.
-        </p>
+        <h2 className="mt-2 border-t border-line pt-5 text-lg font-semibold">{t('account.details.title')}</h2>
+        <p className="-mt-2 text-sm text-muted">{t('account.details.hint')}</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Prénom" required maxLength={100} autoComplete="given-name" value={firstName}
+          <TextField label={t('common.firstName')} required maxLength={100} autoComplete="given-name" value={firstName}
             onChange={(e) => setFirstName(e.target.value)} />
-          <TextField label="Nom" required maxLength={100} autoComplete="family-name" value={lastName}
+          <TextField label={t('common.lastName')} required maxLength={100} autoComplete="family-name" value={lastName}
             onChange={(e) => setLastName(e.target.value)} />
         </div>
-        <TextField label="Téléphone (facultatif)" type="tel" maxLength={30} autoComplete="tel" value={phone}
-          pattern="[0-9 +().\-]{7,30}" title="Chiffres, espaces, + ( ) . - (7 caractères au moins)"
-          onChange={(e) => setPhone(e.target.value)} placeholder="Ex. : 514 555-0123" />
+        <TextField label={t('account.details.phone')} type="tel" maxLength={30} autoComplete="tel" value={phone}
+          pattern="[0-9 +().\-]{7,30}" title={t('account.details.phoneRule')}
+          onChange={(e) => setPhone(e.target.value)} placeholder={t('account.details.phonePlaceholder')} />
 
         <ErrorMessage error={update.error} />
-        {saved && <p role="status" className="rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">Profil enregistré.</p>}
+        {saved && <p role="status" className="rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">{t('account.details.saved')}</p>}
         <div className="flex justify-end">
-          <Button type="submit" variant="primary" busy={update.isPending}>Enregistrer</Button>
+          <Button type="submit" variant="primary" busy={update.isPending}>{t('common.save')}</Button>
         </div>
       </form>
     </Card>
   );
 }
 
-// Thème de cet appareil (lib/theme.ts) : clair par défaut
+// Thème de cet appareil (lib/theme.ts, clair par défaut) et langue (aussi
+// enregistrée dans le compte : courriels et notifications)
 function AppearanceSection() {
+  const { t } = useTranslation();
   const theme = useThemePreference();
   return (
     <Card className="p-5">
-      <h2 className="mb-1 text-lg font-semibold">Apparence</h2>
-      <p className="mb-4 text-sm text-muted">Sur cet appareil seulement. Le thème sombre repose les yeux pendant les quarts de nuit.</p>
-      <div role="radiogroup" aria-label="Thème" className="inline-flex flex-wrap gap-1 rounded-xl bg-sunken p-1">
-        {(Object.keys(THEME_LABELS) as ThemePreference[]).map((t) => (
-          <button key={t} type="button" role="radio" aria-checked={theme === t} onClick={() => setThemePreference(t)}
+      <h2 className="mb-1 text-lg font-semibold">{t('account.appearance.title')}</h2>
+      <p className="mb-4 text-sm text-muted">{t('account.appearance.hint')}</p>
+      <div role="radiogroup" aria-label={t('account.appearance.theme')} className="inline-flex flex-wrap gap-1 rounded-xl bg-sunken p-1">
+        {THEMES.map((option) => (
+          <button key={option} type="button" role="radio" aria-checked={theme === option} onClick={() => setThemePreference(option)}
             className={cx('min-h-10 rounded-lg px-4 text-sm font-medium transition-colors',
-              theme === t ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink')}>
-            {THEME_LABELS[t]}
+              theme === option ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-ink')}>
+            {t(`account.appearance.themes.${option}`)}
           </button>
         ))}
       </div>
+      <h3 className="mb-1 mt-5 text-sm font-semibold">{t('account.appearance.language')}</h3>
+      <p className="mb-2 text-sm text-muted">{t('account.appearance.languageHint')}</p>
+      <LanguageSwitch />
     </Card>
   );
 }
 
 // Changer son mot de passe en connaissant l'actuel
 function PasswordSection({ email }: { email: string }) {
+  const { t } = useTranslation();
   const change = useChangePassword();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -169,7 +180,7 @@ function PasswordSection({ email }: { email: string }) {
     setError(null);
     setDone(null);
     if (next !== confirm) {
-      setError(new Error('Les deux nouveaux mots de passe ne sont pas identiques.'));
+      setError(new Error(t('account.password.mismatch')));
       return;
     }
     try {
@@ -178,8 +189,8 @@ function PasswordSection({ email }: { email: string }) {
       setNext('');
       setConfirm('');
       setDone(res.otherSessionsClosed > 0
-        ? `Mot de passe changé. ${res.otherSessionsClosed} autre${res.otherSessionsClosed > 1 ? 's' : ''} session${res.otherSessionsClosed > 1 ? 's' : ''} fermée${res.otherSessionsClosed > 1 ? 's' : ''}.`
-        : 'Mot de passe changé.');
+        ? t('account.password.changedClosed', { count: res.otherSessionsClosed })
+        : t('account.password.changed'));
     } catch (err) {
       setError(err);
     }
@@ -187,42 +198,38 @@ function PasswordSection({ email }: { email: string }) {
 
   return (
     <Card className="p-5">
-      <h2 className="mb-1 text-lg font-semibold">Mot de passe</h2>
-      <p className="mb-4 text-sm text-muted">Un courriel vous avertit à chaque changement.</p>
+      <h2 className="mb-1 text-lg font-semibold">{t('account.password.title')}</h2>
+      <p className="mb-4 text-sm text-muted">{t('account.password.hint')}</p>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {/* Champ caché : aide le gestionnaire de mots de passe à associer le bon compte */}
         <input type="email" autoComplete="username" value={email} readOnly hidden />
-        <TextField label="Mot de passe actuel" type="password" autoComplete="current-password" required maxLength={200}
+        <TextField label={t('account.password.current')} type="password" autoComplete="current-password" required maxLength={200}
           value={current} onChange={(e) => setCurrent(e.target.value)} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Nouveau mot de passe" type="password" autoComplete="new-password" required
+          <TextField label={t('account.password.new')} type="password" autoComplete="new-password" required
             minLength={PASSWORD_MIN_LENGTH} maxLength={200} value={next} onChange={(e) => setNext(e.target.value)}
-            hint={`Au moins ${PASSWORD_MIN_LENGTH} caractères. Une courte phrase est facile à retenir.`} />
-          <TextField label="Confirmer le nouveau mot de passe" type="password" autoComplete="new-password" required
+            hint={t('account.password.newHint', { min: PASSWORD_MIN_LENGTH })} />
+          <TextField label={t('account.password.confirm')} type="password" autoComplete="new-password" required
             minLength={PASSWORD_MIN_LENGTH} maxLength={200} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         </div>
-        <Checkbox label="Déconnecter mes autres appareils" checked={signOutOthers}
+        <Checkbox label={t('account.password.signOutOthers')} checked={signOutOthers}
           onChange={(e) => setSignOutOthers(e.target.checked)} />
         <ErrorMessage error={error} />
         {done && <p role="status" className="rounded-lg bg-positive-soft px-3 py-2 text-sm text-positive">{done}</p>}
         <div className="flex justify-end">
-          <Button type="submit" variant="primary" busy={change.isPending}>Changer le mot de passe</Button>
+          <Button type="submit" variant="primary" busy={change.isPending}>{t('account.password.submit')}</Button>
         </div>
       </form>
     </Card>
   );
 }
 
-const KINDS: { key: keyof Omit<PushPreferences, 'devices'>; label: string; hint: string }[] = [
-  { key: 'priorityNotes', label: 'Consignes prioritaires', hint: 'Pendant mon quart (selon l’horaire).' },
-  { key: 'messages', label: 'Messages reçus', hint: 'Messages privés, groupes et fil de l’équipe.' },
-  { key: 'announcements', label: 'Annonces de la direction', hint: 'À lire et à confirmer.' },
-  { key: 'followUps', label: 'Suivis', hint: 'Un suivi m’est confié, ou arrive à échéance.' },
-];
+const KINDS: (keyof Omit<PushPreferences, 'devices'>)[] = ['priorityNotes', 'messages', 'announcements', 'followUps'];
 
 // Administration de la plateforme : aucun avis à recevoir, mais l'essai
 // permet de vérifier les notifications (clés VAPID) sur un appareil
 function NotificationsSection({ forResidence }: { forResidence: boolean }) {
+  const { t } = useTranslation();
   const { sharedDevice } = useAuth();
   const config = usePushConfig();
   const prefs = usePushPreferences();
@@ -250,7 +257,7 @@ function NotificationsSection({ forResidence }: { forResidence: boolean }) {
       } else {
         await enablePush(config.data!.publicKey!);
         setSubscribed(true);
-        setNotice('Notifications activées sur cet appareil.');
+        setNotice(t('account.notifications.enabledHere'));
       }
       await prefs.refetch();
     } catch (err) {
@@ -261,32 +268,30 @@ function NotificationsSection({ forResidence }: { forResidence: boolean }) {
   }
 
   let unavailable: string | null = null;
-  if (config.data && !config.data.enabled) unavailable = 'Les notifications ne sont pas encore configurées sur le serveur.';
-  else if (sharedDevice) unavailable = 'Appareil partagé : les notifications ne sont pas proposées (elles s’afficheraient à la personne suivante).';
-  else if (needsInstallForPush()) unavailable = 'Sur iPhone ou iPad : ajoutez d’abord l’application à l’écran d’accueil (Partager › Sur l’écran d’accueil), puis ouvrez-la depuis cette icône.';
-  else if (!pushSupported()) unavailable = 'Ce navigateur ne permet pas les notifications.';
-  else if (permission() === 'denied') unavailable = 'Les notifications sont bloquées pour ce site dans les réglages du navigateur : les autoriser, puis revenir ici.';
+  if (config.data && !config.data.enabled) unavailable = t('account.notifications.notConfigured');
+  else if (sharedDevice) unavailable = t('account.notifications.sharedDevice');
+  else if (needsInstallForPush()) unavailable = t('account.notifications.installFirst');
+  else if (!pushSupported()) unavailable = t('account.notifications.unsupported');
+  else if (permission() === 'denied') unavailable = t('account.notifications.blocked');
 
   return (
     <Card className="p-5">
-      <h2 className="mb-1 text-lg font-semibold">Notifications</h2>
-      <p className="mb-4 text-sm text-muted">
-        Un avis sur le téléphone, même application fermée. Il n’affiche jamais le nom d’un résident ni le texte d’un message : il faut ouvrir l’application.
-      </p>
+      <h2 className="mb-1 text-lg font-semibold">{t('account.notifications.title')}</h2>
+      <p className="mb-4 text-sm text-muted">{t('account.notifications.hint')}</p>
       {config.isPending || subscribed === null ? <Loading /> : unavailable ? (
         <p className="rounded-lg bg-sunken px-4 py-3 text-sm">{unavailable}</p>
       ) : (
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Badge tone={subscribed ? 'positive' : 'neutral'}>{subscribed ? 'Activées sur cet appareil' : 'Désactivées sur cet appareil'}</Badge>
+          <Badge tone={subscribed ? 'positive' : 'neutral'}>{subscribed ? t('account.notifications.on') : t('account.notifications.off')}</Badge>
           <Button variant={subscribed ? 'secondary' : 'primary'} busy={busy} onClick={() => void toggle()}>
-            {subscribed ? 'Désactiver sur cet appareil' : 'Activer sur cet appareil'}
+            {subscribed ? t('account.notifications.disable') : t('account.notifications.enable')}
           </Button>
           {(subscribed || (prefs.data?.devices ?? 0) > 0) && (
             <Button variant="ghost" busy={test.isPending} onClick={() => test.mutate(undefined, {
               onSuccess: (r) => setNotice(r.sent
-                ? `Notification d’essai envoyée (${r.sent} appareil${r.sent > 1 ? 's' : ''}).`
-                : 'Aucun appareil n’a pu être joint : réactiver les notifications sur cet appareil.'),
-            })}>Envoyer une notification d’essai</Button>
+                ? t('account.notifications.testSent', { count: r.sent })
+                : t('account.notifications.testNone')),
+            })}>{t('account.notifications.test')}</Button>
           )}
         </div>
       )}
@@ -296,12 +301,13 @@ function NotificationsSection({ forResidence }: { forResidence: boolean }) {
       {forResidence && prefs.data && (
         <fieldset className="mt-2 flex flex-col">
           <legend className="mb-1 text-sm font-semibold">
-            Recevoir{prefs.data.devices > 0 && <span className="font-normal text-muted"> · {prefs.data.devices} appareil{prefs.data.devices > 1 ? 's' : ''}</span>}
+            {t('account.notifications.receive')}
+            {prefs.data.devices > 0 && <span className="font-normal text-muted">{t('account.notifications.devices', { count: prefs.data.devices })}</span>}
           </legend>
           {KINDS.map((k) => (
-            <Checkbox key={k.key} checked={prefs.data[k.key]} disabled={update.isPending}
-              onChange={(e) => update.mutate({ [k.key]: e.target.checked })}
-              label={<span>{k.label} <span className="text-muted">— {k.hint}</span></span>} />
+            <Checkbox key={k} checked={prefs.data[k]} disabled={update.isPending}
+              onChange={(e) => update.mutate({ [k]: e.target.checked })}
+              label={<span>{t(`account.notifications.kinds.${k}`)} <span className="text-muted">— {t(`account.notifications.kinds.${k}Hint`)}</span></span>} />
           ))}
         </fieldset>
       )}
@@ -310,6 +316,7 @@ function NotificationsSection({ forResidence }: { forResidence: boolean }) {
 }
 
 function MfaSection() {
+  const { t } = useTranslation();
   const status = useMfaStatus();
   const regenerate = useRegenerateBackupCodes();
   const { assistance } = useAuth();
@@ -323,31 +330,29 @@ function MfaSection() {
 
   return (
     <Card className="p-5">
-      <h2 className="mb-1 text-lg font-semibold">Double authentification</h2>
+      <h2 className="mb-1 text-lg font-semibold">{t('account.mfa.title')}</h2>
       {s.enabled ? (
         <>
           <p className="mb-3 text-sm text-muted">
-            Activée {s.enabledAt && <>le {formatFull(s.enabledAt)}</>}. À chaque connexion, un code de votre application d’authentification est demandé.
+            {s.enabledAt ? t('account.mfa.enabledOn', { date: formatFull(s.enabledAt) }) : t('account.mfa.enabled')}. {t('account.mfa.enabledHint')}
           </p>
           <p className="mb-4 text-sm">
-            Codes de secours restants : <strong>{s.backupCodesRemaining}</strong>
-            {s.backupCodesRemaining <= 3 && <span className="text-danger"> — en générer de nouveaux</span>}
+            {t('account.mfa.remaining')} <strong>{s.backupCodesRemaining}</strong>
+            {s.backupCodesRemaining <= 3 && <span className="text-danger">{t('account.mfa.generateMore')}</span>}
           </p>
-          {!assistance && <Button onClick={() => setAsking(true)}>Générer de nouveaux codes de secours</Button>}
-          <p className="mt-3 text-xs text-muted">
-            Téléphone perdu et plus de codes de secours : demandez à l’administration de la plateforme de réinitialiser votre double authentification.
-          </p>
+          {!assistance && <Button onClick={() => setAsking(true)}>{t('account.mfa.regenerate')}</Button>}
+          <p className="mt-3 text-xs text-muted">{t('account.mfa.lostPhone')}</p>
         </>
       ) : (
-        <p className="text-sm text-muted">À configurer à votre prochaine connexion.</p>
+        <p className="text-sm text-muted">{t('account.mfa.toSetUp')}</p>
       )}
-      <Dialog open={asking} onClose={() => { setAsking(false); setCodes(null); regenerate.reset(); }} title="Nouveaux codes de secours">
+      <Dialog open={asking} onClose={() => { setAsking(false); setCodes(null); regenerate.reset(); }} title={t('account.mfa.newCodesTitle')}>
         {codes ? (
-          <BackupCodes codes={codes} doneLabel="Terminé" onDone={() => { setAsking(false); setCodes(null); }} />
+          <BackupCodes codes={codes} doneLabel={t('account.mfa.done')} onDone={() => { setAsking(false); setCodes(null); }} />
         ) : (
           <>
-            <p className="mb-4 text-sm">Les anciens codes ne fonctionneront plus. Confirmez avec le code de votre application :</p>
-            <CodeForm submitLabel="Générer" busy={regenerate.isPending} error={regenerate.error}
+            <p className="mb-4 text-sm">{t('account.mfa.oldCodesWarning')}</p>
+            <CodeForm submitLabel={t('account.mfa.generate')} busy={regenerate.isPending} error={regenerate.error}
               onSubmit={(code) => regenerate.mutate(code, { onSuccess: (r) => setCodes(r.backupCodes) })} />
           </>
         )}

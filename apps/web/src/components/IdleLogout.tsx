@@ -5,6 +5,7 @@
 // employé actif dans un onglet n'est pas déconnecté par un autre onglet resté
 // ouvert en arrière-plan.
 import { useEffect, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/session';
 import { Button, Dialog } from './ui';
 
@@ -31,6 +32,7 @@ function writeShared(at: number) {
 }
 
 export function IdleLogout() {
+  const { t } = useTranslation();
   const { logout } = useAuth();
   const last = useRef(0);   // fixé au montage (touch)
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -52,7 +54,7 @@ export function IdleLogout() {
       const idle = Date.now() - Math.max(last.current, readShared());
       if (idle >= IDLE_LIMIT_MS) {
         window.clearInterval(timer);
-        void logout('Session fermée après 15 minutes sans activité (appareil partagé).');
+        void logout(t('shell.idle.closed'));
       } else if (idle >= IDLE_LIMIT_MS - WARNING_MS) {
         setSecondsLeft(Math.ceil((IDLE_LIMIT_MS - idle) / 1000));
       } else {
@@ -64,7 +66,7 @@ export function IdleLogout() {
       window.clearInterval(timer);
       for (const event of EVENTS) window.removeEventListener(event, touch);
     };
-  }, [logout]);
+  }, [logout, t]);
 
   const stay = () => {
     last.current = Date.now();
@@ -73,14 +75,13 @@ export function IdleLogout() {
   };
 
   return (
-    <Dialog open={secondsLeft !== null} onClose={stay} title="Toujours là ?">
+    <Dialog open={secondsLeft !== null} onClose={stay} title={t('shell.idle.title')}>
       <p className="mb-5">
-        Sans activité, la session se fermera dans <strong>{secondsLeft} s</strong> pour protéger
-        les renseignements des résidents sur cet appareil partagé.
+        <Trans i18nKey="shell.idle.body" values={{ seconds: secondsLeft }} components={{ strong: <strong /> }} />
       </p>
       <div className="flex justify-end gap-2">
-        <Button onClick={() => void logout()}>Me déconnecter</Button>
-        <Button variant="primary" onClick={stay}>Je suis là</Button>
+        <Button onClick={() => void logout()}>{t('shell.idle.logout')}</Button>
+        <Button variant="primary" onClick={stay}>{t('shell.idle.stay')}</Button>
       </div>
     </Dialog>
   );

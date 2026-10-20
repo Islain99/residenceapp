@@ -6,7 +6,7 @@
 //
 // Notifications push : l'API n'envoie que le type d'événement et l'auteur,
 // jamais de contenu (nom de résident, texte) ; le toucher ouvre la page.
-const VERSION = 'v5';   // v5 : page hors ligne au thème choisi (clair par défaut)
+const VERSION = 'v6';   // v6 : page hors ligne bilingue (langue choisie)
 const CACHE = `journal-${VERSION}`;
 const PRECACHE = ['/offline.html', '/logo.png', '/logo-dark.png', '/icons/favicon-64.png', '/icons/icon-192.png'];
 

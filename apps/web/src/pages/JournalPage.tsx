@@ -1,5 +1,6 @@
 // Journal de bord : toutes les notes, filtres dans l'adresse (partageables, conservés au retour).
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useCategories, useCreateNote, useNotes, useResidents, type NoteFilters } from '../api/hooks';
 import { NoteCard } from '../components/NoteCard';
@@ -8,6 +9,7 @@ import { Button, Chip, Dialog, EmptyState, ErrorMessage, Loading, PageHeader, Se
 import { fullName } from '../lib/format';
 
 export function JournalPage() {
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState(params.get('q') ?? '');
@@ -46,8 +48,8 @@ export function JournalPage() {
   return (
     <>
       <PageHeader
-        title="Journal de bord"
-        actions={<Button variant="primary" onClick={() => setCreating(true)}>+ Nouvelle note</Button>}
+        title={t('journal.journal.title')}
+        actions={<Button variant="primary" onClick={() => setCreating(true)}>{t('journal.journal.newNote')}</Button>}
       />
 
       <div className="mb-5 flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
@@ -55,55 +57,55 @@ export function JournalPage() {
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher dans les notes (ex. : chute, désorientée)…"
-          aria-label="Rechercher dans les notes"
+          placeholder={t('journal.journal.search')}
+          aria-label={t('journal.journal.searchLabel')}
           className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-base sm:text-sm"
         />
         <div className="grid gap-3 sm:grid-cols-3">
-          <SelectField label="Résident" value={filters.residentId ?? ''} onChange={(e) => setParam('residentId', e.target.value)}>
-            <option value="">Tous</option>
+          <SelectField label={t('journal.journal.resident')} value={filters.residentId ?? ''} onChange={(e) => setParam('residentId', e.target.value)}>
+            <option value="">{t('journal.journal.all')}</option>
             {residents.data?.map((r) => (
-              <option key={r.id} value={r.id}>{fullName(r)}{r.status === 'parti' ? ' (parti)' : ''}</option>
+              <option key={r.id} value={r.id}>{fullName(r)}{r.status === 'parti' ? t('journal.journal.left') : ''}</option>
             ))}
           </SelectField>
-          <SelectField label="Catégorie" value={filters.categoryId ?? ''} onChange={(e) => setParam('categoryId', e.target.value)}>
-            <option value="">Toutes</option>
+          <SelectField label={t('journal.journal.category')} value={filters.categoryId ?? ''} onChange={(e) => setParam('categoryId', e.target.value)}>
+            <option value="">{t('journal.journal.allFeminine')}</option>
             {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </SelectField>
-          <SelectField label="Statut" value={filters.status ?? 'active'} onChange={(e) => setParam('status', e.target.value === 'active' ? null : e.target.value)}>
-            <option value="active">Actives</option>
-            <option value="annulee">Annulées</option>
-            <option value="all">Toutes</option>
+          <SelectField label={t('journal.journal.status')} value={filters.status ?? 'active'} onChange={(e) => setParam('status', e.target.value === 'active' ? null : e.target.value)}>
+            <option value="active">{t('journal.journal.active')}</option>
+            <option value="annulee">{t('journal.journal.cancelled')}</option>
+            <option value="all">{t('journal.journal.allFeminine')}</option>
           </SelectField>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Chip active={!!filters.priority} onClick={() => setParam('priority', filters.priority ? null : 'true')}>Prioritaires</Chip>
-          <Chip active={!!filters.unread} onClick={() => setParam('unread', filters.unread ? null : 'true')}>Non lues</Chip>
+          <Chip active={!!filters.priority} onClick={() => setParam('priority', filters.priority ? null : 'true')}>{t('journal.journal.priority')}</Chip>
+          <Chip active={!!filters.unread} onClick={() => setParam('unread', filters.unread ? null : 'true')}>{t('journal.journal.unread')}</Chip>
           {filtered && (
             <button type="button" className="text-sm text-primary underline" onClick={() => { setSearch(''); setParams({}, { replace: true }); }}>
-              Effacer les filtres
+              {t('journal.journal.clear')}
             </button>
           )}
         </div>
       </div>
 
       {notes.isPending ? <Loading /> : notes.isError ? <ErrorMessage error={notes.error} /> : items.length === 0 ? (
-        <EmptyState>{filtered ? 'Aucune note ne correspond à ces filtres.' : 'Aucune note pour le moment.'}</EmptyState>
+        <EmptyState>{filtered ? t('journal.journal.noMatch') : t('journal.journal.empty')}</EmptyState>
       ) : (
         <div className="flex flex-col gap-3">
           {items.map((note) => <NoteCard key={note.id} note={note} />)}
           {notes.hasNextPage && (
             <Button className="self-center" busy={notes.isFetchingNextPage} onClick={() => notes.fetchNextPage()}>
-              Afficher plus
+              {t('journal.journal.more')}
             </Button>
           )}
         </div>
       )}
 
-      <Dialog open={creating} onClose={() => setCreating(false)} title="Nouvelle note">
+      <Dialog open={creating} onClose={() => setCreating(false)} title={t('journal.form.newNote')}>
         <NoteForm
           defaultResidentId={filters.residentId}
-          submitLabel="Enregistrer la note"
+          submitLabel={t('journal.form.saveNote')}
           onCancel={() => setCreating(false)}
           onSubmit={async (input) => {
             const note = await createNote.mutateAsync(input);

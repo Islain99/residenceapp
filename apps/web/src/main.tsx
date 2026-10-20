@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { ApiError } from './api/client';
 import App from './App';
 import { AuthProvider } from './auth/AuthProvider';
+import './i18n';   // avant tout composant : langue choisie (français par défaut)
 import './index.css';
 
 const queryClient = new QueryClient({

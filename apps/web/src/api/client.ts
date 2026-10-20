@@ -9,6 +9,16 @@
 //     Plusieurs onglets ne rafraîchissent jamais en même temps (Web Locks) :
 //     présenter deux fois le même jeton ferait révoquer toutes les sessions.
 
+import i18n, { currentLanguage } from '../i18n';
+import { API_ERRORS_EN } from '../i18n/api-errors';
+
+// Messages de l'API : rédigés en français par le serveur. Interface en
+// anglais : message traduit d'après le code d'erreur (i18n/api-errors.ts),
+// sinon celui du serveur.
+function translateError(code: string, serverMessage: string): string {
+  return currentLanguage() === 'en' ? API_ERRORS_EN[code] ?? serverMessage : serverMessage;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -101,7 +111,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const assisted = assistanceToken !== null && !path.startsWith('/auth/') && !path.startsWith('/platform/');
   // Assistance : lecture seule (l'API refuse aussi) — message clair, sans appel
   if (assisted && (options.method ?? 'GET') !== 'GET') {
-    throw new ApiError(403, 'assistance_read_only', 'Accès d’assistance : consultation seulement, aucune modification possible.');
+    throw new ApiError(403, 'assistance_read_only', i18n.t('common.assistanceReadOnly'));
   }
   const send = () => fetch(buildUrl(path, options.query), {
     method: options.method ?? 'GET',
@@ -118,12 +128,12 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   try {
     res = await send();
   } catch {
-    throw new ApiError(0, 'network', 'Serveur injoignable. Vérifier la connexion.');
+    throw new ApiError(0, 'network', i18n.t('common.network'));
   }
 
   if (res.status === 401 && assisted) {
     const body = await res.json().catch(() => null) as { message?: string } | null;
-    const message = body?.message ?? 'Accès d’assistance terminé.';
+    const message = translateError('assistance_ended', body?.message ?? i18n.t('common.assistanceEnded'));
     assistanceToken = null;
     onAssistanceLost(message);
     throw new ApiError(401, 'assistance_ended', message);
@@ -139,7 +149,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   if (!res.ok) {
     const body = await res.json().catch(() => null) as { error?: string; message?: string } | null;
-    throw new ApiError(res.status, body?.error ?? 'error', body?.message ?? `Erreur ${res.status}.`);
+    const code = body?.error ?? 'error';
+    throw new ApiError(res.status, code, translateError(code, body?.message ?? i18n.t('common.httpError', { status: res.status })));
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

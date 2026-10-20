@@ -1,25 +1,27 @@
 // Administration (responsable) : onglets Équipe, Catégories, Quarts, Messagerie,
 // Assistance, Journal d'audit.
+import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/session';
 import { cx } from '../lib/cx';
 
 const TABS = [
-  { to: 'equipe', label: 'Équipe' },
-  { to: 'categories', label: 'Catégories' },
-  { to: 'quarts', label: 'Quarts' },
-  { to: 'messagerie', label: 'Messagerie' },
-  { to: 'assistance', label: 'Assistance' },
-  { to: 'audit', label: "Journal d'audit" },
-];
+  { to: 'equipe', label: 'team' },
+  { to: 'categories', label: 'categories' },
+  { to: 'quarts', label: 'shifts' },
+  { to: 'messagerie', label: 'messaging' },
+  { to: 'assistance', label: 'assistance' },
+  { to: 'audit', label: 'audit' },
+] as const;
 
 export function AdminPage() {
+  const { t } = useTranslation();
   const { assistance } = useAuth();
   // Assistance (admin plateforme) : la messagerie reste privée
-  const tabs = assistance ? TABS.filter((t) => t.to !== 'messagerie') : TABS;
+  const tabs = assistance ? TABS.filter((tab) => tab.to !== 'messagerie') : TABS;
   return (
     <>
-      <nav aria-label="Administration" className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
+      <nav aria-label={t('admin.tabs.label')} className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
         {tabs.map((tab) => (
           <NavLink
             key={tab.to}
@@ -29,7 +31,7 @@ export function AdminPage() {
               isActive ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink',
             )}
           >
-            {tab.label}
+            {t(`admin.tabs.${tab.label}`)}
           </NavLink>
         ))}
       </nav>

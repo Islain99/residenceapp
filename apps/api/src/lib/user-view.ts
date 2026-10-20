@@ -19,17 +19,19 @@ export const UserBody = Type.Object({
   phone: Type.Union([Type.String(), Type.Null()]),
   avatar: Type.Union([Type.String(), Type.Null()]),        // null : initiales
   avatarColor: Type.Union([Type.String(), Type.Null()]),   // null : couleur choisie d'après l'id
+  locale: Type.String(),                                   // fr | en : interface, courriels, notifications
 });
 
 export const USER_COLUMNS = ['id', 'email', 'first_name', 'last_name', 'role', 'residence_id', 'phone', 'avatar',
-  'avatar_color'] as const;
+  'avatar_color', 'locale'] as const;
 
 export function toUserBody(user: {
   id: string; email: string; first_name: string; last_name: string; role: string;
-  residence_id: string | null; phone: string | null; avatar: string | null; avatar_color: string | null;
+  residence_id: string | null; phone: string | null; avatar: string | null; avatar_color: string | null; locale: string;
 }) {
   return {
     id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name,
     role: user.role, residenceId: user.residence_id, phone: user.phone, avatar: user.avatar, avatarColor: user.avatar_color,
+    locale: user.locale,
   };
 }

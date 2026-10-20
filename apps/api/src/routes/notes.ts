@@ -14,6 +14,7 @@ import { sql, type Updateable } from 'kysely';
 import { authenticate, isSupervisor, residenceOf, type AccessTokenPayload, type Role } from '../auth.js';
 import type { Notes } from '../db/types.js';
 import { audit } from '../lib/audit.js';
+import { pushIn } from '../lib/locale.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
 import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
 import { findNote, NoteBody, noteQuery, toNote, validReadSql, type Db, type NoteRow } from '../lib/note-view.js';
@@ -109,7 +110,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
   async function notifyPriority(residenceId: string, authorId: string) {
     if (!app.notifier.enabled) return;
     app.notifier.notify(await app.notifier.onShiftNow(residenceId, authorId), 'priority_notes', {
-      title: 'Consigne prioritaire', body: 'Nouvelle consigne à lire dans la relève.', url: '/', tag: 'priority',
+      text: pushIn((t) => t.priority), url: '/', tag: 'priority',
     });
   }
   app.addHook('preHandler', authenticate);

@@ -1,18 +1,20 @@
 // Agenda : rendez-vous de la semaine, jour par jour. Semaine et filtres dans
 // l'adresse (?semaine=AAAA-MM-JJ&residentId=…), donc partageables.
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { useAppointments, useResidents } from '../api/hooks';
 import type { Appointment, AppointmentKind } from '../api/types';
 import { AppointmentForm, AppointmentItem } from '../components/Appointments';
 import { Button, Chip, Dialog, ErrorMessage, Loading, PageHeader, SelectField } from '../components/ui';
-import { KIND_LABELS } from '../lib/agenda';
+import { APPOINTMENT_KINDS } from '../lib/agenda';
 import { cx } from '../lib/cx';
 import {
   addDays, formatDayHeading, formatRange, fromDateParam, fullName, sameDay, startOfWeek, toDateParam,
 } from '../lib/format';
 
 export function AgendaPage() {
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const [today] = useState(() => new Date());
   // Nouveau rendez-vous : start absent = prochaine heure ronde ; sinon le jour choisi à 10 h
@@ -46,30 +48,30 @@ export function AgendaPage() {
   return (
     <>
       <PageHeader
-        title="Agenda"
-        subtitle="Rendez-vous des résidents et activités de la résidence."
-        actions={<Button variant="primary" onClick={() => setCreating({})}>+ Rendez-vous</Button>}
+        title={t('agenda.title')}
+        subtitle={t('agenda.subtitle')}
+        actions={<Button variant="primary" onClick={() => setCreating({})}>{t('agenda.add')}</Button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button aria-label="Semaine précédente" onClick={() => goToWeek(addDays(weekStart, -7))}>←</Button>
-        <Button aria-label="Semaine suivante" onClick={() => goToWeek(addDays(weekStart, 7))}>→</Button>
-        <Button variant="ghost" onClick={() => goToWeek(today)}>Cette semaine</Button>
+        <Button aria-label={t('agenda.previousWeek')} onClick={() => goToWeek(addDays(weekStart, -7))}>←</Button>
+        <Button aria-label={t('agenda.nextWeek')} onClick={() => goToWeek(addDays(weekStart, 7))}>→</Button>
+        <Button variant="ghost" onClick={() => goToWeek(today)}>{t('agenda.thisWeek')}</Button>
         <h2 className="ml-1 text-lg font-semibold">{formatRange(weekStart, addDays(weekStart, 6))}</h2>
       </div>
 
       <div className="mb-5 grid gap-3 rounded-xl border border-line bg-surface p-4 sm:grid-cols-3 sm:items-end">
-        <SelectField label="Résident" value={residentId ?? ''} onChange={(e) => setParam('residentId', e.target.value || null)}>
-          <option value="">Tous (et la résidence)</option>
+        <SelectField label={t('agenda.resident')} value={residentId ?? ''} onChange={(e) => setParam('residentId', e.target.value || null)}>
+          <option value="">{t('agenda.allWithResidence')}</option>
           {residents.data?.map((r) => (
-            <option key={r.id} value={r.id}>{fullName(r)}{r.status === 'parti' ? ' (parti)' : ''}</option>
+            <option key={r.id} value={r.id}>{fullName(r)}{r.status === 'parti' ? t('agenda.left') : ''}</option>
           ))}
         </SelectField>
-        <SelectField label="Type" value={kind ?? ''} onChange={(e) => setParam('type', e.target.value || null)}>
-          <option value="">Tous</option>
-          {Object.entries(KIND_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+        <SelectField label={t('agenda.type')} value={kind ?? ''} onChange={(e) => setParam('type', e.target.value || null)}>
+          <option value="">{t('agenda.all')}</option>
+          {APPOINTMENT_KINDS.map((k) => <option key={k} value={k}>{t(`agenda.kinds.${k}`)}</option>)}
         </SelectField>
-        <div><Chip active={showCancelled} onClick={() => setParam('annules', showCancelled ? null : 'oui')}>Afficher les annulés</Chip></div>
+        <div><Chip active={showCancelled} onClick={() => setParam('annules', showCancelled ? null : 'oui')}>{t('agenda.showCancelled')}</Chip></div>
       </div>
 
       {appointments.isPending ? <Loading /> : appointments.isError ? <ErrorMessage error={appointments.error} /> : (
@@ -81,15 +83,15 @@ export function AgendaPage() {
               <section key={day.toISOString()} aria-label={formatDayHeading(day)}>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <h3 className={cx('font-semibold first-letter:uppercase', isToday && 'text-primary')}>
-                    {formatDayHeading(day)}{isToday && ' — aujourd’hui'}
+                    {formatDayHeading(day)}{isToday && t('agenda.today')}
                   </h3>
                   <button type="button" className="rounded-lg px-2 py-1 text-sm text-primary hover:bg-sunken"
                     onClick={() => { const start = new Date(day); start.setHours(10, 0, 0, 0); setCreating({ start }); }}>
-                    + Ajouter
+                    {t('agenda.addOnDay')}
                   </button>
                 </div>
                 {items.length === 0
-                  ? <p className="rounded-xl border border-dashed border-line px-4 py-3 text-sm text-muted">Rien de prévu.</p>
+                  ? <p className="rounded-xl border border-dashed border-line px-4 py-3 text-sm text-muted">{t('agenda.nothing')}</p>
                   : <ul className="flex flex-col gap-2">{items.map((a) => <AppointmentItem key={a.id} appointment={a} />)}</ul>}
               </section>
             );
@@ -97,7 +99,7 @@ export function AgendaPage() {
         </div>
       )}
 
-      <Dialog open={creating !== null} onClose={() => setCreating(null)} title="Nouveau rendez-vous">
+      <Dialog open={creating !== null} onClose={() => setCreating(null)} title={t('agenda.newTitle')}>
         {creating && (
           <AppointmentForm
             defaultResidentId={residentId}

@@ -2,38 +2,40 @@
 // groupe, sans leur contenu. En cas de plainte ou d'enquête, la responsable
 // peut en consulter une, avec un motif obligatoire inscrit au journal d'audit.
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAdminConversations, useConsultConversation } from '../api/hooks';
 import type { AdminConversation, ConsultedMessage } from '../api/types';
 import { Badge, Button, Dialog, EmptyState, ErrorMessage, Loading, PageHeader, TextArea } from '../components/ui';
 import { formatFull, formatWhen, fullName } from '../lib/format';
 
 export function AdminMessagesPage() {
+  const { t } = useTranslation();
   const conversations = useAdminConversations();
   const [selected, setSelected] = useState<AdminConversation | null>(null);
 
   return (
     <>
       <PageHeader
-        title="Messagerie"
-        subtitle="Conversations privées et de groupe, sans leur contenu. Les consulter exige un motif et laisse une trace au journal d'audit."
+        title={t('messages.admin.title')}
+        subtitle={t('messages.admin.subtitle')}
       />
       {conversations.isPending ? <Loading /> : conversations.isError ? <ErrorMessage error={conversations.error} /> :
-        conversations.data.length === 0 ? <EmptyState>Aucune conversation privée ou de groupe.</EmptyState> : (
+        conversations.data.length === 0 ? <EmptyState>{t('messages.admin.empty')}</EmptyState> : (
           <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
             {conversations.data.map((c) => (
               <li key={c.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2 font-medium">
-                    <Badge>{c.kind === 'group' ? 'Groupe' : 'Privée'}</Badge>
-                    {c.title ?? c.members.map(fullName).join(' et ')}
+                    <Badge>{c.kind === 'group' ? t('messages.admin.group') : t('messages.admin.private')}</Badge>
+                    {c.title ?? c.members.map(fullName).join(t('messages.admin.and'))}
                   </p>
                   <p className="text-sm text-muted">
                     {c.kind === 'group' && `${c.members.map((m) => m.firstName).join(', ')} · `}
-                    {c.messageCount} message{c.messageCount > 1 ? 's' : ''}
-                    {c.lastMessageAt && ` · dernier ${formatWhen(c.lastMessageAt)}`}
+                    {t('messages.admin.count', { count: c.messageCount })}
+                    {c.lastMessageAt && t('messages.admin.last', { when: formatWhen(c.lastMessageAt) })}
                   </p>
                 </div>
-                <Button onClick={() => setSelected(c)} disabled={c.messageCount === 0}>Consulter…</Button>
+                <Button onClick={() => setSelected(c)} disabled={c.messageCount === 0}>{t('messages.admin.consult')}</Button>
               </li>
             ))}
           </ul>
@@ -44,6 +46,7 @@ export function AdminMessagesPage() {
 }
 
 function ConsultDialog({ conversation, onClose }: { conversation: AdminConversation; onClose: () => void }) {
+  const { t } = useTranslation();
   const consult = useConsultConversation();
   const [reason, setReason] = useState('');
   const [messages, setMessages] = useState<ConsultedMessage[] | null>(null);
@@ -55,19 +58,18 @@ function ConsultDialog({ conversation, onClose }: { conversation: AdminConversat
   }
 
   return (
-    <Dialog open onClose={onClose} title={conversation.title ?? conversation.members.map(fullName).join(' et ')}>
+    <Dialog open onClose={onClose} title={conversation.title ?? conversation.members.map(fullName).join(t('messages.admin.and'))}>
       {messages === null ? (
         <form onSubmit={submit} className="flex flex-col gap-4">
           <p className="rounded-lg bg-priority-soft px-3 py-2 text-sm text-priority">
-            Ces échanges sont privés. Ne les consultez que pour une raison sérieuse (plainte, enquête, sécurité d'un résident).
-            Votre consultation et son motif seront inscrits au journal d'audit.
+            {t('messages.admin.warning')}
           </p>
-          <TextArea label="Motif de la consultation" required minLength={10} maxLength={500} rows={3} value={reason}
-            onChange={(e) => setReason(e.target.value)} placeholder="Ex. : plainte d'un employé reçue le 13 octobre" />
+          <TextArea label={t('messages.admin.reason')} required minLength={10} maxLength={500} rows={3} value={reason}
+            onChange={(e) => setReason(e.target.value)} placeholder={t('messages.admin.reasonPlaceholder')} />
           <ErrorMessage error={consult.error} />
           <div className="flex justify-end gap-2">
-            <Button onClick={onClose}>Annuler</Button>
-            <Button type="submit" variant="primary" busy={consult.isPending} disabled={reason.trim().length < 10}>Consulter</Button>
+            <Button onClick={onClose}>{t('common.cancel')}</Button>
+            <Button type="submit" variant="primary" busy={consult.isPending} disabled={reason.trim().length < 10}>{t('messages.admin.submit')}</Button>
           </div>
         </form>
       ) : (
@@ -77,14 +79,14 @@ function ConsultDialog({ conversation, onClose }: { conversation: AdminConversat
               <p className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted">
                 <span className="font-semibold text-ink">{fullName(m.author)}</span>
                 {formatFull(m.createdAt)}
-                {m.retractedAt && <Badge tone="danger">Retiré {formatWhen(m.retractedAt)}</Badge>}
-                {m.editedAt && <Badge>Modifié</Badge>}
+                {m.retractedAt && <Badge tone="danger">{t('messages.admin.retractedAt', { when: formatWhen(m.retractedAt) })}</Badge>}
+                {m.editedAt && <Badge>{t('messages.admin.edited')}</Badge>}
               </p>
               <p className="whitespace-pre-wrap break-words">{m.body}</p>
               {m.versions.length > 0 && (
                 <ul className="mt-2 border-l-2 border-line pl-3 text-xs text-muted">
                   {m.versions.map((v, i) => (
-                    <li key={i}>Version remplacée {formatWhen(v.replacedAt)} : « {v.body} »</li>
+                    <li key={i}>{t('messages.admin.version', { when: formatWhen(v.replacedAt), text: v.body })}</li>
                   ))}
                 </ul>
               )}

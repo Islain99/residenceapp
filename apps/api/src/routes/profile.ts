@@ -1,6 +1,6 @@
 // Mon profil : chacun modifie ses coordonnées et change son mot de passe.
 //
-//   PATCH /auth/me               { firstName?, lastName?, phone?, avatar?, avatarColor? }
+//   PATCH /auth/me               { firstName?, lastName?, phone?, avatar?, avatarColor?, locale? }
 //   POST  /auth/password/change  { currentPassword, newPassword, signOutOthers? }
 //
 // Le courriel et le rôle ne se changent pas ici : la responsable (ou
@@ -11,7 +11,8 @@ import { sql } from 'kysely';
 import { authenticate } from '../auth.js';
 import { audit } from '../lib/audit.js';
 import { badRequest } from '../lib/errors.js';
-import { linkMail } from '../lib/mailer.js';
+import { passwordChangedMail } from '../lib/account-tokens.js';
+import { LocaleSchema } from '../lib/locale.js';
 import { hashPassword, verifyPassword } from '../lib/passwords.js';
 import { Nullable } from '../lib/schemas.js';
 import { hashToken } from '../lib/tokens.js';
@@ -38,13 +39,14 @@ const profileRoutes: FastifyPluginAsyncTypebox = async (app) => {
         phone: Type.Optional(Nullable(Type.String({ maxLength: 30 }))),   // vide ou null : retiré
         avatar: Type.Optional(Nullable(Avatar)),                         // null : initiales
         avatarColor: Type.Optional(Nullable(AvatarColor)),               // null : couleur par défaut
+        locale: Type.Optional(LocaleSchema),                             // langue de l'interface, des courriels et des avis
       }, { minProperties: 1 }),
       response: { 200: UserBody },
     },
   }, async (request) => {
     const b = request.body;
     const changes: {
-      first_name?: string; last_name?: string; phone?: string | null; avatar?: string | null; avatar_color?: string | null;
+      first_name?: string; last_name?: string; phone?: string | null; avatar?: string | null; avatar_color?: string | null; locale?: string;
     } = {};
     if (b.firstName !== undefined) {
       changes.first_name = b.firstName.trim();
@@ -62,6 +64,7 @@ const profileRoutes: FastifyPluginAsyncTypebox = async (app) => {
     }
     if (b.avatar !== undefined) changes.avatar = b.avatar;
     if (b.avatarColor !== undefined) changes.avatar_color = b.avatarColor;
+    if (b.locale !== undefined) changes.locale = b.locale;
     // Champs inconnus (courriel, rôle…) : retirés par la validation, il ne reste rien
     if (Object.keys(changes).length === 0) throw badRequest('nothing_to_update', 'Aucun champ modifiable.');
 
@@ -92,7 +95,7 @@ const profileRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request, reply) => {
     const b = request.body;
     const user = await db.selectFrom('users')
-      .select(['id', 'email', 'first_name', 'residence_id', 'password_hash', 'locked_until'])
+      .select(['id', 'email', 'first_name', 'residence_id', 'password_hash', 'locked_until', 'locale'])
       .where('id', '=', request.user.sub).executeTakeFirstOrThrow();
     // 429 envoyé directement, comme à la connexion : le gestionnaire d'erreurs
     // (app.ts) remplacerait le code par « too_many_requests »
@@ -151,12 +154,7 @@ const profileRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
     // Avis par courriel : si ce n'est pas la personne, elle le sait tout de suite
     try {
-      await mailer.send(linkMail(user.email, 'Votre mot de passe a été changé',
-        [`Bonjour ${user.first_name},`,
-          'Le mot de passe de votre compte du journal de bord vient d’être changé.',
-          'Si ce n’est pas vous, choisissez tout de suite un nouveau mot de passe et prévenez votre responsable.'],
-        { label: 'Choisir un nouveau mot de passe', url: `${config.APP_URL.replace(/\/$/, '')}/mot-de-passe-oublie` },
-        'Courriel automatique, ne pas y répondre.'));
+      await mailer.send(passwordChangedMail(config, { email: user.email, firstName: user.first_name, locale: user.locale }));
     } catch (err) {
       request.log.error({ err }, 'avis de changement de mot de passe non envoyé');
     }

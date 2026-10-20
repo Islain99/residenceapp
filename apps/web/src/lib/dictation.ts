@@ -16,6 +16,8 @@
 //   4. appendDictated()    : chaque phrase reconnue s'ajoute au texte de la note
 // Le bouton (components/Dictation.tsx) enchaîne ces étapes.
 
+import i18n, { currentLanguage, currentLocale } from '../i18n';
+
 // ---------------------------------------------------------------------
 // Types de la Web Speech API
 //
@@ -69,8 +71,9 @@ const recognitionClass = (): RecognitionClass | undefined => {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition;
 };
 
-// Français du Québec d'abord, sinon français de France
-const LANGS = ['fr-CA', 'fr-FR'];
+// Langue de l'interface : français du Québec (sinon de France), ou anglais
+// du Canada (sinon des États-Unis)
+const langs = () => (currentLanguage() === 'en' ? ['en-CA', 'en-US'] : ['fr-CA', 'fr-FR']);
 
 // Réponse de dictationStatus() : la langue retenue accompagne tout état utilisable
 export type DictationStatus = { state: 'unavailable' } | { state: Exclude<Availability, 'unavailable'>; lang: string };
@@ -86,7 +89,7 @@ export async function dictationStatus(): Promise<DictationStatus> {
   const SR = recognitionClass();
   // Pas de mode local, ou pas d'accès aux micros (page non sécurisée…) : pas de dictée
   if (!SR?.available || !navigator.mediaDevices) return { state: 'unavailable' };
-  for (const lang of LANGS) {
+  for (const lang of langs()) {
     try {
       const state = await SR.available({ langs: [lang], processLocally: true });
       if (state !== 'unavailable') return { state, lang };
@@ -122,7 +125,7 @@ let active: Recognition | null = null;
 // l'appelant, puis start() lance le micro.
 export function createRecognition(lang: string): Recognition {
   const SR = recognitionClass();
-  if (!SR) throw new Error('Dictée non disponible.');
+  if (!SR) throw new Error(i18n.t('journal.dictation.errors.network'));
   active?.abort();
   const recognition = new SR();
   recognition.lang = lang;
@@ -141,12 +144,13 @@ export function releaseRecognition(recognition: Recognition): void {
 // Messages pour les codes d'erreur de la Web Speech API. « aborted » (arrêt
 // voulu) et « no-speech » (silence) ne sont pas affichés : ce ne sont pas des
 // problèmes.
-export const DICTATION_ERRORS: Record<string, string> = {
-  'not-allowed': 'Micro refusé : autorisez le micro pour ce site dans les réglages du navigateur.',
-  'service-not-allowed': 'Micro refusé : autorisez le micro pour ce site dans les réglages du navigateur.',
-  'audio-capture': 'Aucun micro trouvé sur cet appareil.',
-  'language-not-supported': 'Le français n’est pas encore installé pour la dictée sur cet appareil.',
-  network: 'Dictée sur l’appareil indisponible pour le moment.',
+// (textes : i18n, journal.dictation.errors)
+export const DICTATION_ERRORS: Record<string, 'notAllowed' | 'audioCapture' | 'languageNotSupported' | 'network'> = {
+  'not-allowed': 'notAllowed',
+  'service-not-allowed': 'notAllowed',
+  'audio-capture': 'audioCapture',
+  'language-not-supported': 'languageNotSupported',
+  network: 'network',
 };
 
 // ---------------------------------------------------------------------
@@ -164,6 +168,6 @@ export function appendDictated(text: string, spoken: string): string {
   if (!piece) return text;
   const before = text.replace(/\s+$/, '');   // espaces de fin retirés, un seul sera remis
   const newSentence = before === '' || /[.!?]$/.test(before);
-  const words = newSentence ? piece.charAt(0).toLocaleUpperCase('fr-CA') + piece.slice(1) : piece;
+  const words = newSentence ? piece.charAt(0).toLocaleUpperCase(currentLocale()) + piece.slice(1) : piece;
   return before === '' ? words : `${before} ${words}`;
 }

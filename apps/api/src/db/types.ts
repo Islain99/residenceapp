@@ -305,6 +305,7 @@ export interface Users {
   is_active: Generated<boolean>;
   last_login_at: Timestamp | null;
   last_name: string;
+  locale: Generated<string>;
   locked_until: Timestamp | null;
   mfa_enabled_at: Timestamp | null;
   mfa_last_step: Int8 | null;

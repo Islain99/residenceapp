@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createBrowserRouter, Link, Navigate, Outlet, RouterProvider, useLocation } from 'react-router';
 import { useAuth, useUser } from './auth/session';
 import { Layout } from './components/Layout';
@@ -55,10 +57,11 @@ function RequireResponsable() {
 }
 
 function NotFound() {
+  const { t } = useTranslation();
   return (
     <div className="py-16 text-center">
-      <p className="mb-4 text-lg">Page introuvable.</p>
-      <Link to="/" className="text-primary underline">Retour à la relève</Link>
+      <p className="mb-4 text-lg">{t('common.pageNotFound')}</p>
+      <Link to="/" className="text-primary underline">{t('common.backToHandover')}</Link>
     </div>
   );
 }
@@ -127,6 +130,11 @@ const router = createBrowserRouter([
   },
 ]);
 
+// Changement de langue : toutes les pages sont redessinées dans la nouvelle
+// langue (dates comprises) ; l'adresse, la session et les données restent
 export default function App() {
-  return <RouterProvider router={router} />;
+  const { t, i18n } = useTranslation();
+  // Titre de l'onglet dans la langue choisie
+  useEffect(() => { document.title = t('common.appName'); }, [t]);
+  return <RouterProvider key={i18n.language} router={router} />;
 }

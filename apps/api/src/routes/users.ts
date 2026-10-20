@@ -13,6 +13,7 @@ import { requireRole, residenceOf } from '../auth.js';
 import type { Users } from '../db/types.js';
 import { invalidateAccountTokens, inviteMail, issueAccountToken } from '../lib/account-tokens.js';
 import { audit } from '../lib/audit.js';
+import { LocaleSchema } from '../lib/locale.js';
 import { badRequest, HttpError, notFound } from '../lib/errors.js';
 import type { Db } from '../lib/note-view.js';
 import { IdParams, Nullable, Text } from '../lib/schemas.js';
@@ -75,7 +76,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }
 
   // Envoie l'invitation dans la transaction : si le courriel échoue, rien n'est enregistré
-  async function sendInvite(trx: Db, user: { id: string; email: string; first_name: string },
+  async function sendInvite(trx: Db, user: { id: string; email: string; first_name: string; locale: string },
     residenceId: string, inviterId: string) {
     const context = await trx.selectFrom('users as me')
       .innerJoin('residences as r', 'r.id', 'me.residence_id')
@@ -84,7 +85,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
       .executeTakeFirstOrThrow();
     const token = await issueAccountToken(trx, user.id, 'invite', inviterId);
     try {
-      await mailer.send(inviteMail(config, { email: user.email, firstName: user.first_name }, token,
+      await mailer.send(inviteMail(config, { email: user.email, firstName: user.first_name, locale: user.locale }, token,
         `${context.first_name} ${context.last_name}`, context.name));
     } catch {
       throw new HttpError(502, 'mail_failed', "Le courriel d'invitation n'a pas pu être envoyé. Réessayer plus tard.");
@@ -109,6 +110,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
         firstName: Text(100),
         lastName: Text(100),
         role: StaffRole,
+        locale: Type.Optional(LocaleSchema),   // langue des courriels et des notifications (français par défaut)
       }),
       response: { 201: Account },
     },
@@ -126,8 +128,8 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
 
       const user = await trx.insertInto('users').values({
         residence_id: residenceId, email, first_name: firstName, last_name: lastName,
-        role: b.role, password_hash: null,
-      }).returning(['id', 'email', 'first_name']).executeTakeFirstOrThrow();
+        role: b.role, password_hash: null, locale: b.locale ?? 'fr',
+      }).returning(['id', 'email', 'first_name', 'locale']).executeTakeFirstOrThrow();
       await audit(trx, {
         action: 'create', entity: 'user', entityId: user.id, userId: request.user.sub, residenceId,
         details: { role: b.role }, ip: request.ip,
@@ -144,7 +146,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => {
     const residenceId = residenceOf(request);
     await db.transaction().execute(async (trx) => {
-      const user = await trx.selectFrom('users').select(['id', 'email', 'first_name', 'is_active', 'password_hash'])
+      const user = await trx.selectFrom('users').select(['id', 'email', 'first_name', 'is_active', 'password_hash', 'locale'])
         .where('id', '=', request.params.id).where('residence_id', '=', residenceId)
         .forUpdate().executeTakeFirst();
       if (!user) throw notFound('Employé introuvable.');

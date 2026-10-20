@@ -1,5 +1,6 @@
 // Session de l'utilisateur : restauration au chargement, connexion, déconnexion.
 import { useQueryClient } from '@tanstack/react-query';
+import i18n, { applyLanguage, savedLanguage } from '../i18n';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   api, isSharedDevice, onAssistanceEnded, onSessionExpired, refreshSession, setAccessToken, setAssistanceToken, setSharedDevice,
@@ -7,6 +8,18 @@ import {
 import type { AssistanceSession, LoginSession, MfaChallenge, MfaSetup, User } from '../api/types';
 import { disablePush } from '../lib/push';
 import { AuthContext, type AssistanceState } from './session';
+
+// Langue à la connexion : celle choisie sur cet appareil (page de connexion)
+// est enregistrée dans le compte ; sinon l'appareil prend celle du compte.
+async function syncLanguage(user: User): Promise<User> {
+  const chosen = savedLanguage();
+  if (!chosen) {
+    applyLanguage(user.locale);
+    return user;
+  }
+  if (chosen === user.locale) return user;
+  return api<User>('/auth/me', { method: 'PATCH', body: { locale: chosen } }).catch(() => user);
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -36,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!assistance) return;
     const ms = Date.parse(assistance.expiresAt) - Date.now();
-    const timer = setTimeout(() => leaveAssistance('L’accès d’assistance est arrivé à échéance.'), Math.max(0, Math.min(ms, 2 ** 31 - 1)));
+    const timer = setTimeout(() => leaveAssistance(i18n.t('shell.assistance.expired')), Math.max(0, Math.min(ms, 2 ** 31 - 1)));
     return () => clearTimeout(timer);
   }, [assistance, leaveAssistance]);
 
@@ -58,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     onSessionExpired(() => {
       clear();
-      setNotice('Session expirée : reconnectez-vous.');
+      setNotice(i18n.t('auth.session.expired'));
     });
     let cancelled = false;
     (async () => {
@@ -67,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const me = await api<User>('/auth/me');
           if (!cancelled) {
             setShared(isSharedDevice());
-            setUser(me);
+            setUser(await syncLanguage(me));
           }
         }
       } catch {
@@ -86,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setShared(res.sharedDevice);
     setNotice(null);
     setUser(res.user);
+    void syncLanguage(res.user).then(setUser);
   }, []);
 
   const login = useCallback(async (email: string, password: string, sharedDevice: boolean) => {

@@ -15,6 +15,8 @@
 //   <DictationButton field="intervention"
 //     onText={(spoken) => setIntervention((text) => appendDictated(text, spoken))} />
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { currentLanguage } from '../i18n';
 import { cx } from '../lib/cx';
 import {
   createRecognition, DICTATION_ERRORS, dictationStatus, installDictation, releaseRecognition,
@@ -24,7 +26,8 @@ import { Spinner } from './ui';
 
 // Vérifiée une fois par page : la réponse ne change pas d'un champ à l'autre
 // (les deux boutons du formulaire partagent la même vérification)
-let statusOnce: Promise<DictationStatus> | null = null;
+// (par langue : la dictée suit la langue de l'interface)
+let statusOnce: { lang: string; status: Promise<DictationStatus> } | null = null;
 
 interface Props {
   onText: (spoken: string) => void;   // reçoit chaque passage définitif, à ajouter au champ
@@ -32,6 +35,7 @@ interface Props {
 }
 
 export function DictationButton({ onText, field }: Props) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<DictationStatus | null>(null);   // null : vérification en cours
   const [listening, setListening] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -47,8 +51,8 @@ export function DictationButton({ onText, field }: Props) {
   // du formulaire : couper le micro s'il est encore ouvert.
   useEffect(() => {
     let cancelled = false;
-    statusOnce ??= dictationStatus();
-    void statusOnce.then((s) => { if (!cancelled) setStatus(s); });
+    if (statusOnce?.lang !== currentLanguage()) statusOnce = { lang: currentLanguage(), status: dictationStatus() };
+    void statusOnce.status.then((s) => { if (!cancelled) setStatus(s); });
     return () => {
       cancelled = true;
       recognition.current?.abort();
@@ -78,7 +82,8 @@ export function DictationButton({ onText, field }: Props) {
     // Arrêt voulu ou silence : rien à signaler ; sinon, message clair
     r.onerror = (event) => {
       if (event.error !== 'aborted' && event.error !== 'no-speech') {
-        setError(DICTATION_ERRORS[event.error] ?? 'La dictée s’est arrêtée.');
+        const known = DICTATION_ERRORS[event.error];
+        setError(known ? t(`journal.dictation.errors.${known}`) : t('journal.dictation.stopped'));
       }
     };
     // Fin de l'écoute (bouton Arrêter, erreur, autre champ dicté) : retour au bouton « Dicter »
@@ -101,7 +106,7 @@ export function DictationButton({ onText, field }: Props) {
     const ok = await installDictation(lang);
     setInstalling(false);
     if (!ok) {
-      setError('Le téléchargement du français pour la dictée n’a pas abouti. Réessayez avec une bonne connexion.');
+      setError(t('journal.dictation.downloadFailed'));
       return;
     }
     setStatus({ state: 'available', lang });
@@ -115,25 +120,25 @@ export function DictationButton({ onText, field }: Props) {
         {listening && (
           <p aria-live="polite" className="mr-auto min-w-0 flex-1 truncate text-sm italic text-muted">
             <span aria-hidden className="mr-2 inline-block size-2.5 animate-pulse rounded-full bg-danger align-middle" />
-            {interim || 'J’écoute…'}
+            {interim || t('journal.dictation.listening')}
           </p>
         )}
         {listening ? (
           // stop() et non abort() : la fin de la dernière phrase est encore transcrite
-          <MicButton tone="listening" label={`Arrêter la dictée (${field})`} onClick={() => recognition.current?.stop()}>
+          <MicButton tone="listening" label={t('journal.dictation.stop', { field })} onClick={() => recognition.current?.stop()}>
             <StopIcon />
           </MicButton>
         ) : status.state === 'available' ? (
-          <MicButton label={`Dicter : ${field}`} onClick={start}>
+          <MicButton label={t('journal.dictation.dictate', { field })} onClick={start}>
             <MicIcon />
           </MicButton>
         ) : installing || status.state === 'downloading' ? (
-          <MicButton label="Installation du français pour la dictée…" disabled>
+          <MicButton label={t('journal.dictation.installing')} disabled>
             <Spinner small />
           </MicButton>
         ) : (
           // downloadable : modèle français à installer (une fois), puis l'écoute commence
-          <MicButton label={`Activer la dictée : ${field} (télécharge une seule fois le français sur cet appareil ; la voix reste sur l’appareil)`}
+          <MicButton label={t('journal.dictation.enable', { field })}
             onClick={() => void enable()} badge>
             <MicIcon />
           </MicButton>

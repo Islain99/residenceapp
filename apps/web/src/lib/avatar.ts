@@ -9,15 +9,16 @@
 //   hex  : fond du rond avec les initiales (texte blanc lisible, contraste ≥ 4,5:1)
 //   soft : fond clair derrière une illustration (traits foncés bien visibles)
 export const AVATAR_COLORS = {
-  teal: { label: 'Sarcelle', hex: '#0f766e', soft: '#ccfbf1' },
-  blue: { label: 'Bleu', hex: '#1d4ed8', soft: '#dbeafe' },
-  indigo: { label: 'Indigo', hex: '#4338ca', soft: '#e0e7ff' },
-  violet: { label: 'Violet', hex: '#7c3aed', soft: '#ede9fe' },
-  pink: { label: 'Rose', hex: '#be185d', soft: '#fce7f3' },
-  red: { label: 'Rouge', hex: '#b91c1c', soft: '#fee2e2' },
-  orange: { label: 'Orange', hex: '#c2410c', soft: '#ffedd5' },
-  green: { label: 'Vert', hex: '#15803d', soft: '#dcfce7' },
-  slate: { label: 'Ardoise', hex: '#475569', soft: '#e2e8f0' },
+  // (noms des couleurs : i18n, account.avatar.colors)
+  teal: { hex: '#0f766e', soft: '#ccfbf1' },
+  blue: { hex: '#1d4ed8', soft: '#dbeafe' },
+  indigo: { hex: '#4338ca', soft: '#e0e7ff' },
+  violet: { hex: '#7c3aed', soft: '#ede9fe' },
+  pink: { hex: '#be185d', soft: '#fce7f3' },
+  red: { hex: '#b91c1c', soft: '#fee2e2' },
+  orange: { hex: '#c2410c', soft: '#ffedd5' },
+  green: { hex: '#15803d', soft: '#dcfce7' },
+  slate: { hex: '#475569', soft: '#e2e8f0' },
 } as const;
 export type AvatarColor = keyof typeof AVATAR_COLORS;
 const NAMES = Object.keys(AVATAR_COLORS) as AvatarColor[];
@@ -44,12 +45,12 @@ export function initials(firstName: string, lastName: string): string {
 // ---------------------------------------------------------------------
 
 type AvatarStyle = 'lorelei' | 'notionists';
-export const STYLE_LABELS: Record<AvatarStyle, string> = { lorelei: 'Portraits', notionists: 'Croquis' };
+const STYLES: AvatarStyle[] = ['lorelei', 'notionists'];   // libellés : i18n, account.avatar.styles
 
 // Chaque nom donne toujours le même personnage. Mêmes règles que l'API :
 // « style:nom », nom en minuscules sans accent.
 const SEEDS = ['aurore', 'basile', 'chloe', 'denis', 'elise', 'felix', 'gaby', 'hugo', 'iris', 'jules', 'kim', 'leo'];
-export const GALLERY: { style: AvatarStyle; ids: string[] }[] = (Object.keys(STYLE_LABELS) as AvatarStyle[])
+export const GALLERY: { style: AvatarStyle; ids: string[] }[] = STYLES
   .map((style) => ({ style, ids: SEEDS.map((seed) => `${style}:${seed}`) }));
 
 // Images déjà dessinées (SVG en data: URI) : la barre du haut et les listes

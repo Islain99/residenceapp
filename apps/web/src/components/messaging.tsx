@@ -1,6 +1,7 @@
 // Messagerie : éléments partagés (liste, fil, saisie, nouvelle conversation,
 // confirmations d'annonces).
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 import {
   useAckAnnouncement, useAddMembers, useAnnouncementAcks, useCreateConversation, useEditMessage, useLeaveGroup,
@@ -9,10 +10,9 @@ import {
 import type { Conversation, Message, Person } from '../api/types';
 import { useUser } from '../auth/session';
 import { cx } from '../lib/cx';
-import { formatTime, formatWhen, fullName } from '../lib/format';
+import { formatDayHeading, formatTime, formatWhen, fullName } from '../lib/format';
+import { conversationTitle } from '../lib/messaging';
 import { Badge, Button, Checkbox, Dialog, EmptyState, ErrorMessage, Loading, TextField } from './ui';
-
-const day = new Intl.DateTimeFormat('fr-CA', { weekday: 'long', day: 'numeric', month: 'long' });
 
 const initials = (p: Pick<Person, 'firstName' | 'lastName'>) =>
   `${p.firstName.charAt(0)}${p.lastName.charAt(0)}`.toUpperCase();
@@ -41,12 +41,13 @@ export function ConversationAvatar({ conversation }: { conversation: Conversatio
 // Liste des conversations
 // ---------------------------------------------------------------------
 export function ConversationListItem({ conversation, active }: { conversation: Conversation; active: boolean }) {
+  const { t } = useTranslation();
   const me = useUser();
   const last = conversation.lastMessage;
   const unread = conversation.unreadCount > 0;
-  const preview = !last ? 'Aucun message'
-    : last.excerpt === null ? 'Message retiré'
-      : `${last.author.id === me.id ? 'Vous' : last.author.firstName} : ${last.excerpt}`;
+  const preview = !last ? t('messages.list.noMessage')
+    : last.excerpt === null ? t('messages.list.retracted')
+      : t('messages.list.preview', { author: last.author.id === me.id ? t('messages.list.you') : last.author.firstName, text: last.excerpt });
   return (
     <li>
       <Link
@@ -60,17 +61,17 @@ export function ConversationListItem({ conversation, active }: { conversation: C
         <ConversationAvatar conversation={conversation} />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline justify-between gap-2">
-            <span className={cx('truncate', unread ? 'font-bold' : 'font-medium')}>{conversation.title}</span>
+            <span className={cx('truncate', unread ? 'font-bold' : 'font-medium')}>{conversationTitle(conversation)}</span>
             {last && <time dateTime={last.createdAt} className="shrink-0 text-xs text-muted">{formatWhen(last.createdAt)}</time>}
           </span>
           <span className="flex items-center justify-between gap-2">
             <span className={cx('truncate text-sm', unread ? 'text-ink' : 'text-muted', last?.excerpt === null && 'italic')}>{preview}</span>
             {conversation.pendingAcks > 0 ? (
-              <span className="shrink-0 rounded-full bg-priority px-2 text-xs font-bold text-white" title="Annonces à confirmer">
+              <span className="shrink-0 rounded-full bg-priority px-2 text-xs font-bold text-white" title={t('messages.list.pendingAcks')}>
                 {conversation.pendingAcks}
               </span>
             ) : unread && (
-              <span className="shrink-0 rounded-full bg-primary px-2 text-xs font-bold text-on-primary" aria-label={`${conversation.unreadCount} non lus`}>
+              <span className="shrink-0 rounded-full bg-primary px-2 text-xs font-bold text-on-primary" aria-label={t('messages.list.unread', { count: conversation.unreadCount })}>
                 {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
               </span>
             )}
@@ -85,6 +86,7 @@ export function ConversationListItem({ conversation, active }: { conversation: C
 // Fil de messages
 // ---------------------------------------------------------------------
 export function Thread({ conversation }: { conversation: Conversation }) {
+  const { t } = useTranslation();
   const me = useUser();
   const messages = useMessages(conversation.id);
   const { mutate: markConversationRead } = useMarkConversationRead();
@@ -122,8 +124,8 @@ export function Thread({ conversation }: { conversation: Conversation }) {
   // Séparateur de jour, et messages rapprochés du même auteur regroupés
   const rows = items.map((m, i) => {
     const previous = items[i - 1];
-    const d = day.format(new Date(m.createdAt));
-    const showDay = !previous || day.format(new Date(previous.createdAt)) !== d;
+    const d = formatDayHeading(new Date(m.createdAt));
+    const showDay = !previous || formatDayHeading(new Date(previous.createdAt)) !== d;
     const grouped = !showDay && previous?.author.id === m.author.id
       && new Date(m.createdAt).getTime() - new Date(previous.createdAt).getTime() < 5 * 60_000;
     return { m, d, showDay, grouped };
@@ -135,12 +137,12 @@ export function Thread({ conversation }: { conversation: Conversation }) {
           <div className="mb-3 flex justify-center">
             <Button className="min-h-9 text-xs" busy={messages.isFetchingNextPage}
               onClick={() => { stickToBottom.current = false; void messages.fetchNextPage(); }}>
-              Messages plus anciens
+              {t('messages.thread.older')}
             </Button>
           </div>
         )}
         {items.length === 0 && (
-          <EmptyState>{announcements ? 'Aucune annonce pour le moment.' : 'Aucun message. Écrivez le premier !'}</EmptyState>
+          <EmptyState>{announcements ? t('messages.thread.noAnnouncements') : t('messages.thread.noMessages')}</EmptyState>
         )}
         <ol className="flex flex-col gap-2">
           {rows.map(({ m, d, showDay, grouped }) => {
@@ -168,8 +170,8 @@ export function Thread({ conversation }: { conversation: Conversation }) {
       ) : (
         <p className="border-t border-line px-3 py-3 text-center text-sm text-muted">
           {conversation.kind === 'announcements'
-            ? "Seules l'infirmière et la responsable publient des annonces."
-            : "Ce collègue n'a plus de compte actif : la conversation est en lecture seule."}
+            ? t('messages.thread.onlySupervisors')
+            : t('messages.thread.readOnly')}
         </p>
       )}
 
@@ -180,27 +182,29 @@ export function Thread({ conversation }: { conversation: Conversation }) {
 
 // Actions de l'auteur pendant 15 minutes
 function OwnActions({ message, onEdit }: { message: Message; onEdit: (m: Message) => void }) {
+  const { t } = useTranslation();
   const retract = useRetractMessage();
   const [now] = useState(() => Date.now());
   if (!message.editableUntil || new Date(message.editableUntil).getTime() < now) return null;
   return (
     <span className="flex gap-2">
-      <button type="button" className="text-xs text-muted underline hover:text-ink" onClick={() => onEdit(message)}>Modifier</button>
+      <button type="button" className="text-xs text-muted underline hover:text-ink" onClick={() => onEdit(message)}>{t('messages.thread.edit')}</button>
       <button
         type="button"
         className="text-xs text-muted underline hover:text-danger"
         disabled={retract.isPending}
         onClick={() => {
-          if (window.confirm('Retirer ce message ? Il ne sera plus affiché, mais il reste conservé.')) retract.mutate(message.id);
+          if (window.confirm(t('messages.thread.retractConfirm'))) retract.mutate(message.id);
         }}
       >
-        Retirer
+        {t('messages.thread.retract')}
       </button>
     </span>
   );
 }
 
 function Bubble({ message, showAuthor, onEdit }: { message: Message; showAuthor: boolean; onEdit: (m: Message) => void }) {
+  const { t } = useTranslation();
   const retracted = message.body === null;
   return (
     <div className={cx('flex flex-col', message.mine ? 'items-end' : 'items-start')}>
@@ -212,11 +216,11 @@ function Bubble({ message, showAuthor, onEdit }: { message: Message; showAuthor:
             : message.mine ? 'rounded-br-md bg-primary text-on-primary' : 'rounded-bl-md bg-sunken text-ink',
         )}
       >
-        {retracted ? 'Message retiré' : message.body}
+        {retracted ? t('messages.thread.retracted') : message.body}
       </div>
       <span className="mt-0.5 flex items-center gap-2 px-1 text-[11px] text-muted">
         <time dateTime={message.createdAt}>{formatTime(message.createdAt)}</time>
-        {message.editedAt && !retracted && <span>· modifié</span>}
+        {message.editedAt && !retracted && <span>{t('messages.thread.edited')}</span>}
         {message.mine && <OwnActions message={message} onEdit={onEdit} />}
       </span>
     </div>
@@ -226,6 +230,7 @@ function Bubble({ message, showAuthor, onEdit }: { message: Message; showAuthor:
 function AnnouncementItem({ message, canSeeAcks, onShowAcks, onEdit }: {
   message: Message; canSeeAcks: boolean; onShowAcks: () => void; onEdit: (m: Message) => void;
 }) {
+  const { t } = useTranslation();
   const ack = useAckAnnouncement();
   const retracted = message.body === null;
   return (
@@ -233,27 +238,27 @@ function AnnouncementItem({ message, canSeeAcks, onShowAcks, onEdit }: {
       <header className="mb-1 flex flex-wrap items-center gap-x-3 text-sm">
         <span className="font-semibold">{fullName(message.author)}</span>
         <time dateTime={message.createdAt} className="text-muted">{formatWhen(message.createdAt)}</time>
-        {message.editedAt && !retracted && <span className="text-xs text-muted">modifiée</span>}
+        {message.editedAt && !retracted && <span className="text-xs text-muted">{t('messages.thread.editedAnnouncement')}</span>}
       </header>
-      <p className={cx('whitespace-pre-wrap break-words', retracted && 'italic text-muted')}>{retracted ? 'Annonce retirée' : message.body}</p>
+      <p className={cx('whitespace-pre-wrap break-words', retracted && 'italic text-muted')}>{retracted ? t('messages.thread.announcementRetracted') : message.body}</p>
       {!retracted && (
         <footer className="mt-3 flex flex-wrap items-center gap-3">
           {message.mine ? (
             canSeeAcks && (
               <button type="button" className="text-sm text-primary hover:underline" onClick={onShowAcks}>
-                Lue par {message.ack?.count ?? 0} — voir qui manque
+                {t('messages.thread.readByMissing', { count: message.ack?.count ?? 0 })}
               </button>
             )
           ) : message.ack?.ackedByMe ? (
-            <Badge tone="positive">Lecture confirmée</Badge>
+            <Badge tone="positive">{t('messages.thread.confirmed')}</Badge>
           ) : (
             <Button variant="primary" className="min-h-9" busy={ack.isPending} onClick={() => ack.mutate(message.id)}>
-              J'ai lu cette annonce
+              {t('messages.thread.confirm')}
             </Button>
           )}
           {!message.mine && canSeeAcks && (
             <button type="button" className="text-sm text-muted hover:underline" onClick={onShowAcks}>
-              Lue par {message.ack?.count ?? 0}
+              {t('messages.thread.readBy', { count: message.ack?.count ?? 0 })}
             </button>
           )}
           {message.mine && <OwnActions message={message} onEdit={onEdit} />}
@@ -265,25 +270,26 @@ function AnnouncementItem({ message, canSeeAcks, onShowAcks, onEdit }: {
 }
 
 function AcksDialog({ message, onClose, me }: { message: Message | null; onClose: () => void; me: string }) {
+  const { t } = useTranslation();
   const acks = useAnnouncementAcks(message?.id ?? null);
   return (
-    <Dialog open={message !== null} onClose={onClose} title="Confirmations de lecture">
+    <Dialog open={message !== null} onClose={onClose} title={t('messages.thread.acksTitle')}>
       {acks.isPending ? <Loading /> : acks.isError ? <ErrorMessage error={acks.error} /> : (
         <div className="flex flex-col gap-5">
           <section>
-            <h3 className="mb-2 text-sm font-semibold text-priority">Pas encore confirmée ({acks.data.pending.length})</h3>
-            {acks.data.pending.length === 0 ? <p className="text-sm text-positive">Toute l'équipe l'a lue.</p> : (
+            <h3 className="mb-2 text-sm font-semibold text-priority">{t('messages.thread.notConfirmed', { count: acks.data.pending.length })}</h3>
+            {acks.data.pending.length === 0 ? <p className="text-sm text-positive">{t('messages.thread.everyoneRead')}</p> : (
               <ul className="flex flex-wrap gap-2">
                 {acks.data.pending.map((p) => <li key={p.id} className="rounded-full bg-priority-soft px-3 py-1 text-sm text-priority">{fullName(p)}</li>)}
               </ul>
             )}
           </section>
           <section>
-            <h3 className="mb-2 text-sm font-semibold">Confirmée ({acks.data.acked.length})</h3>
+            <h3 className="mb-2 text-sm font-semibold">{t('messages.thread.acked', { count: acks.data.acked.length })}</h3>
             <ul className="flex flex-wrap gap-2">
               {acks.data.acked.map((a) => (
                 <li key={a.user.id} className="rounded-full bg-sunken px-3 py-1 text-sm">
-                  {a.user.id === me ? 'Vous' : fullName(a.user)} <span className="text-muted">· {formatWhen(a.ackedAt)}</span>
+                  {a.user.id === me ? t('messages.thread.you') : fullName(a.user)} <span className="text-muted">· {formatWhen(a.ackedAt)}</span>
                 </li>
               ))}
             </ul>
@@ -298,6 +304,7 @@ function AcksDialog({ message, onClose, me }: { message: Message | null; onClose
 // Saisie : Entrée envoie, Maj+Entrée va à la ligne
 // ---------------------------------------------------------------------
 function Composer({ conversation, editing, onDone }: { conversation: Conversation; editing: Message | null; onDone: () => void }) {
+  const { t } = useTranslation();
   const send = useSendMessage(conversation.id);
   const edit = useEditMessage();
   const [text, setText] = useState(editing?.body ?? '');
@@ -336,12 +343,12 @@ function Composer({ conversation, editing, onDone }: { conversation: Conversatio
     <form onSubmit={submit} className="border-t border-line bg-surface px-2 pt-2 pb-2">
       {editing && (
         <p className="mb-1 flex items-center justify-between px-1 text-xs text-muted">
-          Modification du message (l'ancien texte est conservé)
-          <button type="button" className="underline" onClick={onDone}>Annuler</button>
+          {t('messages.composer.editing')}
+          <button type="button" className="underline" onClick={onDone}>{t('common.cancel')}</button>
         </p>
       )}
       <div className="flex items-end gap-2">
-        <label className="sr-only" htmlFor={`composer-${conversation.id}`}>Message</label>
+        <label className="sr-only" htmlFor={`composer-${conversation.id}`}>{t('messages.composer.label')}</label>
         <textarea
           id={`composer-${conversation.id}`}
           ref={area}
@@ -350,11 +357,11 @@ function Composer({ conversation, editing, onDone }: { conversation: Conversatio
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={conversation.kind === 'announcements' ? 'Rédiger une annonce…' : 'Écrire un message…'}
+          placeholder={conversation.kind === 'announcements' ? t('messages.composer.announcementPlaceholder') : t('messages.composer.placeholder')}
           className="min-h-11 flex-1 resize-none rounded-xl border border-line bg-surface px-3 py-2.5 text-base focus:border-primary focus:outline-none"
         />
         <Button type="submit" variant="primary" className="min-h-11" busy={busy} disabled={!text.trim()}>
-          {editing ? 'Enregistrer' : 'Envoyer'}
+          {editing ? t('common.save') : t('messages.composer.send')}
         </Button>
       </div>
       <ErrorMessage error={send.error ?? edit.error} />
@@ -366,6 +373,7 @@ function Composer({ conversation, editing, onDone }: { conversation: Conversatio
 // Nouvelle conversation : un collègue, ou un groupe
 // ---------------------------------------------------------------------
 export function NewConversationDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   const me = useUser();
   const staff = useStaff();
   const create = useCreateConversation();
@@ -397,12 +405,12 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
   }
 
   return (
-    <Dialog open={open} onClose={close} title="Nouvelle conversation">
+    <Dialog open={open} onClose={close} title={t('messages.newDialog.title')}>
       <div className="mb-4 flex gap-2" role="tablist">
-        <Tab active={mode === 'direct'} onClick={() => setMode('direct')}>Un collègue</Tab>
-        <Tab active={mode === 'group'} onClick={() => setMode('group')}>Un groupe</Tab>
+        <Tab active={mode === 'direct'} onClick={() => setMode('direct')}>{t('messages.newDialog.colleague')}</Tab>
+        <Tab active={mode === 'group'} onClick={() => setMode('group')}>{t('messages.newDialog.group')}</Tab>
       </div>
-      <TextField label="Rechercher" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Nom d'un collègue" />
+      <TextField label={t('messages.newDialog.search')} value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('messages.newDialog.searchPlaceholder')} />
       {staff.isPending ? <Loading /> : mode === 'direct' ? (
         <ul className="mt-3 flex max-h-80 flex-col overflow-y-auto">
           {colleagues.map((s) => (
@@ -417,19 +425,19 @@ export function NewConversationDialog({ open, onClose }: { open: boolean; onClos
         </ul>
       ) : (
         <form onSubmit={createGroup} className="mt-3 flex flex-col gap-3">
-          <TextField label="Nom du groupe" required maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)}
-            placeholder="Ex. : Équipe de nuit" />
+          <TextField label={t('messages.newDialog.groupName')} required maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)}
+            placeholder={t('messages.newDialog.groupNamePlaceholder')} />
           <fieldset className="max-h-64 overflow-y-auto">
-            <legend className="mb-1 text-sm font-medium">Membres ({selected.length})</legend>
+            <legend className="mb-1 text-sm font-medium">{t('messages.newDialog.members', { count: selected.length })}</legend>
             {colleagues.map((s) => (
               <Checkbox key={s.id} label={fullName(s)} checked={selected.includes(s.id)}
                 onChange={(e) => setSelected(e.target.checked ? [...selected, s.id] : selected.filter((id) => id !== s.id))} />
             ))}
           </fieldset>
           <div className="flex justify-end gap-2">
-            <Button onClick={close}>Annuler</Button>
+            <Button onClick={close}>{t('common.cancel')}</Button>
             <Button type="submit" variant="primary" busy={create.isPending} disabled={!title.trim() || selected.length === 0}>
-              Créer le groupe
+              {t('messages.newDialog.create')}
             </Button>
           </div>
         </form>
@@ -452,6 +460,7 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
 // Groupe : renommer, ajouter des collègues, quitter
 // ---------------------------------------------------------------------
 export function GroupDialog({ conversation, open, onClose }: { conversation: Conversation; open: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
   const me = useUser();
   const staff = useStaff();
   const rename = useRenameGroup(conversation.id);
@@ -464,43 +473,43 @@ export function GroupDialog({ conversation, open, onClose }: { conversation: Con
   const candidates = (staff.data ?? []).filter((s) => !memberIds.has(s.id));
 
   return (
-    <Dialog open={open} onClose={onClose} title="Groupe">
+    <Dialog open={open} onClose={onClose} title={t('messages.groupDialog.title')}>
       <div className="flex flex-col gap-6">
         <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); rename.mutate(title); }}>
-          <div className="flex-1"><TextField label="Nom du groupe" required maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} /></div>
-          <Button type="submit" busy={rename.isPending} disabled={title.trim() === conversation.title}>Renommer</Button>
+          <div className="flex-1"><TextField label={t('messages.newDialog.groupName')} required maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+          <Button type="submit" busy={rename.isPending} disabled={title.trim() === conversation.title}>{t('messages.groupDialog.rename')}</Button>
         </form>
 
         <section>
-          <h3 className="mb-2 text-sm font-semibold">Membres ({conversation.members.length})</h3>
+          <h3 className="mb-2 text-sm font-semibold">{t('messages.groupDialog.members', { count: conversation.members.length })}</h3>
           <ul className="flex flex-wrap gap-2">
             {conversation.members.map((m) => (
-              <li key={m.id} className="rounded-full bg-sunken px-3 py-1 text-sm">{m.id === me.id ? 'Vous' : fullName(m)}</li>
+              <li key={m.id} className="rounded-full bg-sunken px-3 py-1 text-sm">{m.id === me.id ? t('messages.thread.you') : fullName(m)}</li>
             ))}
           </ul>
         </section>
 
         {candidates.length > 0 && (
           <form onSubmit={(e) => { e.preventDefault(); add.mutate(toAdd, { onSuccess: () => setToAdd([]) }); }}>
-            <h3 className="mb-1 text-sm font-semibold">Ajouter des collègues</h3>
+            <h3 className="mb-1 text-sm font-semibold">{t('messages.groupDialog.addColleagues')}</h3>
             <div className="max-h-48 overflow-y-auto">
               {candidates.map((s) => (
                 <Checkbox key={s.id} label={fullName(s)} checked={toAdd.includes(s.id)}
                   onChange={(e) => setToAdd(e.target.checked ? [...toAdd, s.id] : toAdd.filter((id) => id !== s.id))} />
               ))}
             </div>
-            <Button type="submit" className="mt-2" busy={add.isPending} disabled={toAdd.length === 0}>Ajouter</Button>
+            <Button type="submit" className="mt-2" busy={add.isPending} disabled={toAdd.length === 0}>{t('common.add')}</Button>
           </form>
         )}
 
         <div className="border-t border-line pt-4">
           <Button variant="ghost" className="text-danger" busy={leave.isPending}
             onClick={() => {
-              if (window.confirm('Quitter ce groupe ? Vous ne verrez plus ses messages.')) {
+              if (window.confirm(t('messages.groupDialog.leaveConfirm'))) {
                 leave.mutate(conversation.id, { onSuccess: () => { onClose(); navigate('/messages'); } });
               }
             }}>
-            Quitter le groupe
+            {t('messages.groupDialog.leave')}
           </Button>
         </div>
         <ErrorMessage error={rename.error ?? add.error ?? leave.error} />

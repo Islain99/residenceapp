@@ -12,6 +12,7 @@ import { audit } from '../lib/audit.js';
 import { badRequest, HttpError, notFound } from '../lib/errors.js';
 import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
 import type { Db } from '../lib/note-view.js';
+import { pushIn } from '../lib/locale.js';
 import { IdParams, Nullable, optionalText, Text, Uuid } from '../lib/schemas.js';
 
 async function assertAssignee(db: Db, residenceId: string, userId: string): Promise<void> {
@@ -34,9 +35,7 @@ const followUpRoutes: FastifyPluginAsyncTypebox = async (app) => {
   // Suivi confié à quelqu'un d'autre que soi : avis à cette personne
   function notifyAssigned(assignee: string | null, actor: string) {
     if (!assignee || assignee === actor) return;
-    app.notifier.notify([assignee], 'follow_ups', {
-      title: 'Suivi assigné', body: 'Un suivi vous a été confié. Ouvrez l’application pour le voir.', url: '/suivis',
-    });
+    app.notifier.notify([assignee], 'follow_ups', { text: pushIn((t) => t.followUpAssigned), url: '/suivis' });
   }
 
   async function findFollowUp(residenceId: string, id: string) {

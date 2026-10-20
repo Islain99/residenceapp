@@ -7,11 +7,8 @@
 import { useSyncExternalStore } from 'react';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
-export const THEME_LABELS: Record<ThemePreference, string> = {
-  light: 'Clair',
-  dark: 'Sombre',
-  system: 'Comme l’appareil',
-};
+// Dans l'ordre d'affichage (libellés : i18n, account.appearance.themes)
+export const THEMES: ThemePreference[] = ['light', 'dark', 'system'];
 
 const KEY = 'theme';
 const EVENT = 'themechange';

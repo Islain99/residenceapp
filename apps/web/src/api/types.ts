@@ -12,6 +12,7 @@ export interface User {
   phone: string | null;
   avatar: string | null;         // avatar illustré « style:nom » (lib/avatar.ts) ; null : initiales
   avatarColor: string | null;    // null : couleur tirée de l'id (lib/avatar.ts)
+  locale: 'fr' | 'en';           // langue du compte : interface, courriels, notifications
 }
 
 // Mon profil (PATCH /auth/me)
@@ -21,6 +22,7 @@ export interface ProfileInput {
   phone?: string | null;
   avatar?: string | null;
   avatarColor?: string | null;
+  locale?: 'fr' | 'en';
 }
 
 export interface Person {
@@ -185,6 +187,7 @@ export interface AccountInput {
   firstName: string;
   lastName: string;
   role: Exclude<Role, 'admin'>;
+  locale?: 'fr' | 'en';    // langue des courriels et des notifications (français par défaut)
 }
 
 export interface Handover {
@@ -401,7 +404,7 @@ export interface NewResidenceInput {
   name: string;
   type: 'RPA' | 'RI';
   timezone: string;
-  responsable: { email: string; firstName: string; lastName: string };
+  responsable: { email: string; firstName: string; lastName: string; locale?: 'fr' | 'en' };
 }
 
 export interface PlatformSecurity {

@@ -1,0 +1,88 @@
+// Messages d'erreur de l'API en anglais, d'après leur code ({ error, message }).
+// Le serveur rédige ses messages en français ; l'interface en anglais affiche
+// ceux-ci à la place (api/client.ts). Code inconnu : message du serveur.
+// Nouvelle erreur côté API : ajouter son code ici (règle des deux langues).
+export const API_ERRORS_EN: Record<string, string> = {
+  // Connexion et session
+  invalid_credentials: 'Invalid email or password.',
+  account_locked: 'Too many wrong passwords: the account is locked for a few minutes. Try again later or use “Forgot your password?”.',
+  inactive_account: 'Account deactivated.',
+  not_activated: 'This account hasn’t been activated yet: use the link in your invitation email.',
+  unauthorized: 'Please sign in.',
+  token_expired: 'Session expired: renewing.',
+  invalid_refresh_token: 'Session expired: please sign in again.',
+  too_many_requests: 'Too many attempts: try again in a minute.',
+  forbidden: 'Access denied.',
+  not_found: 'Not found.',
+  validation: 'Some fields are invalid.',
+  internal_error: 'Internal error.',
+  // Double authentification
+  mfa_expired: 'Verification step expired: please sign in again.',
+  invalid_mfa_code: 'Invalid or already used code.',
+  mfa_not_enabled: 'Two-factor authentication isn’t turned on.',
+  mfa_already_enabled: 'Two-factor authentication is already turned on.',
+  mfa_setup_first: 'Set up two-factor authentication first.',
+  // Mot de passe et profil
+  invalid_token: 'This link is invalid or has expired. Request a new one.',
+  weak_password: 'The password can’t be your email.',
+  same_password: 'The new password must be different from the current one.',
+  invalid_current_password: 'The current password is incorrect.',
+  invalid_phone: 'Invalid phone number (digits, spaces, + ( ) . -; at least 7 characters).',
+  invalid_name: 'First and last name are required.',
+  nothing_to_update: 'Nothing to update.',
+  mail_failed: 'The email couldn’t be sent. Try again later.',
+  // Comptes de l'équipe
+  email_taken: 'This email is already used by an account.',
+  cannot_modify_self: 'You can’t change your own account here.',
+  already_active: 'This account is already active.',
+  not_managed: 'This account isn’t managed here.',
+  invalid_user: 'Unknown or inactive employee.',
+  already_responsable: 'This employee is already a manager.',
+  // Journal, suivis, relève
+  invalid_description: 'The description is required.',
+  invalid_category: 'Unknown category.',
+  invalid_resident: 'Resident not found.',
+  invalid_occurred_at: 'The time of the event can’t be in the future.',
+  note_cancelled: 'Cancelled note: it can no longer be changed.',
+  invalid_assignee: 'Employee not found or inactive in this residence.',
+  follow_up_closed: 'Closed follow-up: it can no longer be changed.',
+  priority_unread: 'Confirm each priority instruction first.',
+  invalid_seen_until: 'Invalid handover time.',
+  invalid_cursor: 'Invalid page.',
+  invalid_reason: 'A reason is required.',
+  reason_required: 'A reason is required.',
+  // Résidents
+  left_at_required: 'The departure date is required.',
+  invalid_left_at: 'Invalid departure date.',
+  // Catégories et quarts
+  invalid_label: 'The name is required.',
+  duplicate_label: 'This name is already used.',
+  invalid_times: 'Invalid times.',
+  invalid_shift_type: 'Unknown shift.',
+  already_scheduled: 'This employee already has this shift that day.',
+  invalid_week: 'Invalid week.',
+  // Agenda
+  invalid_title: 'The title is required.',
+  invalid_end: 'The end must be after the start.',
+  invalid_range: 'Invalid or too long period.',
+  appointment_cancelled: 'Cancelled appointment: it can no longer be changed.',
+  // Messagerie
+  empty_message: 'The message is empty.',
+  edit_window_over: 'A message can only be edited or withdrawn for 15 minutes.',
+  message_retracted: 'This message was withdrawn.',
+  not_a_group: 'Only a group can be changed this way.',
+  not_an_announcement: 'This isn’t an announcement.',
+  no_members: 'Choose at least one colleague.',
+  invalid_member: 'Unknown or inactive colleague.',
+  self_conversation: 'You can’t start a conversation with yourself.',
+  // Plateforme et assistance
+  invalid_timezone: 'Unknown time zone.',
+  assistance_read_only: 'Support access: view only, no changes allowed.',
+  assistance_forbidden: 'Support access: this page stays private.',
+  assistance_ended: 'Support access ended or revoked.',
+  assistance_active: 'A support access is already open.',
+  assistance_closed: 'This support access is already closed.',
+  // Notifications
+  push_disabled: 'Notifications aren’t set up on this server.',
+  invalid_endpoint: 'Unrecognized notification service.',
+};

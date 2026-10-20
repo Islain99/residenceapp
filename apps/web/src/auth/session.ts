@@ -52,9 +52,4 @@ export function useUser(): User {
 // Même règle que l'API : corrigent toute note, gèrent les résidents
 export const isSupervisor = (role: Role) => role === 'infirmiere' || role === 'responsable';
 
-export const ROLE_LABELS: Record<Role, string> = {
-  prepose: 'Préposé·e',
-  infirmiere: 'Infirmière',
-  responsable: 'Responsable',
-  admin: 'Administration',
-};
+// Libellés des rôles : i18n, common.roles
