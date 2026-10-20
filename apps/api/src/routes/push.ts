@@ -13,6 +13,7 @@ import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typ
 import { sql } from 'kysely';
 import { authenticate } from '../auth.js';
 import { badRequest, HttpError } from '../lib/errors.js';
+import { pushIn } from '../lib/locale.js';
 import { isAllowedEndpoint } from '../lib/notifier.js';
 
 const Preferences = Type.Object({
@@ -120,9 +121,7 @@ const pushRoutes: FastifyPluginAsyncTypebox = async (app) => {
     schema: { response: { 200: Type.Object({ sent: Type.Integer() }) } },
   }, async (request) => {
     requireEnabled();
-    const sent = await notifier.sendNow(request.user.sub, {
-      title: 'Notifications activées', body: 'Vous recevrez ici les avis du journal de bord.', url: '/', tag: 'test',
-    });
+    const sent = await notifier.sendNow(request.user.sub, { text: pushIn((t) => t.test), url: '/', tag: 'test' });
     return { sent };
   });
 };

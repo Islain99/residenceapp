@@ -1,6 +1,7 @@
 // Invitation discrète à activer les notifications (relève), une seule fois par
 // appareil : masquée après « Plus tard », une activation ou un refus.
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { usePushConfig } from '../api/hooks';
 import { useAuth } from '../auth/session';
@@ -18,6 +19,7 @@ function dismissed(): boolean {
 }
 
 export function PushPrompt() {
+  const { t } = useTranslation();
   const { sharedDevice, assistance } = useAuth();
   const config = usePushConfig();
   const [hidden, setHidden] = useState(dismissed);
@@ -40,8 +42,8 @@ export function PushPrompt() {
   return (
     <div className="mb-6 flex flex-col gap-3 rounded-xl border border-line bg-info-soft p-4 text-sm sm:flex-row sm:items-center">
       <p className="flex-1">
-        <strong>Recevoir les avis sur cet appareil ?</strong> Consignes prioritaires, messages, annonces et suivis,
-        même application fermée (<Link to="/compte" className="text-primary underline">réglages</Link>).
+        <strong>{t('shell.pushPrompt.question')}</strong> {t('shell.pushPrompt.body')}
+        {' '}(<Link to="/compte" className="text-primary underline">{t('shell.pushPrompt.settings')}</Link>).
       </p>
       <div className="flex gap-2">
         <Button variant="primary" busy={busy} onClick={async () => {
@@ -55,8 +57,8 @@ export function PushPrompt() {
           } finally {
             setBusy(false);
           }
-        }}>Activer</Button>
-        <Button variant="ghost" onClick={hide}>Plus tard</Button>
+        }}>{t('shell.pushPrompt.enable')}</Button>
+        <Button variant="ghost" onClick={hide}>{t('shell.pushPrompt.later')}</Button>
       </div>
       <ErrorMessage error={error} />
     </div>

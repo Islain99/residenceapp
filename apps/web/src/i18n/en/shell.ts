@@ -1,0 +1,62 @@
+import type fr from '../fr/shell';
+import type { Translation } from '../types';
+
+export default {
+  nav: {
+    main: 'Main navigation',
+    handover: 'Handover',
+    journal: 'Logbook',
+    followUps: 'Follow-ups',
+    messages: 'Messages',
+    agenda: 'Calendar',
+    schedule: 'Schedules',
+    residents: 'Residents',
+    admin: 'Admin',
+    profile: 'My profile',
+    profileOf: 'My profile ({{name}})',
+    more: 'More',
+    closeMenu: 'Close menu',
+    residences: 'Residences',
+    security: 'Security',
+    platformAudit: 'Log',
+    admins: 'Administrators',
+    platform: 'Platform',
+    platformRole: 'Platform administration',
+  },
+  badges: {
+    unread_one: '{{count}} unread',
+    unread_other: '{{count}} unread',
+    messages_one: '{{count}} unread message',
+    messages_other: '{{count}} unread messages',
+  },
+  assistance: {
+    role: 'Support (view only)',
+    refused: 'Change refused: view only.',
+    title: 'Support access — {{residence}}',
+    rules: 'view only, messaging excluded, every page viewed is recorded in the residence’s log',
+    until: 'until {{when}}',
+    backToPlatform: 'Back to the platform',
+    end: 'End access',
+    ended: 'Support access ended.',
+    expired: 'Support access has expired.',
+  },
+  offline: 'Offline: notes can’t be read or saved. Check the Wi-Fi; the page will update when the network is back.',
+  idle: {
+    title: 'Still there?',
+    body: 'With no activity, the session will close in <strong>{{seconds}} s</strong> to protect residents’ information on this shared device.',
+    logout: 'Sign me out',
+    stay: 'I’m here',
+    closed: 'Session closed after 15 minutes of inactivity (shared device).',
+  },
+  pushPrompt: {
+    question: 'Get alerts on this device?',
+    body: 'Priority instructions, messages, announcements and follow-ups, even when the app is closed',
+    settings: 'settings',
+    enable: 'Turn on',
+    later: 'Later',
+  },
+  push: {
+    denied: 'Notifications are blocked in the browser. Allow them in its settings, then try again.',
+    timeout: 'The browser’s notification service isn’t responding. Check the connection, then try again.',
+  },
+} satisfies Translation<typeof fr>;

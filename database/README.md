@@ -185,7 +185,8 @@ database/
 │   ├── 0009_messaging.sql         # messagerie : conversations, messages, lectures, annonces
 │   ├── 0010_platform.sql          # plateforme : accès d'assistance, index du journal
 │   ├── 0011_security_push.sql     # sessions (délai de grâce), double authentification, notifications
-│   └── 0012_profile.sql           # profil : téléphone, avatar choisi, couleur de fond
+│   ├── 0012_profile.sql           # profil : téléphone, avatar choisi, couleur de fond
+│   └── 0013_locale.sql            # langue du compte (fr, en) : courriels et notifications
 ├── seed/seed.sql               # données fictives
 └── scripts/                    # status, backup, failover, failback, restore-test, rebuild-replica, migrate
 ```

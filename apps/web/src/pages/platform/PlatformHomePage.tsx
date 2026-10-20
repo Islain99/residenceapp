@@ -1,15 +1,18 @@
 // Plateforme — tableau de bord : résidences (indicateurs chiffrés seulement),
 // accès d'assistance ouverts, création d'une résidence.
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useCreateResidence, useOpenAssistance, usePlatformResidences } from '../../api/hooks';
 import type { NewResidenceInput, PlatformResidence } from '../../api/types';
 import { Stat } from '../../components/platform';
 import { Badge, Button, Card, Dialog, EmptyState, ErrorMessage, Loading, PageHeader, SelectField, TextField } from '../../components/ui';
 import { formatWhen, fullName } from '../../lib/format';
-import { RESIDENCE_TYPES, TIMEZONES, useEnterAssistance } from '../../lib/platform';
+import { currentLanguage, LANGS } from '../../i18n';
+import { RESIDENCE_TYPES, TIMEZONES, timezoneLabel, useEnterAssistance } from '../../lib/platform';
 
 export function PlatformHomePage() {
+  const { t } = useTranslation();
   const residences = usePlatformResidences();
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -21,26 +24,26 @@ export function PlatformHomePage() {
   return (
     <>
       <PageHeader
-        title="Résidences"
-        subtitle="Des chiffres seulement : le contenu d’une résidence ne s’ouvre qu’avec l’accord de sa responsable."
-        actions={<Button variant="primary" onClick={() => setCreating(true)}>+ Nouvelle résidence</Button>}
+        title={t('platform.home.title')}
+        subtitle={t('platform.home.subtitle')}
+        actions={<Button variant="primary" onClick={() => setCreating(true)}>{t('platform.home.new')}</Button>}
       />
       {notice && <p role="status" className="mb-4 rounded-lg bg-positive-soft px-4 py-3 text-sm text-positive">{notice}</p>}
 
       {residences.isPending ? <Loading /> : residences.isError ? <ErrorMessage error={residences.error} /> : (
         <>
           <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label={active.length > 1 ? 'résidences actives' : 'résidence active'} value={active.length} />
-            <Stat label="employés actifs" value={sum('staffActive')} />
-            <Stat label="résidents" value={sum('residentsActive')} />
+            <Stat label={t('platform.stats.residences', { count: active.length })} value={active.length} />
+            <Stat label={t('platform.stats.staff')} value={sum('staffActive')} />
+            <Stat label={t('platform.stats.residents')} value={sum('residentsActive')} />
             {sum('lockedAccounts') > 0
-              ? <Stat label={sum('lockedAccounts') > 1 ? 'comptes bloqués' : 'compte bloqué'} value={sum('lockedAccounts')} tone="danger" />
-              : <Stat label="connexions refusées (24 h)" value={sum('failedLogins24h')} />}
+              ? <Stat label={t('platform.stats.locked', { count: sum('lockedAccounts') })} value={sum('lockedAccounts')} tone="danger" />
+              : <Stat label={t('platform.stats.failed24')} value={sum('failedLogins24h')} />}
           </div>
 
           <OpenAssistance />
 
-          {list.length === 0 ? <EmptyState>Aucune résidence pour l’instant.</EmptyState> : (
+          {list.length === 0 ? <EmptyState>{t('platform.home.empty')}</EmptyState> : (
             <ul className="flex flex-col gap-3">
               {list.map((r) => <ResidenceCard key={r.id} residence={r} />)}
             </ul>
@@ -48,7 +51,7 @@ export function PlatformHomePage() {
         </>
       )}
 
-      <Dialog open={creating} onClose={() => setCreating(false)} title="Nouvelle résidence">
+      <Dialog open={creating} onClose={() => setCreating(false)} title={t('platform.home.newTitle')}>
         <NewResidenceForm onDone={(message) => {
           setCreating(false);
           if (message) setNotice(message);
@@ -59,6 +62,7 @@ export function PlatformHomePage() {
 }
 
 function ResidenceCard({ residence: r }: { residence: PlatformResidence }) {
+  const { t } = useTranslation();
   const noResponsable = r.isActive && r.responsablesActive === 0;
   return (
     <li>
@@ -66,19 +70,19 @@ function ResidenceCard({ residence: r }: { residence: PlatformResidence }) {
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-semibold">{r.name}</h2>
           <Badge>{r.type}</Badge>
-          {!r.isActive && <Badge tone="danger">Suspendue</Badge>}
-          {r.assistanceUntil && <Badge tone="priority">Assistance ouverte jusqu’à {formatWhen(r.assistanceUntil)}</Badge>}
-          {noResponsable && <Badge tone="danger">Aucune responsable active</Badge>}
-          {r.lockedAccounts > 0 && <Badge tone="danger">{r.lockedAccounts > 1 ? `${r.lockedAccounts} comptes bloqués` : '1 compte bloqué'}</Badge>}
+          {!r.isActive && <Badge tone="danger">{t('platform.home.suspended')}</Badge>}
+          {r.assistanceUntil && <Badge tone="priority">{t('platform.home.assistanceUntil', { when: formatWhen(r.assistanceUntil) })}</Badge>}
+          {noResponsable && <Badge tone="danger">{t('platform.home.noResponsable')}</Badge>}
+          {r.lockedAccounts > 0 && <Badge tone="danger">{t('platform.home.lockedBadge', { count: r.lockedAccounts })}</Badge>}
         </div>
         <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-5">
-          <Figure label="Employés" value={r.staffActive} />
-          <Figure label="Résidents" value={r.residentsActive} />
-          <Figure label="Notes (30 j)" value={r.notesLast30Days} />
-          <Figure label="Refus de connexion (24 h)" value={r.failedLogins24h} />
+          <Figure label={t('platform.home.staff')} value={r.staffActive} />
+          <Figure label={t('platform.home.residents')} value={r.residentsActive} />
+          <Figure label={t('platform.home.notes30')} value={r.notesLast30Days} />
+          <Figure label={t('platform.home.refused24')} value={r.failedLogins24h} />
           <div>
-            <dt className="text-muted">Dernière connexion</dt>
-            <dd className="font-medium">{r.lastLoginAt ? formatWhen(r.lastLoginAt) : 'jamais'}</dd>
+            <dt className="text-muted">{t('platform.home.lastLogin')}</dt>
+            <dd className="font-medium">{r.lastLoginAt ? formatWhen(r.lastLoginAt) : t('platform.home.never')}</dd>
           </div>
         </dl>
       </Link>
@@ -94,23 +98,24 @@ const Figure = ({ label, value }: { label: string; value: number }) => (
 );
 
 function OpenAssistance() {
+  const { t } = useTranslation();
   const open = useOpenAssistance();
   const { enter, busy, error } = useEnterAssistance();
   if (!open.data?.length) return null;
   return (
     <Card className="mb-6 border-priority p-4">
-      <h2 className="mb-2 font-semibold">Accès d’assistance accordés</h2>
+      <h2 className="mb-2 font-semibold">{t('platform.home.openAssistance')}</h2>
       <ul className="flex flex-col gap-3">
         {open.data.map((g) => (
           <li key={g.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm">
               <p className="font-medium">{g.residence.name}</p>
               <p className="text-muted">
-                Accordé par {fullName(g.grantedBy)} · jusqu’à {formatWhen(g.expiresAt)}
+                {t('platform.home.grantedBy', { name: fullName(g.grantedBy), when: formatWhen(g.expiresAt) })}
                 {g.reason && <> · « {g.reason} »</>}
               </p>
             </div>
-            <Button variant="primary" busy={busy} onClick={() => void enter(g.id)}>Consulter (lecture seule)</Button>
+            <Button variant="primary" busy={busy} onClick={() => void enter(g.id)}>{t('platform.home.consult')}</Button>
           </li>
         ))}
       </ul>
@@ -120,9 +125,10 @@ function OpenAssistance() {
 }
 
 function NewResidenceForm({ onDone }: { onDone: (message?: string) => void }) {
+  const { t } = useTranslation();
   const create = useCreateResidence();
   const [v, setV] = useState<NewResidenceInput>({
-    name: '', type: 'RPA', timezone: 'America/Toronto', responsable: { email: '', firstName: '', lastName: '' },
+    name: '', type: 'RPA', timezone: 'America/Toronto', responsable: { email: '', firstName: '', lastName: '', locale: currentLanguage() },
   });
   const setResp = (key: keyof NewResidenceInput['responsable']) => (e: { target: { value: string } }) =>
     setV({ ...v, responsable: { ...v.responsable, [key]: e.target.value } });
@@ -130,37 +136,39 @@ function NewResidenceForm({ onDone }: { onDone: (message?: string) => void }) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     const created = await create.mutateAsync(v);
-    onDone(`${created.name} est créée. Invitation envoyée à ${v.responsable.email} (valable 72 heures).`);
+    onDone(t('platform.home.created', { name: created.name, email: v.responsable.email }));
   }
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <TextField label="Nom de la résidence" required maxLength={150} value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />
+      <TextField label={t('platform.home.name')} required maxLength={150} value={v.name} onChange={(e) => setV({ ...v, name: e.target.value })} />
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField label="Type" value={v.type} onChange={(e) => setV({ ...v, type: e.target.value as NewResidenceInput['type'] })}>
-          {Object.entries(RESIDENCE_TYPES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        <SelectField label={t('platform.home.type')} value={v.type} onChange={(e) => setV({ ...v, type: e.target.value as NewResidenceInput['type'] })}>
+          {RESIDENCE_TYPES.map((id) => <option key={id} value={id}>{t(`platform.types.${id}`)}</option>)}
         </SelectField>
-        <SelectField label="Fuseau horaire" value={v.timezone} onChange={(e) => setV({ ...v, timezone: e.target.value })}>
-          {TIMEZONES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+        <SelectField label={t('platform.home.timezone')} value={v.timezone} onChange={(e) => setV({ ...v, timezone: e.target.value })}>
+          {TIMEZONES.map((id) => <option key={id} value={id}>{timezoneLabel(id)}</option>)}
         </SelectField>
       </div>
       <fieldset className="flex flex-col gap-4 rounded-xl border border-line p-4">
-        <legend className="px-1 text-sm font-semibold">Responsable</legend>
+        <legend className="px-1 text-sm font-semibold">{t('platform.home.responsable')}</legend>
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField label="Prénom" required maxLength={100} value={v.responsable.firstName} onChange={setResp('firstName')} />
-          <TextField label="Nom" required maxLength={100} value={v.responsable.lastName} onChange={setResp('lastName')} />
+          <TextField label={t('common.firstName')} required maxLength={100} value={v.responsable.firstName} onChange={setResp('firstName')} />
+          <TextField label={t('common.lastName')} required maxLength={100} value={v.responsable.lastName} onChange={setResp('lastName')} />
         </div>
-        <TextField label="Courriel" type="email" required maxLength={254} value={v.responsable.email} onChange={setResp('email')}
-          hint="Elle recevra une invitation et choisira elle-même son mot de passe, puis créera son équipe." />
+        <TextField label={t('common.email')} type="email" required maxLength={254} value={v.responsable.email} onChange={setResp('email')}
+          hint={t('platform.home.responsableHint')} />
+        <SelectField label={t('platform.home.language')} value={v.responsable.locale} onChange={setResp('locale')}>
+          {LANGS.map((l) => <option key={l} value={l}>{t(`common.language.${l}`)}</option>)}
+        </SelectField>
       </fieldset>
       <p className="text-xs text-muted">
-        La résidence est créée avec les catégories de notes, les quarts (jour, soir, nuit) et les canaux de messagerie habituels ;
-        la responsable pourra les modifier.
+        {t('platform.home.defaults')}
       </p>
       <ErrorMessage error={create.error} />
       <div className="flex justify-end gap-2">
-        <Button onClick={() => onDone()}>Annuler</Button>
-        <Button type="submit" variant="primary" busy={create.isPending}>Créer et inviter</Button>
+        <Button onClick={() => onDone()}>{t('common.cancel')}</Button>
+        <Button type="submit" variant="primary" busy={create.isPending}>{t('platform.home.create')}</Button>
       </div>
     </form>
   );

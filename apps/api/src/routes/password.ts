@@ -25,7 +25,7 @@ const passwordRoutes: FastifyPluginAsyncTypebox = async (app) => {
     schema: { body: Type.Object({ email: Type.String({ minLength: 3, maxLength: 254 }) }) },
   }, async (request, reply) => {
     const email = request.body.email.trim().toLowerCase();
-    const user = await db.selectFrom('users').select(['id', 'email', 'first_name', 'residence_id'])
+    const user = await db.selectFrom('users').select(['id', 'email', 'first_name', 'residence_id', 'locale'])
       .where(sql<string>`lower(email)`, '=', email).where('is_active', '=', true)
       .executeTakeFirst();
     if (user) {
@@ -36,7 +36,7 @@ const passwordRoutes: FastifyPluginAsyncTypebox = async (app) => {
             action: 'password_reset_requested', entity: 'user', entityId: user.id,
             residenceId: user.residence_id, ip: request.ip,
           });
-          await mailer.send(resetMail(config, { email: user.email, firstName: user.first_name }, token));
+          await mailer.send(resetMail(config, { email: user.email, firstName: user.first_name, locale: user.locale }, token));
         });
       } catch (err) {
         request.log.error({ err }, 'envoi du courriel de réinitialisation impossible');

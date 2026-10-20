@@ -13,14 +13,24 @@ import { sql } from 'kysely';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Config } from '../config.js';
 import type { Database } from '../db/index.js';
+import { asLocale, pushIn, type Localized } from './locale.js';
 
 export type NotificationKind = 'messages' | 'announcements' | 'priority_notes' | 'follow_ups';
 
+// Contenu reçu par l'appareil (service worker)
 export interface PushMessage {
   title: string;
   body: string;
   url: string;      // page ouverte au toucher
   tag?: string;     // même tag : la notification précédente est remplacée
+}
+
+// Avis à envoyer : titre et texte dans les deux langues (lib/locale.ts),
+// chaque appareil reçoit la langue de son compte (users.locale)
+export interface Notice {
+  text: Localized<{ title: string; body: string }>;
+  url: string;
+  tag?: string;
 }
 
 export interface PushTarget { endpoint: string; p256dh: string; auth: string }
@@ -87,9 +97,9 @@ export class Notifier {
   }
 
   // À appeler après la réponse : ne bloque pas, n'échoue jamais
-  notify(userIds: string[], kind: NotificationKind, message: PushMessage): void {
+  notify(userIds: string[], kind: NotificationKind, notice: Notice): void {
     if (!this.sender || userIds.length === 0) return;
-    const job = this.deliver([...new Set(userIds)], kind, message)
+    const job = this.deliver([...new Set(userIds)], kind, notice)
       .catch((err: unknown) => this.log.error({ err }, 'notification push'))
       .finally(() => this.pending.delete(job));
     this.pending.add(job);
@@ -100,26 +110,29 @@ export class Notifier {
   }
 
   // Envoi direct à une personne (essai depuis « Mon compte »)
-  async sendNow(userId: string, message: PushMessage): Promise<number> {
-    return this.deliver([userId], null, message);
+  async sendNow(userId: string, notice: Notice): Promise<number> {
+    return this.deliver([userId], null, notice);
   }
 
-  private async deliver(userIds: string[], kind: NotificationKind | null, message: PushMessage): Promise<number> {
+  private async deliver(userIds: string[], kind: NotificationKind | null, notice: Notice): Promise<number> {
     const sender = this.sender;
     if (!sender) return 0;
     let query = this.db.selectFrom('push_subscriptions as s')
       .innerJoin('users as u', 'u.id', 's.user_id')
       .leftJoin('notification_preferences as p', 'p.user_id', 's.user_id')
-      .select(['s.id', 's.endpoint', 's.p256dh', 's.auth'])
+      .select(['s.id', 's.endpoint', 's.p256dh', 's.auth', 'u.locale'])
       .where('s.user_id', 'in', userIds)
       .where('s.disabled_at', 'is', null)
       .where('u.is_active', '=', true);
     if (kind) query = query.where(sql<boolean>`coalesce(${sql.ref(`p.${kind}`)}, true)`);
     const targets = await query.execute();
-    const payload = JSON.stringify(message);
+    const payload = (locale: string) => {
+      const message: PushMessage = { ...notice.text[asLocale(locale)], url: notice.url, ...(notice.tag ? { tag: notice.tag } : {}) };
+      return JSON.stringify(message);
+    };
     let sent = 0;
     await Promise.all(targets.map(async (t) => {
-      const result = await sender.send(t, payload);
+      const result = await sender.send(t, payload(t.locale));
       if (result === 'ok') {
         sent++;
         await this.db.updateTable('push_subscriptions').set({ last_sent_at: sql<Date>`now()`, failures: 0 })
@@ -194,10 +207,7 @@ export class Notifier {
       // Échéance passée depuis longtemps (suivi ancien) : marqué sans notification
       if (f.due_at && f.due_at.getTime() < Date.now() - 3600_000) continue;
       const recipients = f.assigned_to ? [f.assigned_to] : await this.onShiftNow(f.residence_id);
-      this.notify(recipients, 'follow_ups', {
-        title: 'Suivi à échéance', body: 'Un suivi arrive à échéance. Ouvrez l’application pour le voir.',
-        url: '/suivis', tag: `follow-up-${f.id}`,
-      });
+      this.notify(recipients, 'follow_ups', { text: pushIn((t) => t.followUpDue), url: '/suivis', tag: `follow-up-${f.id}` });
     }
     return due.length;
   }

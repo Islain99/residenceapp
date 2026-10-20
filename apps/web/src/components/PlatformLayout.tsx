@@ -1,6 +1,8 @@
 // Cadre des pages de l'administration de la plateforme (rôle « admin »).
+import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router';
 import { useAuth, useUser } from '../auth/session';
+import type shellFr from '../i18n/fr/shell';
 import { cx } from '../lib/cx';
 import { fullName } from '../lib/format';
 import { Avatar } from './Avatar';
@@ -8,19 +10,20 @@ import { Logo } from './Logo';
 import { OfflineBanner } from './OfflineBanner';
 
 const LINKS = [
-  { to: '/plateforme', label: 'Résidences', end: true },
-  { to: '/plateforme/securite', label: 'Sécurité', end: false },
-  { to: '/plateforme/journal', label: 'Journal', end: false },
-  { to: '/plateforme/administrateurs', label: 'Administrateurs', end: false },
-  { to: '/plateforme/compte', label: 'Mon profil', end: false },
-];
+  { to: '/plateforme', label: 'residences', end: true },
+  { to: '/plateforme/securite', label: 'security', end: false },
+  { to: '/plateforme/journal', label: 'platformAudit', end: false },
+  { to: '/plateforme/administrateurs', label: 'admins', end: false },
+  { to: '/plateforme/compte', label: 'profile', end: false },
+] as const satisfies { to: string; label: keyof typeof shellFr.nav; end: boolean }[];
 
 export function PlatformLayout() {
+  const { t } = useTranslation();
   const user = useUser();
   const { logout, platformNotice, clearPlatformNotice } = useAuth();
 
   const nav = (className: string) => (
-    <nav aria-label="Administration de la plateforme" className={className}>
+    <nav aria-label={t('shell.nav.platformRole')} className={className}>
       {LINKS.map((link) => (
         <NavLink
           key={link.to}
@@ -31,7 +34,7 @@ export function PlatformLayout() {
             isActive ? 'bg-info-soft text-primary' : 'text-muted hover:bg-sunken hover:text-ink',
           )}
         >
-          {link.label}
+          {t(`shell.nav.${link.label}`)}
         </NavLink>
       ))}
     </nav>
@@ -44,21 +47,21 @@ export function PlatformLayout() {
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
           <span className="flex shrink-0 items-center gap-2 font-bold">
             <Logo className="size-10" />
-            <span className="whitespace-nowrap">Plateforme</span>
+            <span className="whitespace-nowrap">{t('shell.nav.platform')}</span>
           </span>
           {nav('hidden gap-1 md:flex')}
           <div className="ml-auto flex items-center gap-3 text-sm">
             {/* Rond avec les initiales, puis le nom (à partir de la largeur d'une tablette) */}
-            <NavLink to="/plateforme/compte" title="Mon profil" aria-label={`Mon profil (${fullName(user)})`}
+            <NavLink to="/plateforme/compte" title={t('shell.nav.profile')} aria-label={t('shell.nav.profileOf', { name: fullName(user) })}
               className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-sunken sm:rounded-lg sm:pr-2">
               <Avatar person={user} />
               <span className="hidden text-left leading-tight sm:block">
                 <span className="block whitespace-nowrap font-medium">{fullName(user)}</span>
-                <span className="block text-xs text-muted">Administration de la plateforme</span>
+                <span className="block text-xs text-muted">{t('shell.nav.platformRole')}</span>
               </span>
             </NavLink>
             <button type="button" onClick={() => void logout()} className="whitespace-nowrap rounded-lg px-3 py-2 text-muted hover:bg-sunken hover:text-ink">
-              Déconnexion
+              {t('common.logout')}
             </button>
           </div>
         </div>

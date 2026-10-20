@@ -33,13 +33,13 @@ import type { Users } from '../db/types.js';
 import { invalidateAccountTokens, inviteMail, issueAccountToken, resetMail } from '../lib/account-tokens.js';
 import { mailerKind } from '../lib/mailer.js';
 import { audit } from '../lib/audit.js';
+import { asLocale, LocaleSchema, MAIL_TEXT } from '../lib/locale.js';
 import { badRequest, HttpError, notFound } from '../lib/errors.js';
 import type { Db } from '../lib/note-view.js';
 import { createResidenceDefaults } from '../lib/residence-defaults.js';
 import { IdParams, Nullable, Person, Text, Uuid } from '../lib/schemas.js';
 import { AssistanceGrantBody, grantQuery, toGrant } from './assistance.js';
 
-const PLATFORM_SENDER = 'L’équipe de la plateforme';
 
 const ResidenceType = Type.Union([Type.Literal('RPA'), Type.Literal('RI')]);
 
@@ -84,6 +84,7 @@ const NewPerson = Type.Object({
   email: Type.String({ format: 'email', maxLength: 254 }),
   firstName: Text(100),
   lastName: Text(100),
+  locale: Type.Optional(LocaleSchema),   // langue des courriels et des notifications (français par défaut)
 });
 
 const n = (v: string | number | bigint | null | undefined) => Number(v ?? 0);
@@ -183,11 +184,11 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }
 
   // Courriel envoyé dans la transaction : en cas d'échec, rien n'est enregistré
-  async function sendInvite(trx: Db, user: { id: string; email: string; first_name: string },
-    place: string, adminId: string) {
+  async function sendInvite(trx: Db, user: { id: string; email: string; first_name: string; locale: string },
+    place: string | null, adminId: string) {
     const token = await issueAccountToken(trx, user.id, 'invite', adminId);
     try {
-      await mailer.send(inviteMail(config, { email: user.email, firstName: user.first_name }, token, PLATFORM_SENDER, place));
+      await mailer.send(inviteMail(config, { email: user.email, firstName: user.first_name, locale: user.locale }, token, null, place));
     } catch {
       throw new HttpError(502, 'mail_failed', "Le courriel d'invitation n'a pas pu être envoyé. Réessayer plus tard.");
     }
@@ -198,8 +199,8 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
     if (taken) throw new HttpError(409, 'email_taken', 'Ce courriel est déjà utilisé par un compte.');
   }
 
-  function cleanPerson(p: { email: string; firstName: string; lastName: string }) {
-    const person = { email: p.email.trim().toLowerCase(), first_name: p.firstName.trim(), last_name: p.lastName.trim() };
+  function cleanPerson(p: { email: string; firstName: string; lastName: string; locale?: 'fr' | 'en' }) {
+    const person = { email: p.email.trim().toLowerCase(), first_name: p.firstName.trim(), last_name: p.lastName.trim(), locale: p.locale ?? 'fr' };
     if (!person.first_name || !person.last_name) throw badRequest('invalid_name', 'Prénom et nom obligatoires.');
     return person;
   }
@@ -207,7 +208,7 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
   // Compte géré par la plateforme : responsable ou admin (les autres : la responsable)
   async function managedAccount(trx: Db, id: string) {
     const user = await trx.selectFrom('users as u').leftJoin('residences as r', 'r.id', 'u.residence_id')
-      .select(['u.id', 'u.email', 'u.first_name', 'u.role', 'u.is_active', 'u.password_hash', 'u.residence_id', 'r.name as residence_name'])
+      .select(['u.id', 'u.email', 'u.first_name', 'u.locale', 'u.role', 'u.is_active', 'u.password_hash', 'u.residence_id', 'r.name as residence_name'])
       .where('u.id', '=', id).forUpdate('u').executeTakeFirst();
     if (!user) throw notFound('Compte introuvable.');
     if (user.role !== 'responsable' && user.role !== 'admin') {
@@ -253,7 +254,7 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       await createResidenceDefaults(trx, residence.id);
       const user = await trx.insertInto('users')
         .values({ ...person, residence_id: residence.id, role: 'responsable', password_hash: null })
-        .returning(['id', 'email', 'first_name']).executeTakeFirstOrThrow();
+        .returning(['id', 'email', 'first_name', 'locale']).executeTakeFirstOrThrow();
       await audit(trx, {
         action: 'create', entity: 'residence', entityId: residence.id, userId: request.user.sub,
         residenceId: residence.id, details: { name, type: b.type }, ip: request.ip,
@@ -389,7 +390,7 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       await ensureEmailFree(trx, person.email);
       const user = await trx.insertInto('users')
         .values({ ...person, residence_id: residence.id, role: 'responsable', password_hash: null })
-        .returning(['id', 'email', 'first_name']).executeTakeFirstOrThrow();
+        .returning(['id', 'email', 'first_name', 'locale']).executeTakeFirstOrThrow();
       await audit(trx, {
         action: 'create', entity: 'user', entityId: user.id, userId: request.user.sub, residenceId: residence.id,
         details: { role: 'responsable' }, ip: request.ip,
@@ -456,7 +457,7 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         action: 'invite', entity: 'user', entityId: user.id, userId: request.user.sub,
         residenceId: user.residence_id, ip: request.ip,
       });
-      await sendInvite(trx, user, user.residence_name ?? 'l’administration de la plateforme', request.user.sub);
+      await sendInvite(trx, user, user.residence_name, request.user.sub);
     });
     return findAccount(request.params.id);
   });
@@ -476,7 +477,7 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         residenceId: user.residence_id, ip: request.ip,
       });
       try {
-        await mailer.send(resetMail(config, { email: user.email, firstName: user.first_name }, token));
+        await mailer.send(resetMail(config, { email: user.email, firstName: user.first_name, locale: user.locale }, token));
       } catch {
         throw new HttpError(502, 'mail_failed', 'Le courriel n’a pas pu être envoyé. Réessayer plus tard.');
       }
@@ -561,12 +562,12 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       await ensureEmailFree(trx, person.email);
       const user = await trx.insertInto('users')
         .values({ ...person, residence_id: null, role: 'admin', password_hash: null })
-        .returning(['id', 'email', 'first_name']).executeTakeFirstOrThrow();
+        .returning(['id', 'email', 'first_name', 'locale']).executeTakeFirstOrThrow();
       await audit(trx, {
         action: 'create', entity: 'user', entityId: user.id, userId: request.user.sub,
         details: { role: 'admin' }, ip: request.ip,
       });
-      await sendInvite(trx, user, 'l’administration de la plateforme', request.user.sub);
+      await sendInvite(trx, user, null, request.user.sub);
       return user.id;
     });
     return reply.code(201).send(await findAccount(id));
@@ -588,14 +589,15 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       response: { 200: Type.Object({ to: Type.String(), provider: Type.String() }) },
     },
   }, async (request) => {
-    const me = await db.selectFrom('users').select(['email', 'first_name']).where('id', '=', request.user.sub).executeTakeFirstOrThrow();
+    const me = await db.selectFrom('users').select(['email', 'first_name', 'locale']).where('id', '=', request.user.sub).executeTakeFirstOrThrow();
+    const m = MAIL_TEXT[asLocale(me.locale)];
     const to = request.body.to?.trim().toLowerCase() || me.email;
     try {
       await mailer.send({
         to,
-        subject: 'Essai d’envoi — Journal de bord',
-        text: `Bonjour ${me.first_name},\n\nCe courriel confirme que l’envoi fonctionne (invitations, mots de passe oubliés).`,
-        html: `<p>Bonjour ${me.first_name.replace(/[&<>"']/g, '')},</p><p>Ce courriel confirme que l’envoi fonctionne (invitations, mots de passe oubliés).</p>`,
+        subject: m.test.subject,
+        text: `${m.hello(me.first_name)}\n\n${m.test.body}`,
+        html: `<p>${m.hello(me.first_name.replace(/[&<>"']/g, ''))}</p><p>${m.test.body}</p>`,
       });
     } catch {
       throw new HttpError(502, 'mail_failed', mailerKind(config) === 'resend' && config.MAIL_FROM.includes('@resend.dev')

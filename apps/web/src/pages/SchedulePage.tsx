@@ -2,24 +2,26 @@
 // La responsable place, ajuste et retire les quarts, et copie la semaine précédente.
 // Semaine et vue dans l'adresse (?semaine=AAAA-MM-JJ&vue=equipe|moi).
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { useCancelShift, useCopyWeek, useSaveShift, useShifts, useShiftTypes, useStaff } from '../api/hooks';
 import type { Shift, StaffMember } from '../api/types';
-import { ROLE_LABELS, useUser } from '../auth/session';
+import { useUser } from '../auth/session';
 import { Badge, Button, Chip, Dialog, EmptyState, ErrorMessage, Loading, PageHeader, SelectField, TextField } from '../components/ui';
 import { cx } from '../lib/cx';
 import {
-  addDays, formatDayHeading, formatRange, fromDateParam, fullName, sameDay, startOfWeek, toDateParam,
+  addDays, formatDayHeading, formatRange, formatWith, fromDateParam, fullName, sameDay, startOfWeek, toDateParam,
 } from '../lib/format';
 import { compactShiftTimes, formatDuration, formatShiftTimes, shiftMinutes } from '../lib/schedule';
 
-const dayShort = new Intl.DateTimeFormat('fr-CA', { weekday: 'short', day: 'numeric' });
-const monthTitle = new Intl.DateTimeFormat('fr-CA', { month: 'long', year: 'numeric' });
-const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
+const dayShort = (d: Date) => formatWith(d, { weekday: 'short', day: 'numeric' });
+const monthTitle = (d: Date) => formatWith(d, { month: 'long', year: 'numeric' });
+const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 type Editing = { shift?: Shift; userId: string; workDate: string };
 
 export function SchedulePage() {
+  const { t } = useTranslation();
   const user = useUser();
   const responsable = user.role === 'responsable';
   const [params, setParams] = useSearchParams();
@@ -67,41 +69,41 @@ export function SchedulePage() {
   const openWeek = (day: Date) => update({ periode: null, mois: null, semaine: toDateParam(startOfWeek(day)) });
 
   async function copyPreviousWeek() {
-    if (!window.confirm('Copier les quarts de la semaine précédente dans cette semaine ? Les quarts déjà placés sont gardés.')) return;
+    if (!window.confirm(t('schedule.copyConfirm'))) return;
     const result = await copyWeek.mutateAsync({ fromWeek: toDateParam(addDays(weekStart, -7)), toWeek: from });
     setNotice(result.created === 0 && result.skipped === 0
-      ? 'La semaine précédente est vide : rien à copier.'
-      : `${result.created} quart${result.created > 1 ? 's' : ''} copié${result.created > 1 ? 's' : ''}`
-        + (result.skipped ? `, ${result.skipped} déjà présent${result.skipped > 1 ? 's' : ''}.` : '.'));
+      ? t('schedule.copyEmpty')
+      : t('schedule.copied', { count: result.created })
+        + (result.skipped ? t('schedule.alreadyThere', { count: result.skipped }) : '.'));
   }
 
   return (
     <>
       <PageHeader
-        title="Horaires"
-        subtitle={responsable && !monthly ? 'Placez les quarts de l’équipe. Cliquez sur une case pour ajouter, sur un quart pour le modifier.' : undefined}
+        title={t('schedule.title')}
+        subtitle={responsable && !monthly ? t('schedule.subtitleEdit') : undefined}
         actions={responsable && view === 'equipe' && !monthly && (
-          <Button busy={copyWeek.isPending} onClick={() => void copyPreviousWeek()}>Copier la semaine précédente</Button>
+          <Button busy={copyWeek.isPending} onClick={() => void copyPreviousWeek()}>{t('schedule.copyWeek')}</Button>
         )}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Button aria-label={monthly ? 'Mois précédent' : 'Semaine précédente'} onClick={() => move(-1)}>←</Button>
-        <Button aria-label={monthly ? 'Mois suivant' : 'Semaine suivante'} onClick={() => move(1)}>→</Button>
+        <Button aria-label={monthly ? t('schedule.previousMonth') : t('schedule.previousWeek')} onClick={() => move(-1)}>←</Button>
+        <Button aria-label={monthly ? t('schedule.nextMonth') : t('schedule.nextWeek')} onClick={() => move(1)}>→</Button>
         <Button variant="ghost" onClick={() => (monthly ? goToMonth(today) : goToWeek(today))}>
-          {monthly ? 'Ce mois-ci' : 'Cette semaine'}
+          {monthly ? t('schedule.thisMonth') : t('schedule.thisWeek')}
         </Button>
         <h2 className="ml-1 text-lg font-semibold first-letter:uppercase">
-          {monthly ? monthTitle.format(monthStart) : formatRange(weekStart, addDays(weekStart, 6))}
+          {monthly ? monthTitle(monthStart) : formatRange(weekStart, addDays(weekStart, 6))}
         </h2>
         <div className="ml-auto flex flex-wrap gap-2">
-          <div className="flex gap-2" role="group" aria-label="Période">
-            <Chip active={!monthly} onClick={() => setParam('periode', null)}>Semaine</Chip>
-            <Chip active={monthly} onClick={() => setParam('periode', 'mois')}>Mois</Chip>
+          <div className="flex gap-2" role="group" aria-label={t('schedule.period')}>
+            <Chip active={!monthly} onClick={() => setParam('periode', null)}>{t('schedule.week')}</Chip>
+            <Chip active={monthly} onClick={() => setParam('periode', 'mois')}>{t('schedule.month')}</Chip>
           </div>
-          <div className="flex gap-2" role="group" aria-label="Vue">
-            <Chip active={view === 'moi'} onClick={() => setParam('vue', 'moi')}>Mon horaire</Chip>
-            <Chip active={view === 'equipe'} onClick={() => setParam('vue', 'equipe')}>Équipe</Chip>
+          <div className="flex gap-2" role="group" aria-label={t('schedule.view')}>
+            <Chip active={view === 'moi'} onClick={() => setParam('vue', 'moi')}>{t('schedule.mine')}</Chip>
+            <Chip active={view === 'equipe'} onClick={() => setParam('vue', 'equipe')}>{t('schedule.team')}</Chip>
           </div>
         </div>
       </div>
@@ -118,7 +120,7 @@ export function SchedulePage() {
               onEdit={(e) => setEditing(e)} />}
 
       <Dialog open={editing !== null} onClose={() => setEditing(null)}
-        title={editing?.shift ? 'Modifier le quart' : 'Ajouter un quart'}>
+        title={editing?.shift ? t('schedule.editShift') : t('schedule.addShift')}>
         {editing && <ShiftForm editing={editing} onDone={() => setEditing(null)} />}
       </Dialog>
     </>
@@ -133,11 +135,12 @@ export function SchedulePage() {
 function MonthCalendar({ days, monthStart, shifts, today, mine, onOpenWeek }: {
   days: Date[]; monthStart: Date; shifts: Shift[]; today: Date; mine: boolean; onOpenWeek?: (day: Date) => void;
 }) {
+  const { t } = useTranslation();
   const types = useShiftTypes();
   const inMonth = (d: Date) => d.getMonth() === monthStart.getMonth();
   const monthShifts = shifts.filter((s) => inMonth(fromDateParam(s.workDate)!));
   const total = monthShifts.reduce((sum, s) => sum + shiftMinutes(s.startTime, s.endTime), 0);
-  const order = (s: Shift) => types.data?.findIndex((t) => t.id === s.shiftType.id) ?? 0;
+  const order = (s: Shift) => types.data?.findIndex((type) => type.id === s.shiftType.id) ?? 0;
   // « Congé » seulement dans une semaine où j'ai au moins un quart : une semaine
   // vide n'est probablement pas encore planifiée, ce n'est pas un congé.
   const plannedWeeks = new Set(shifts.map((s) => toDateParam(startOfWeek(fromDateParam(s.workDate)!))));
@@ -147,13 +150,13 @@ function MonthCalendar({ days, monthStart, shifts, today, mine, onOpenWeek }: {
     <>
       {mine && (
         <p className="mb-4 text-sm text-muted">
-          {monthShifts.length} quart{monthShifts.length > 1 ? 's' : ''} ce mois-ci · {formatDuration(total)}
+          {t('schedule.monthTotal', { count: monthShifts.length, duration: formatDuration(total) })}
         </p>
       )}
-      {!mine && onOpenWeek && <p className="mb-4 text-sm text-muted">Cliquez sur un jour pour ouvrir sa semaine.</p>}
+      {!mine && onOpenWeek && <p className="mb-4 text-sm text-muted">{t('schedule.clickDay')}</p>}
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="grid grid-cols-7 border-b border-line text-center text-xs font-semibold text-muted" aria-hidden>
-          {WEEKDAYS.map((d) => <span key={d} className="py-2">{d}</span>)}
+          {WEEKDAYS.map((d) => <span key={d} className="py-2">{t(`schedule.weekdays.${d}`)}</span>)}
         </div>
         <ol className="grid grid-cols-7">
           {days.map((day) => {
@@ -163,7 +166,7 @@ function MonthCalendar({ days, monthStart, shifts, today, mine, onOpenWeek }: {
             const label = formatDayHeading(day);
             const content = mine ? (
               items.length === 0
-                ? !outside && planned(day) && <span className="text-[10px] text-muted sm:text-xs">Congé</span>
+                ? !outside && planned(day) && <span className="text-[10px] text-muted sm:text-xs">{t('schedule.dayOff')}</span>
                 : items.map((s) => (
                   <span key={s.id} className={cx('block rounded px-1 py-0.5 text-[10px] leading-tight sm:text-xs',
                     s.adjusted ? 'bg-priority-soft text-priority' : 'bg-info-soft text-primary')}>
@@ -172,12 +175,12 @@ function MonthCalendar({ days, monthStart, shifts, today, mine, onOpenWeek }: {
                   </span>
                 ))
             ) : (
-              types.data?.map((t) => {
-                const people = items.filter((s) => s.shiftType.id === t.id);
+              types.data?.map((type) => {
+                const people = items.filter((s) => s.shiftType.id === type.id);
                 if (people.length === 0) return null;
                 return (
-                  <span key={t.id} className="block text-[10px] leading-tight sm:text-xs">
-                    <span className="font-semibold">{t.label}</span>
+                  <span key={type.id} className="block text-[10px] leading-tight sm:text-xs">
+                    <span className="font-semibold">{type.label}</span>
                     <span className="sm:hidden"> {people.length}</span>
                     <span className="hidden text-muted sm:inline"> {people.map((s) => s.user.firstName).join(', ')}</span>
                   </span>
@@ -198,7 +201,7 @@ function MonthCalendar({ days, monthStart, shifts, today, mine, onOpenWeek }: {
             return (
               <li key={day.toISOString()} aria-label={label} aria-current={isToday ? 'date' : undefined}>
                 {onOpenWeek ? (
-                  <button type="button" onClick={() => onOpenWeek(day)} aria-label={`${label} : ouvrir la semaine`}
+                  <button type="button" onClick={() => onOpenWeek(day)} aria-label={t('schedule.openWeek', { day: label })}
                     className={cx(classes, 'h-full w-full hover:bg-info-soft/40')}>{cell}</button>
                 ) : <div className={cx(classes, 'h-full')}>{cell}</div>}
               </li>
@@ -214,11 +217,12 @@ function MonthCalendar({ days, monthStart, shifts, today, mine, onOpenWeek }: {
 // Mon horaire : liste des jours, total de la semaine
 // ---------------------------------------------------------------------
 function MySchedule({ days, shifts, today }: { days: Date[]; shifts: Shift[]; today: Date }) {
+  const { t } = useTranslation();
   const total = shifts.reduce((sum, s) => sum + shiftMinutes(s.startTime, s.endTime), 0);
   return (
     <>
       <p className="mb-4 text-sm text-muted">
-        {shifts.length} quart{shifts.length > 1 ? 's' : ''} cette semaine · {formatDuration(total)}
+        {t('schedule.weekTotal', { count: shifts.length, duration: formatDuration(total) })}
       </p>
       <ul className="flex flex-col gap-2">
         {days.map((day) => {
@@ -229,15 +233,15 @@ function MySchedule({ days, shifts, today }: { days: Date[]; shifts: Shift[]; to
               className={cx('flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-surface px-4 py-3',
                 isToday ? 'border-primary' : 'border-line')}>
               <span className={cx('font-medium first-letter:uppercase', isToday && 'text-primary')}>
-                {formatDayHeading(day)}{isToday && ' — aujourd’hui'}
+                {formatDayHeading(day)}{isToday && t('schedule.today')}
               </span>
-              {mine.length === 0 ? <span className="text-sm text-muted">Congé</span> : (
+              {mine.length === 0 ? <span className="text-sm text-muted">{t('schedule.dayOff')}</span> : (
                 <span className="flex flex-wrap gap-2">
                   {mine.map((s) => (
                     <span key={s.id} className="text-right">
                       <Badge tone="info">{s.shiftType.label}</Badge>{' '}
                       <span className="font-semibold tabular-nums">{formatShiftTimes(s.startTime, s.endTime)}</span>
-                      {s.overnight && <span className="text-xs text-muted"> (lendemain)</span>}
+                      {s.overnight && <span className="text-xs text-muted">{t('schedule.nextDay')}</span>}
                       {s.notes && <span className="block text-xs text-muted">{s.notes}</span>}
                     </span>
                   ))}
@@ -257,6 +261,7 @@ function MySchedule({ days, shifts, today }: { days: Date[]; shifts: Shift[]; to
 function TeamGrid({ days, shifts, today, editable, onEdit }: {
   days: Date[]; shifts: Shift[]; today: Date; editable: boolean; onEdit: (e: Editing) => void;
 }) {
+  const { t } = useTranslation();
   const staff = useStaff();
   const types = useShiftTypes();
   if (staff.isPending || types.isPending) return <Loading />;
@@ -266,7 +271,7 @@ function TeamGrid({ days, shifts, today, editable, onEdit }: {
   for (const s of shifts) {
     if (!people.some((p) => p.id === s.user.id)) people.push(s.user);
   }
-  if (people.length === 0) return <EmptyState>Aucun employé.</EmptyState>;
+  if (people.length === 0) return <EmptyState>{t('schedule.noStaff')}</EmptyState>;
 
   const cell = (userId: string, day: Date) => shifts.filter((s) => s.user.id === userId && s.workDate === toDateParam(day));
   const weekMinutes = (userId: string) => shifts.filter((s) => s.user.id === userId)
@@ -277,11 +282,11 @@ function TeamGrid({ days, shifts, today, editable, onEdit }: {
       <table className="w-full min-w-[56rem] border-collapse text-sm">
         <thead>
           <tr className="border-b border-line">
-            <th scope="col" className="sticky left-0 bg-surface px-3 py-2 text-left font-semibold">Employé</th>
+            <th scope="col" className="sticky left-0 bg-surface px-3 py-2 text-left font-semibold">{t('schedule.employee')}</th>
             {days.map((day) => (
               <th key={day.toISOString()} scope="col"
                 className={cx('px-2 py-2 text-center font-semibold first-letter:uppercase', sameDay(day, today) && 'text-primary')}>
-                {dayShort.format(day)}
+                {dayShort(day)}
               </th>
             ))}
           </tr>
@@ -291,7 +296,7 @@ function TeamGrid({ days, shifts, today, editable, onEdit }: {
             <tr key={person.id} className="border-b border-line align-top">
               <th scope="row" className="sticky left-0 bg-surface px-3 py-2 text-left font-normal">
                 <span className="block font-medium">{fullName(person)}</span>
-                <span className="text-xs text-muted">{ROLE_LABELS[person.role]} · {formatDuration(weekMinutes(person.id))}</span>
+                <span className="text-xs text-muted">{t(`common.roles.${person.role}`)} · {formatDuration(weekMinutes(person.id))}</span>
               </th>
               {days.map((day) => {
                 const items = cell(person.id, day);
@@ -310,7 +315,7 @@ function TeamGrid({ days, shifts, today, editable, onEdit }: {
                         </button>
                       ))}
                       {editable && (
-                        <button type="button" aria-label={`Ajouter un quart à ${fullName(person)}, ${formatDayHeading(day)}`}
+                        <button type="button" aria-label={t('schedule.addShiftFor', { name: fullName(person), day: formatDayHeading(day) })}
                           onClick={() => onEdit({ userId: person.id, workDate: toDateParam(day) })}
                           className="rounded-md border border-dashed border-line py-1 text-xs text-muted hover:border-primary hover:text-primary">
                           +
@@ -325,12 +330,12 @@ function TeamGrid({ days, shifts, today, editable, onEdit }: {
         </tbody>
         <tfoot>
           <tr>
-            <th scope="row" className="sticky left-0 bg-surface px-3 py-2 text-left text-xs font-semibold text-muted">Couverture</th>
+            <th scope="row" className="sticky left-0 bg-surface px-3 py-2 text-left text-xs font-semibold text-muted">{t('schedule.coverage')}</th>
             {days.map((day) => (
               <td key={day.toISOString()} className="px-2 py-2 text-xs text-muted">
-                {types.data?.map((t) => {
-                  const n = shifts.filter((s) => s.workDate === toDateParam(day) && s.shiftType.id === t.id).length;
-                  return <span key={t.id} className={cx('block', n === 0 && 'font-semibold text-danger')}>{t.label} : {n}</span>;
+                {types.data?.map((type) => {
+                  const n = shifts.filter((s) => s.workDate === toDateParam(day) && s.shiftType.id === type.id).length;
+                  return <span key={type.id} className={cx('block', n === 0 && 'font-semibold text-danger')}>{t('schedule.coverageCount', { label: type.label, count: n })}</span>;
                 })}
               </td>
             ))}
@@ -338,9 +343,9 @@ function TeamGrid({ days, shifts, today, editable, onEdit }: {
         </tfoot>
       </table>
       <p className="px-3 py-2 text-xs text-muted">
-        <span className="mr-3 inline-block rounded bg-info-soft px-1.5 text-primary">Quart</span>
-        <span className="mr-3 inline-block rounded bg-priority-soft px-1.5 text-priority">Heures ajustées</span>
-        • = note sur le quart
+        <span className="mr-3 inline-block rounded bg-info-soft px-1.5 text-primary">{t('schedule.legendShift')}</span>
+        <span className="mr-3 inline-block rounded bg-priority-soft px-1.5 text-priority">{t('schedule.legendAdjusted')}</span>
+        {t('schedule.legendNote')}
       </p>
     </div>
   );
@@ -350,6 +355,7 @@ function TeamGrid({ days, shifts, today, editable, onEdit }: {
 // Ajouter / modifier / retirer un quart (responsable)
 // ---------------------------------------------------------------------
 function ShiftForm({ editing, onDone }: { editing: Editing; onDone: () => void }) {
+  const { t } = useTranslation();
   const staff = useStaff();
   const types = useShiftTypes();
   const save = useSaveShift(editing.shift?.id);
@@ -366,7 +372,7 @@ function ShiftForm({ editing, onDone }: { editing: Editing; onDone: () => void }
   // Choisir un quart type remplit ses heures (modifiables ensuite)
   function chooseType(id: string) {
     setTypeId(id);
-    const type = types.data?.find((t) => t.id === id);
+    const type = types.data?.find((x) => x.id === id);
     if (type) { setStart(type.startTime); setEnd(type.endTime); }
   }
 
@@ -379,7 +385,7 @@ function ShiftForm({ editing, onDone }: { editing: Editing; onDone: () => void }
   }
 
   async function remove() {
-    if (!s || !window.confirm('Retirer ce quart de l’horaire ?')) return;
+    if (!s || !window.confirm(t('schedule.form.removeConfirm'))) return;
     await cancel.mutateAsync(s.id);
     onDone();
   }
@@ -389,23 +395,23 @@ function ShiftForm({ editing, onDone }: { editing: Editing; onDone: () => void }
       <p className="text-sm">
         <strong>{person ? fullName(person) : ''}</strong> — <span className="first-letter:uppercase">{formatDayHeading(day)}</span>
       </p>
-      <SelectField label="Quart" required value={typeId} onChange={(e) => chooseType(e.target.value)}>
-        <option value="" disabled>Choisir…</option>
-        {types.data?.map((t) => <option key={t.id} value={t.id}>{t.label} ({formatShiftTimes(t.startTime, t.endTime)})</option>)}
+      <SelectField label={t('schedule.form.shift')} required value={typeId} onChange={(e) => chooseType(e.target.value)}>
+        <option value="" disabled>{t('common.choose')}</option>
+        {types.data?.map((type) => <option key={type.id} value={type.id}>{type.label} ({formatShiftTimes(type.startTime, type.endTime)})</option>)}
       </SelectField>
       <div className="grid grid-cols-2 gap-4">
-        <TextField label="Début" type="time" required value={start} onChange={(e) => setStart(e.target.value)} />
-        <TextField label="Fin" type="time" required value={end} onChange={(e) => setEnd(e.target.value)}
-          hint={start && end && end <= start ? 'Finit le lendemain.' : undefined} />
+        <TextField label={t('schedule.form.start')} type="time" required value={start} onChange={(e) => setStart(e.target.value)} />
+        <TextField label={t('schedule.form.end')} type="time" required value={end} onChange={(e) => setEnd(e.target.value)}
+          hint={start && end && end <= start ? t('schedule.form.endsNextDay') : undefined} />
       </div>
-      <TextField label="Note (facultatif)" maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)}
-        placeholder="Ex. : formation de 9 h à 11 h, remplacement" />
+      <TextField label={t('schedule.form.note')} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)}
+        placeholder={t('schedule.form.notePlaceholder')} />
       <ErrorMessage error={save.error ?? cancel.error} />
       <div className="flex flex-wrap justify-between gap-2">
-        {s ? <Button variant="ghost" className="text-danger" busy={cancel.isPending} onClick={() => void remove()}>Retirer de l’horaire</Button> : <span />}
+        {s ? <Button variant="ghost" className="text-danger" busy={cancel.isPending} onClick={() => void remove()}>{t('schedule.form.remove')}</Button> : <span />}
         <div className="flex gap-2">
-          <Button onClick={onDone}>Annuler</Button>
-          <Button type="submit" variant="primary" busy={save.isPending}>{s ? 'Enregistrer' : 'Ajouter'}</Button>
+          <Button onClick={onDone}>{t('common.cancel')}</Button>
+          <Button type="submit" variant="primary" busy={save.isPending}>{s ? t('common.save') : t('common.add')}</Button>
         </div>
       </div>
     </form>

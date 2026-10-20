@@ -4,6 +4,7 @@
 // d'accueil (iOS 16.4 et plus). Appareil partagé : jamais proposé (les avis
 // d'une personne s'afficheraient à la suivante).
 import { api } from '../api/client';
+import i18n from '../i18n';
 
 export const pushSupported = () =>
   typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -38,11 +39,11 @@ export async function currentSubscription(): Promise<PushSubscription | null> {
 // Demande l'autorisation, abonne l'appareil et l'enregistre auprès de l'API
 export async function enablePush(publicKey: string): Promise<void> {
   const result = await Notification.requestPermission();
-  if (result !== 'granted') throw new Error('Notifications refusées dans le navigateur. Les autoriser dans ses réglages, puis réessayer.');
+  if (result !== 'granted') throw new Error(i18n.t('shell.push.denied'));
   const reg = await registration();
   // Le service de notification du navigateur peut ne pas répondre (réseau filtré)
   const timeout = new Promise<never>((_, reject) => setTimeout(
-    () => reject(new Error('Le service de notification du navigateur ne répond pas. Vérifier la connexion, puis réessayer.')), 20_000));
+    () => reject(new Error(i18n.t('shell.push.timeout'))), 20_000));
   const sub = await reg.pushManager.getSubscription()
     ?? await Promise.race([reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) }), timeout]);
   const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };

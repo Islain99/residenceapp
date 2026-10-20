@@ -1,5 +1,6 @@
 // Plateforme — journal : actions des administrateurs et événements sans
 // résidence. L'activité d'une résidence reste dans son propre journal.
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { usePlatformAudit, usePlatformResidences } from '../../api/hooks';
 import { Button, EmptyState, ErrorMessage, Loading, PageHeader, SelectField } from '../../components/ui';
@@ -7,6 +8,7 @@ import { auditActor, describeAudit } from '../../lib/audit';
 import { formatFull } from '../../lib/format';
 
 export function PlatformAuditPage() {
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const residences = usePlatformResidences();
   const residenceId = params.get('residence') || undefined;
@@ -16,22 +18,22 @@ export function PlatformAuditPage() {
   return (
     <>
       <PageHeader
-        title="Journal de la plateforme"
-        subtitle="Actions des administrateurs (elles figurent aussi au journal de la résidence concernée). Rien ne peut y être modifié ni effacé."
+        title={t('platform.audit.title')}
+        subtitle={t('platform.audit.subtitle')}
       />
       <div className="mb-5 max-w-xs">
-        <SelectField label="Résidence" value={residenceId ?? ''} onChange={(e) => {
+        <SelectField label={t('platform.audit.residence')} value={residenceId ?? ''} onChange={(e) => {
           const next = new URLSearchParams(params);
           if (e.target.value) next.set('residence', e.target.value); else next.delete('residence');
           setParams(next, { replace: true });
         }}>
-          <option value="">Toutes</option>
+          <option value="">{t('platform.audit.all')}</option>
           {residences.data?.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
         </SelectField>
       </div>
 
       {audit.isPending ? <Loading /> : audit.isError ? <ErrorMessage error={audit.error} /> :
-        items.length === 0 ? <EmptyState>Aucune action.</EmptyState> : (
+        items.length === 0 ? <EmptyState>{t('platform.audit.empty')}</EmptyState> : (
           <>
             <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
               {items.map((entry) => (
@@ -46,7 +48,7 @@ export function PlatformAuditPage() {
             </ul>
             {audit.hasNextPage && (
               <div className="mt-4 flex justify-center">
-                <Button busy={audit.isFetchingNextPage} onClick={() => audit.fetchNextPage()}>Voir plus</Button>
+                <Button busy={audit.isFetchingNextPage} onClick={() => audit.fetchNextPage()}>{t('admin.audit.more')}</Button>
               </div>
             )}
           </>

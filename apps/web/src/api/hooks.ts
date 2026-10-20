@@ -2,6 +2,7 @@
 // Après une écriture, les listes concernées sont relues (invalidate).
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/session';
+import i18n from '../i18n';
 import { api } from './client';
 import type {
   AdminConversation, AnnouncementAcks, ConsultedMessage, Conversation, Message, MessagePage, MessagingSummary,
@@ -221,7 +222,7 @@ export function useUpdateCategory() {
 export async function downloadResidentExport(resident: { id: string; firstName: string; lastName: string }) {
   const data = await api<unknown>(`/residents/${resident.id}/export`);
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const name = `dossier-${resident.lastName}-${resident.firstName}-${new Date().toISOString().slice(0, 10)}`
+  const name = `${i18n.t('residents.detail.exportFile')}-${resident.lastName}-${resident.firstName}-${new Date().toISOString().slice(0, 10)}`
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w.-]+/g, '-').toLowerCase();
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -533,7 +534,7 @@ export const useUpdateResidence = () =>
     api<PlatformResidence>(`/platform/residences/${id}`, { method: 'PATCH', body }));
 
 export const useAddResponsable = () =>
-  usePlatformMutation(({ residenceId, ...body }: { residenceId: string } & ({ userId: string } | { email: string; firstName: string; lastName: string })) =>
+  usePlatformMutation(({ residenceId, ...body }: { residenceId: string } & ({ userId: string } | { email: string; firstName: string; lastName: string; locale?: 'fr' | 'en' })) =>
     api<PlatformAccount>(`/platform/residences/${residenceId}/responsables`, { method: 'POST', body }));
 
 export type PlatformAccountAction = 'invite' | 'reset-password' | 'unlock' | 'revoke-sessions' | 'reset-mfa';
@@ -547,7 +548,7 @@ export const useSetPlatformAccountActive = () =>
     api<PlatformAccount>(`/platform/users/${id}`, { method: 'PATCH', body: { isActive } }));
 
 export const useInviteAdmin = () =>
-  usePlatformMutation((input: { email: string; firstName: string; lastName: string }) =>
+  usePlatformMutation((input: { email: string; firstName: string; lastName: string; locale?: 'fr' | 'en' }) =>
     api<PlatformAccount>('/platform/admins', { method: 'POST', body: input }));
 
 export const useEndAssistance = () =>

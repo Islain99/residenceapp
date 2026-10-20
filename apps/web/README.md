@@ -62,6 +62,19 @@ Comptes fictifs : `responsable@exemple.test`, `infirmiere@exemple.test`, `prepos
 
 L'interface masque les actions non permises (ex. « Corriger » après 24 h pour un préposé), mais c'est l'API qui fait foi.
 
+## Français et anglais (i18n)
+
+[i18next](https://www.i18next.com) + react-i18next. **Français par défaut** ; l'anglais se choisit sur la page de connexion (et les pages du mot de passe) ou dans « Mon profil › Apparence › Langue » (`components/LanguageSwitch.tsx`).
+
+- **Où sont les textes** : `src/i18n/fr/<partie>.ts` (référence) et `src/i18n/en/<partie>.ts` (`common`, `auth`, `shell`, `journal`, `residents`, `agenda`, `schedule`, `messages`, `admin`, `account`, `platform`), réunis dans `src/i18n/fr/index.ts` et `en/index.ts`.
+- **Garde-fou** : chaque fichier anglais est déclaré `satisfies Translation<typeof fr>` (`src/i18n/types.ts`) : une clé manquante ou en trop fait échouer `npm run build`. Les clés utilisées dans les composants sont vérifiées aussi (`t('journal.note.title')` qui n'existe pas : erreur de compilation).
+- **Ajouter un texte** : la clé dans les deux langues, puis `const { t } = useTranslation();` et `t('partie.cle', { valeur })`. Pluriels : clés `_one` / `_other` et `{ count }`. Texte avec balises : `<Trans i18nKey="…" components={{ strong: <strong /> }} />`.
+- **Dates et heures** : `lib/format.ts` suit la langue (`fr-CA` ou `en-CA`) ; durées et heures des quarts : `lib/schedule.ts`.
+- **Erreurs de l'API** : messages français du serveur ; en anglais, l'interface affiche la traduction de leur code (`src/i18n/api-errors.ts`, voir `api/client.ts`). Nouvelle erreur côté API : ajouter son code (le test `apps/api/test/i18n.test.ts` le vérifie).
+- **La langue** est gardée sur l'appareil (`localStorage` « lang ») et dans le compte (`users.locale`, `PATCH /auth/me`) : à la connexion, une langue choisie sur l'appareil est enregistrée dans le compte, sinon l'appareil prend celle du compte (`auth/AuthProvider.tsx`). Changer de langue redessine l'application (adresse, session et données gardées).
+- **Hors React** : `public/offline.html` lit la même préférence ; la dictée des notes écoute la langue de l'interface (`fr-CA` ou `en-CA`).
+- Les données saisies (notes, catégories, quarts types, noms des canaux créés par le serveur) ne sont pas traduites, sauf les canaux « Toute l'équipe » et « Annonces » (`lib/messaging.ts`).
+
 ## Session
 
 - Connexion en **mode cookie** : le jeton de rafraîchissement est dans un cookie `httpOnly` (illisible par le JavaScript de la page), le jeton d'accès reste **en mémoire** seulement.

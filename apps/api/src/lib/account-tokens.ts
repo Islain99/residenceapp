@@ -5,6 +5,7 @@
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { Config } from '../config.js';
 import type { DB } from '../db/types.js';
+import { asLocale, MAIL_TEXT } from './locale.js';
 import { linkMail, type Mail } from './mailer.js';
 import { generateRefreshToken, hashToken } from './tokens.js';
 
@@ -45,30 +46,48 @@ export function findOpenToken(db: Db, token: string) {
 
 const passwordLink = (config: Config, token: string) => `${config.APP_URL.replace(/\/$/, '')}/mot-de-passe#${token}`;
 
-export function inviteMail(config: Config, to: { email: string; firstName: string }, token: string,
-  invitedBy: string, residence: string): Mail {
+// Destinataire : le courriel part dans la langue de son compte (users.locale)
+interface Recipient { email: string; firstName: string; locale: string | null }
+
+// invitedBy, place : null = l'administration de la plateforme
+export function inviteMail(config: Config, to: Recipient, token: string,
+  invitedBy: string | null, place: string | null): Mail {
+  const locale = asLocale(to.locale);
+  const m = MAIL_TEXT[locale];
+  const where = place ?? m.invite.platformPlace;
   return linkMail(
     to.email,
-    `Votre accès au journal de bord — ${residence}`,
-    [
-      `Bonjour ${to.firstName},`,
-      `${invitedBy} vous a créé un accès au journal de bord de ${residence}.`,
-      'Pour l’activer, choisissez votre mot de passe. Le lien est valable 72 heures.',
-    ],
-    { label: 'Choisir mon mot de passe', url: passwordLink(config, token) },
-    'Si vous n’attendiez pas ce message, vous pouvez l’ignorer.',
+    m.invite.subject(where),
+    [m.hello(to.firstName), m.invite.body(invitedBy ?? m.invite.platformSender, where), m.invite.validity],
+    { label: m.invite.button, url: passwordLink(config, token) },
+    m.invite.footer,
+    locale,
   );
 }
 
-export function resetMail(config: Config, to: { email: string; firstName: string }, token: string): Mail {
+export function resetMail(config: Config, to: Recipient, token: string): Mail {
+  const locale = asLocale(to.locale);
+  const m = MAIL_TEXT[locale];
   return linkMail(
     to.email,
-    'Réinitialiser votre mot de passe — Journal de bord',
-    [
-      `Bonjour ${to.firstName},`,
-      'Vous avez demandé à changer votre mot de passe. Le lien est valable 1 heure et ne sert qu’une fois.',
-    ],
-    { label: 'Choisir un nouveau mot de passe', url: passwordLink(config, token) },
-    'Si vous n’êtes pas à l’origine de cette demande, ignorez ce message : votre mot de passe actuel reste valable.',
+    m.reset.subject,
+    [m.hello(to.firstName), m.reset.body],
+    { label: m.reset.button, url: passwordLink(config, token) },
+    m.reset.footer,
+    locale,
+  );
+}
+
+// Avis après un changement de mot de passe (Mon profil)
+export function passwordChangedMail(config: Config, to: Recipient): Mail {
+  const locale = asLocale(to.locale);
+  const m = MAIL_TEXT[locale];
+  return linkMail(
+    to.email,
+    m.passwordChanged.subject,
+    [m.hello(to.firstName), m.passwordChanged.body, m.passwordChanged.warning],
+    { label: m.passwordChanged.button, url: `${config.APP_URL.replace(/\/$/, '')}/mot-de-passe-oublie` },
+    m.passwordChanged.footer,
+    locale,
   );
 }

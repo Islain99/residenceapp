@@ -22,10 +22,10 @@
 <body>
   <main>
     <img id="logo" src="/logo.png" alt="" />
-    <h1>Hors connexion</h1>
-    <p>Le journal de bord a besoin du réseau. Pour protéger les renseignements des résidents,
+    <h1 id="title">Hors connexion</h1>
+    <p id="text">Le journal de bord a besoin du réseau. Pour protéger les renseignements des résidents,
        aucune note n'est gardée sur cet appareil. Vérifiez le Wi-Fi, puis réessayez.</p>
-    <button type="button" onclick="location.reload()">Réessayer</button>
+    <button id="retry" type="button" onclick="location.reload()">Réessayer</button>
   </main>
   <script>
     try {
@@ -35,6 +35,17 @@
         document.getElementById('logo').src = '/logo-dark.png';
       }
     } catch (e) { /* thème clair */ }
+    // Même langue que l'application (src/i18n) : français par défaut
+    try {
+      if (localStorage.getItem('lang') === 'en') {
+        document.documentElement.lang = 'en-CA';
+        document.title = 'Offline — Logbook';
+        document.getElementById('title').textContent = 'Offline';
+        document.getElementById('text').textContent = 'The logbook needs the network. To protect residents’ information, '
+          + 'no notes are kept on this device. Check the Wi-Fi, then try again.';
+        document.getElementById('retry').textContent = 'Try again';
+      }
+    } catch (e) { /* français */ }
     window.addEventListener('online', () => location.reload());
   </script>
 </body>

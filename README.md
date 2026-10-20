@@ -9,6 +9,7 @@ Application web pour les équipes de résidences (RPA, RI). Les préposés, infi
 - **Horaires** : la responsable place les quarts de l'équipe (Jour, Soir, Nuit…) semaine par semaine ; chacun voit son horaire.
 - **Résidents** : fiches, consignes particulières, notes réservées aux infirmières et responsables ; statistiques par mois ou par année (tendances par catégorie, moments de la journée) pour l'infirmière et la responsable.
 - **Équipe** : la responsable invite les employés par courriel ; chacun choisit son mot de passe.
+- **Français / English** : l'interface entière, les courriels et les notifications existent dans les deux langues. Choix sur la page de connexion ou dans « Mon profil », gardé dans le compte. Français par défaut.
 - **Mon profil** : chacun choisit son avatar (galerie de personnages illustrés, ou ses initiales ; affiché en haut à droite), modifie son nom et son téléphone, et change son mot de passe (avec l'actuel ; option « déconnecter mes autres appareils » ; avis par courriel).
 - **Messagerie** : messages privés, groupes, fil de toute l'équipe et annonces de la direction avec confirmation de lecture. Un message se corrige ou se retire pendant 15 minutes, rien n'est supprimé.
 - **Administration** : catégories de notes, journal d'audit (qui a consulté quoi), export complet du dossier d'un résident (Loi 25).
@@ -108,6 +109,15 @@ npm test                  # tests d'intégration ; Docker doit tourner
 Les tests recréent leur propre base (`residence_test`) à chaque exécution. La base de développement n'est jamais touchée.
 
 Pour l'interface : `npm run build` (vérification des types) et `npm run lint` dans `apps/web`.
+
+## Règle des deux langues (pour toute nouvelle fonctionnalité)
+
+Tout texte visible existe en **français et en anglais**. Le français reste la langue par défaut (Charte de la langue française).
+
+- **Interface** : aucun texte en dur dans un composant. Ajouter la clé dans `apps/web/src/i18n/fr/<partie>.ts` **et** `apps/web/src/i18n/en/<partie>.ts`, puis `t('partie.cle')` (`useTranslation`). Une clé absente de l'anglais (ou mal écrite dans un composant) **fait échouer la compilation** (`npm run build`).
+- **Erreurs de l'API** : le serveur écrit ses messages en français ; chaque nouveau code d'erreur reçoit sa traduction dans `apps/web/src/i18n/api-errors.ts`. Le test `apps/api/test/i18n.test.ts` échoue sinon.
+- **Courriels et notifications** : textes dans `apps/api/src/lib/locale.ts` (`MAIL_TEXT`, `PUSH_TEXT`), envoyés dans la langue du destinataire (`users.locale`). Le type `Localized<T>` refuse un texte sans sa version anglaise.
+- **Données** : ce que l'équipe saisit (notes, noms de catégories, quarts) n'est pas traduit.
 
 ## Pour aller plus loin
 

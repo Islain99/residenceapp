@@ -3,8 +3,10 @@
 //   /mot-de-passe#<jeton>  choisir son mot de passe (invitation ou réinitialisation)
 // Le jeton est dans le fragment (#) : jamais envoyé au serveur web ni noté dans un journal.
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 import { checkPasswordToken, forgotPassword, setPassword } from '../api/hooks';
+import { LanguageSwitch } from '../components/LanguageSwitch';
 import { Logo } from '../components/Logo';
 import { Button, Card, ErrorMessage, Loading, TextField } from '../components/ui';
 
@@ -12,7 +14,8 @@ const MIN_LENGTH = 12;   // même règle que l'API
 
 function PublicCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4">
+    <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-4 py-8">
+      <LanguageSwitch />
       <Card className="w-full max-w-sm p-6">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <Logo className="size-28" />
@@ -24,9 +27,13 @@ function PublicCard({ title, children }: { title: string; children: ReactNode })
   );
 }
 
-const backToLogin = <Link to="/connexion" className="mt-4 block text-center text-sm text-primary hover:underline">Retour à la connexion</Link>;
+function BackToLogin() {
+  const { t } = useTranslation();
+  return <Link to="/connexion" className="mt-4 block text-center text-sm text-primary hover:underline">{t('auth.password.backToLogin')}</Link>;
+}
 
 export function ForgotPasswordPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -47,22 +54,21 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <PublicCard title="Mot de passe oublié">
+    <PublicCard title={t('auth.password.forgotTitle')}>
       {sent ? (
         <p role="status" className="rounded-lg bg-positive-soft px-3 py-3 text-sm text-positive">
-          Si un compte actif utilise <strong>{email}</strong>, un courriel vient d'être envoyé avec un lien pour
-          choisir un nouveau mot de passe. Le lien est valable 1 heure. Pensez à vérifier les courriels indésirables.
+          <Trans i18nKey="auth.password.forgotSent" values={{ email }} components={{ strong: <strong /> }} />
         </p>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-4">
-          <p className="text-sm text-muted">Indiquez le courriel de votre compte : vous recevrez un lien pour choisir un nouveau mot de passe.</p>
-          <TextField label="Courriel" type="email" autoComplete="username" required autoFocus
+          <p className="text-sm text-muted">{t('auth.password.forgotIntro')}</p>
+          <TextField label={t('common.email')} type="email" autoComplete="username" required autoFocus
             value={email} onChange={(e) => setEmail(e.target.value)} />
           <ErrorMessage error={error} />
-          <Button type="submit" variant="primary" busy={busy}>Envoyer le lien</Button>
+          <Button type="submit" variant="primary" busy={busy}>{t('auth.password.sendLink')}</Button>
         </form>
       )}
-      {backToLogin}
+      <BackToLogin />
     </PublicCard>
   );
 }
@@ -70,11 +76,12 @@ export function ForgotPasswordPage() {
 type TokenInfo = Awaited<ReturnType<typeof checkPasswordToken>>;
 
 export function SetPasswordPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [token] = useState(() => window.location.hash.slice(1));
   const [info, setInfo] = useState<TokenInfo | null>(null);
   const [checkError, setCheckError] = useState<unknown>(() =>
-    token ? null : new Error('Lien incomplet. Ouvrez le lien reçu par courriel.'));
+    token ? null : new Error(t('auth.password.incompleteLink')));
   const [password, setPasswordValue] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<unknown>(null);
@@ -90,7 +97,7 @@ export function SetPasswordPage() {
     event.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError(new Error('Les deux mots de passe ne sont pas identiques.'));
+      setError(new Error(t('auth.password.mismatch')));
       return;
     }
     setBusy(true);
@@ -98,7 +105,7 @@ export function SetPasswordPage() {
       await setPassword(token, password);
       navigate('/connexion', {
         replace: true,
-        state: { email: info?.email, message: 'Mot de passe enregistré. Vous pouvez maintenant vous connecter.' },
+        state: { email: info?.email, message: t('auth.password.savedCanLogin') },
       });
     } catch (err) {
       setError(err);
@@ -108,12 +115,12 @@ export function SetPasswordPage() {
 
   if (checkError) {
     return (
-      <PublicCard title="Lien invalide">
+      <PublicCard title={t('auth.password.invalidLink')}>
         <ErrorMessage error={checkError} />
         <Link to="/mot-de-passe-oublie" className="mt-4 block text-center text-sm text-primary hover:underline">
-          Demander un nouveau lien
+          {t('auth.password.newLink')}
         </Link>
-        {backToLogin}
+        <BackToLogin />
       </PublicCard>
     );
   }
@@ -121,20 +128,20 @@ export function SetPasswordPage() {
 
   const invite = info.purpose === 'invite';
   return (
-    <PublicCard title={invite ? `Bienvenue ${info.firstName}` : 'Nouveau mot de passe'}>
+    <PublicCard title={invite ? t('auth.password.welcome', { name: info.firstName }) : t('auth.password.newPassword')}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <p className="text-sm text-muted">
-          {invite ? 'Choisissez le mot de passe de votre compte' : 'Choisissez un nouveau mot de passe pour'} <strong className="text-ink">{info.email}</strong>.
+          {invite ? t('auth.password.chooseForInvite') : t('auth.password.chooseForReset')} <strong className="text-ink">{info.email}</strong>.
         </p>
         {/* Champ caché : aide le gestionnaire de mots de passe à associer le bon compte */}
         <input type="email" autoComplete="username" value={info.email} readOnly hidden />
-        <TextField label="Mot de passe" type="password" autoComplete="new-password" required minLength={MIN_LENGTH}
+        <TextField label={t('common.password')} type="password" autoComplete="new-password" required minLength={MIN_LENGTH}
           maxLength={200} autoFocus value={password} onChange={(e) => setPasswordValue(e.target.value)}
-          hint={`Au moins ${MIN_LENGTH} caractères. Une courte phrase est facile à retenir et difficile à deviner.`} />
-        <TextField label="Confirmer le mot de passe" type="password" autoComplete="new-password" required
+          hint={t('auth.password.hint', { min: MIN_LENGTH })} />
+        <TextField label={t('auth.password.confirmPassword')} type="password" autoComplete="new-password" required
           minLength={MIN_LENGTH} maxLength={200} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         <ErrorMessage error={error} />
-        <Button type="submit" variant="primary" busy={busy}>{invite ? 'Activer mon compte' : 'Enregistrer'}</Button>
+        <Button type="submit" variant="primary" busy={busy}>{invite ? t('auth.password.activate') : t('common.save')}</Button>
       </form>
     </PublicCard>
   );

@@ -128,6 +128,13 @@ Mêmes commandes : `npm run db:setup` (`DATABASE_ADMIN_URL` = compte maître RDS
 - **Compte relu à chaque requête** : un compte désactivé perd l'accès immédiatement (401 `inactive_account`), sans attendre la fin du jeton d'accès ; un changement de rôle s'applique aussi tout de suite.
 - **Audit** : `login` (avec `mfa` : `totp`, `backup`, `setup`), `login_failed` (avec le motif : `bad_password`, `bad_mfa_code`, `locked`…), `logout`, `refresh_reuse`, `mfa_enabled`, `mfa_backup_codes`, `mfa_reset` dans `audit_log`.
 
+## Langue (français / anglais)
+
+`users.locale` (`fr` par défaut, ou `en`, migration 0013) : renvoyé à la connexion et par `/auth/me`, modifiable par `PATCH /auth/me { locale }`. À l'invitation, la responsable (ou l'administration de la plateforme) choisit la langue de la personne (`locale` dans `POST /users`, `POST /platform/residences`, `POST /platform/residences/:id/responsables`, `POST /platform/admins`).
+
+- **Courriels** (invitation, mot de passe oublié, mot de passe changé, essai) et **notifications push** partent dans la langue du destinataire. Textes : `src/lib/locale.ts` (`MAIL_TEXT`, `PUSH_TEXT`) ; le type `Localized<T>` exige les deux langues.
+- **Messages d'erreur** : en français ; l'interface en anglais les traduit d'après leur code (`apps/web/src/i18n/api-errors.ts`). `test/i18n.test.ts` vérifie que chaque code a sa traduction.
+
 ## Notifications push
 
 Web Push (service worker de l'interface), si les clés VAPID sont configurées. **Aucun contenu** dans une notification (elle s'affiche sur l'écran verrouillé) : le type d'événement et l'auteur seulement, jamais le nom d'un résident ni le texte d'une note ou d'un message.

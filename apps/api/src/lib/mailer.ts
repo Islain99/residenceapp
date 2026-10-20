@@ -8,6 +8,7 @@
 // sur le plan Pro.
 import nodemailer from 'nodemailer';
 import type { Config } from '../config.js';
+import { MAIL_TEXT, type Locale } from './locale.js';
 
 export interface Mail {
   to: string;
@@ -91,12 +92,13 @@ export class MemoryMailer implements Mailer {
 const escape = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 // Courriel simple : paragraphes + un bouton vers un lien
-export function linkMail(to: string, subject: string, paragraphs: string[], link: { label: string; url: string }, footer: string): Mail {
-  const text = [...paragraphs, '', `${link.label} : ${link.url}`, '', footer].join('\n');
-  const html = `<!doctype html><html lang="fr"><body style="font-family:system-ui,sans-serif;color:#17201f;line-height:1.5">
+export function linkMail(to: string, subject: string, paragraphs: string[], link: { label: string; url: string }, footer: string,
+  locale: Locale = 'fr'): Mail {
+  const text = [...paragraphs, '', `${link.label}${locale === 'fr' ? ' :' : ':'} ${link.url}`, '', footer].join('\n');
+  const html = `<!doctype html><html lang="${locale}"><body style="font-family:system-ui,sans-serif;color:#17201f;line-height:1.5">
 ${paragraphs.map((p) => `<p>${escape(p)}</p>`).join('\n')}
 <p><a href="${escape(link.url)}" style="display:inline-block;background:#0f766e;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none">${escape(link.label)}</a></p>
-<p style="font-size:13px;color:#5b6766">Si le bouton ne fonctionne pas, copier ce lien : ${escape(link.url)}</p>
+<p style="font-size:13px;color:#5b6766">${escape(MAIL_TEXT[locale].buttonFallback)} ${escape(link.url)}</p>
 <p style="font-size:13px;color:#5b6766">${escape(footer)}</p>
 </body></html>`;
   return { to, subject, text, html };

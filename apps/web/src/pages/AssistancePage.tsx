@@ -3,6 +3,7 @@
 // durée limitée. Lecture seule, messagerie exclue, chaque page consultée
 // inscrite au journal d'audit. Retirable à tout moment.
 import { useState, type FormEvent } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useAssistanceGrants, useGrantAssistance, useRevokeAssistance } from '../api/hooks';
 import type { AssistanceGrant } from '../api/types';
@@ -10,20 +11,11 @@ import { useAuth } from '../auth/session';
 import { Badge, Button, Card, EmptyState, ErrorMessage, Loading, PageHeader, SelectField, TextArea } from '../components/ui';
 import { formatWhen, fullName } from '../lib/format';
 
-const DURATIONS = [
-  { hours: 1, label: '1 heure' },
-  { hours: 4, label: '4 heures' },
-  { hours: 24, label: '24 heures' },
-  { hours: 72, label: '3 jours' },
-];
-
-const STATUS = {
-  active: { label: 'En cours', tone: 'priority' },
-  expired: { label: 'Terminé', tone: 'neutral' },
-  revoked: { label: 'Retiré', tone: 'neutral' },
-} as const;
+const DURATIONS = [1, 4, 24, 72] as const;
+const STATUS_TONE = { active: 'priority', expired: 'neutral', revoked: 'neutral' } as const;
 
 export function AssistancePage() {
+  const { t } = useTranslation();
   const grants = useAssistanceGrants();
   const { assistance } = useAuth();
   const active = grants.data?.find((g) => g.status === 'active');
@@ -31,17 +23,17 @@ export function AssistancePage() {
   return (
     <>
       <PageHeader
-        title="Accès d’assistance"
-        subtitle="Permettre à l’équipe de la plateforme de consulter la résidence pour régler un problème."
+        title={t('admin.assistance.title')}
+        subtitle={t('admin.assistance.subtitle')}
       />
 
       <Card className="mb-6 p-4 text-sm">
         <ul className="flex list-disc flex-col gap-1 pl-5 text-muted">
-          <li>Sans votre accord, l’équipe de la plateforme ne voit <strong className="text-ink">aucune</strong> donnée de la résidence : seulement des chiffres (nombre d’employés, de résidents…).</li>
-          <li>Pendant l’accès, elle peut <strong className="text-ink">consulter</strong> les pages comme vous les voyez, mais <strong className="text-ink">rien modifier</strong>.</li>
-          <li>La messagerie et l’export des dossiers restent fermés.</li>
-          <li>Chaque page consultée est inscrite au <Link to="../audit?type=assistance" className="text-primary underline">journal d’audit</Link>.</li>
-          <li>Vous pouvez retirer l’accès à tout moment ; il se ferme seul à la fin de la durée choisie.</li>
+          <li><Trans i18nKey="admin.assistance.rule1" components={{ strong: <strong className="text-ink" /> }} /></li>
+          <li><Trans i18nKey="admin.assistance.rule2" components={{ strong: <strong className="text-ink" /> }} /></li>
+          <li>{t('admin.assistance.rule3')}</li>
+          <li><Trans i18nKey="admin.assistance.rule4" components={{ auditLink: <Link to="../audit?type=assistance" className="text-primary underline" /> }} /></li>
+          <li>{t('admin.assistance.rule5')}</li>
         </ul>
       </Card>
 
@@ -50,8 +42,8 @@ export function AssistancePage() {
           {active ? <ActiveGrant grant={active} readOnly={!!assistance} />
             : !assistance && <GrantForm />}
 
-          <h2 className="mb-3 mt-8 text-lg font-semibold">Historique</h2>
-          {grants.data.length === 0 ? <EmptyState>Aucun accès accordé jusqu’ici.</EmptyState> : (
+          <h2 className="mb-3 mt-8 text-lg font-semibold">{t('admin.assistance.history')}</h2>
+          {grants.data.length === 0 ? <EmptyState>{t('admin.assistance.noHistory')}</EmptyState> : (
             <ul className="divide-y divide-line rounded-xl border border-line bg-surface">
               {grants.data.map((g) => <GrantRow key={g.id} grant={g} />)}
             </ul>
@@ -63,20 +55,21 @@ export function AssistancePage() {
 }
 
 function ActiveGrant({ grant, readOnly }: { grant: AssistanceGrant; readOnly: boolean }) {
+  const { t } = useTranslation();
   const revoke = useRevokeAssistance();
   return (
     <Card className="border-priority p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="flex items-center gap-2 font-semibold">Accès ouvert <Badge tone="priority">En cours</Badge></p>
+          <p className="flex items-center gap-2 font-semibold">{t('admin.assistance.open')} <Badge tone="priority">{t('admin.assistance.status.active')}</Badge></p>
           <p className="text-sm text-muted">
-            Jusqu’à {formatWhen(grant.expiresAt)} · accordé par {fullName(grant.grantedBy)} · {pages(grant.views)}
+            {t('admin.assistance.until', { when: formatWhen(grant.expiresAt), name: fullName(grant.grantedBy), pages: t('admin.assistance.pages', { count: grant.views }) })}
           </p>
-          {grant.reason && <p className="mt-1 text-sm">Motif : {grant.reason}</p>}
+          {grant.reason && <p className="mt-1 text-sm">{t('admin.assistance.reason', { reason: grant.reason })}</p>}
         </div>
         {!readOnly && (
           <Button variant="danger" busy={revoke.isPending} onClick={() => revoke.mutate(grant.id)}>
-            Retirer l’accès maintenant
+            {t('admin.assistance.revokeNow')}
           </Button>
         )}
       </div>
@@ -86,6 +79,7 @@ function ActiveGrant({ grant, readOnly }: { grant: AssistanceGrant; readOnly: bo
 }
 
 function GrantForm() {
+  const { t } = useTranslation();
   const grant = useGrantAssistance();
   const [hours, setHours] = useState(1);
   const [reason, setReason] = useState('');
@@ -98,37 +92,36 @@ function GrantForm() {
   return (
     <Card className="p-4">
       <form onSubmit={submit} className="flex flex-col gap-4">
-        <h2 className="font-semibold">Accorder un accès</h2>
+        <h2 className="font-semibold">{t('admin.assistance.grantTitle')}</h2>
         <div className="max-w-xs">
-          <SelectField label="Durée" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
-            {DURATIONS.map((d) => <option key={d.hours} value={d.hours}>{d.label}</option>)}
+          <SelectField label={t('admin.assistance.duration')} value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+            {DURATIONS.map((h) => <option key={h} value={h}>{t(`admin.assistance.durations.h${h}`)}</option>)}
           </SelectField>
         </div>
-        <TextArea label="Motif (facultatif)" rows={2} maxLength={500} value={reason}
+        <TextArea label={t('admin.assistance.reasonOptional')} rows={2} maxLength={500} value={reason}
           onChange={(e) => setReason(e.target.value)}
-          hint="Par exemple : « La relève ne s’affiche pas sur la tablette du poste. »" />
+          hint={t('admin.assistance.reasonHint')} />
         <ErrorMessage error={grant.error} />
-        <div><Button type="submit" variant="primary" busy={grant.isPending}>Accorder l’accès</Button></div>
+        <div><Button type="submit" variant="primary" busy={grant.isPending}>{t('admin.assistance.grant')}</Button></div>
       </form>
     </Card>
   );
 }
 
 function GrantRow({ grant }: { grant: AssistanceGrant }) {
-  const status = STATUS[grant.status];
+  const { t } = useTranslation();
   return (
     <li className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-center sm:gap-4">
       <span className="shrink-0 sm:w-44 text-xs text-muted">{formatWhen(grant.grantedAt)}</span>
       <span className="flex-1">
-        Accordé par {fullName(grant.grantedBy)}
-        {grant.revokedBy && <> · retiré par {fullName(grant.revokedBy)} {grant.revokedAt && formatWhen(grant.revokedAt)}</>}
-        {grant.status === 'expired' && <> · fermé {formatWhen(grant.expiresAt)}</>}
-        {grant.reason && <span className="block text-muted">Motif : {grant.reason}</span>}
+        {t('admin.assistance.grantedBy', { name: fullName(grant.grantedBy) })}
+        {grant.revokedBy && t('admin.assistance.revokedBy', { name: fullName(grant.revokedBy), when: grant.revokedAt ? formatWhen(grant.revokedAt) : '' })}
+        {grant.status === 'expired' && t('admin.assistance.closedAt', { when: formatWhen(grant.expiresAt) })}
+        {grant.reason && <span className="block text-muted">{t('admin.assistance.reason', { reason: grant.reason })}</span>}
       </span>
-      <span className="text-xs text-muted">{pages(grant.views)}</span>
-      <Badge tone={status.tone}>{status.label}</Badge>
+      <span className="text-xs text-muted">{t('admin.assistance.pages', { count: grant.views })}</span>
+      <Badge tone={STATUS_TONE[grant.status]}>{t(`admin.assistance.status.${grant.status}`)}</Badge>
     </li>
   );
 }
 
-const pages = (n: number) => (n === 0 ? 'aucune page consultée' : n === 1 ? '1 page consultée' : `${n} pages consultées`);

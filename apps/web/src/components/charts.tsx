@@ -7,6 +7,7 @@
 // posées sur la ligne de base ; 2 px d'espace entre colonnes ; survol ou
 // focus = info-bulle, zone de survol plus grande que la marque.
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cx } from '../lib/cx';
 
 // ---------------------------------------------------------------------
@@ -15,6 +16,7 @@ import { cx } from '../lib/cx';
 export function StatTile({ label, value, previous, previousLabel, hint }: {
   label: string; value: number; previous?: number; previousLabel?: string; hint?: ReactNode;
 }) {
+  const { t } = useTranslation();
   const delta = previous === undefined ? null : value - previous;
   return (
     <div className="rounded-xl border border-line bg-surface p-4">
@@ -22,8 +24,8 @@ export function StatTile({ label, value, previous, previousLabel, hint }: {
       <p className="mt-1 text-3xl font-bold tabular-nums">{value}</p>
       {delta !== null && (
         <p className="mt-1 text-xs text-muted">
-          <span aria-hidden>{delta > 0 ? '▲ ' : delta < 0 ? '▼ ' : '= '}</span>
-          {delta === 0 ? 'comme' : `${delta > 0 ? '+' : '−'}${Math.abs(delta)} par rapport à`} {previousLabel} ({previous})
+          {t(delta === 0 ? 'residents.chart.same' : delta > 0 ? 'residents.chart.more' : 'residents.chart.less',
+            { delta: Math.abs(delta), period: previousLabel, previous })}
         </p>
       )}
       {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
@@ -42,13 +44,15 @@ export interface Column {
   details?: ReactNode;      // contenu de l'info-bulle sous la valeur
 }
 
-export function ColumnChart({ columns, label, unit = 'note', height = 160 }: {
-  columns: Column[]; label: string; unit?: string; height?: number;
+// format : texte d'une valeur (« 3 notes ») ; par défaut, des notes
+export function ColumnChart({ columns, label, format, height = 160 }: {
+  columns: Column[]; label: string; format?: (n: number) => string; height?: number;
 }) {
+  const { t } = useTranslation();
   const [active, setActive] = useState<string | null>(null);
   const max = Math.max(1, ...columns.map((c) => c.value));
   const current = columns.find((c) => c.key === active);
-  const plural = (n: number) => `${n} ${unit}${n > 1 ? 's' : ''}`;
+  const plural = format ?? ((n: number) => t('residents.chart.notes', { count: n }));
 
   return (
     <figure className="relative" aria-label={label}>
@@ -78,7 +82,7 @@ export function ColumnChart({ columns, label, unit = 'note', height = 160 }: {
           <span key={c.key} className="flex min-w-0 flex-1 justify-center overflow-visible whitespace-nowrap">{c.axisLabel}</span>
         ))}
       </div>
-      <p className="absolute left-0 top-0 -translate-y-full pb-1 text-[10px] text-muted" aria-hidden>max. {max}</p>
+      <p className="absolute left-0 top-0 -translate-y-full pb-1 text-[10px] text-muted" aria-hidden>{t('residents.chart.max', { max })}</p>
       {current && (
         <div role="status" className="pointer-events-none absolute right-0 top-0 z-[1] min-w-40 rounded-lg border border-line bg-surface p-2 text-xs shadow-md">
           <p className="font-semibold first-letter:uppercase">{current.title}</p>
