@@ -110,7 +110,7 @@ export function HandoverPage() {
           bas (--nav-h), même quand la relève est courte. Ordinateur : carte
           collée au bas de l'écran en défilant. */}
       <div className="fixed inset-x-0 bottom-[var(--nav-h)] z-[5] flex flex-col items-center gap-1 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:sticky md:inset-x-auto md:bottom-4 md:rounded-xl md:border md:shadow-lg">
-        <Button variant="primary" className="w-full sm:w-auto" busy={ack.isPending} disabled={pending > 0} onClick={acknowledge}>
+        <Button data-tour="handover-ack" variant="primary" className="w-full sm:w-auto" busy={ack.isPending} disabled={pending > 0} onClick={acknowledge}>
           {t('journal.handover.acknowledge')}
         </Button>
         <p className="text-center text-xs text-muted">

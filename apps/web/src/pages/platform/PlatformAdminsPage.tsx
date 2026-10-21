@@ -17,7 +17,7 @@ export function PlatformAdminsPage() {
       <PageHeader
         title={t('platform.admins.title')}
         subtitle={t('platform.admins.subtitle')}
-        actions={<Button variant="primary" onClick={() => setInviting(true)}>{t('platform.admins.invite')}</Button>}
+        actions={<Button data-tour="platform-admins-invite" variant="primary" onClick={() => setInviting(true)}>{t('platform.admins.invite')}</Button>}
       />
       {notice && <p role="status" className="mb-4 rounded-lg bg-positive-soft px-4 py-3 text-sm text-positive">{notice}</p>}
       {admins.isPending ? <Loading /> : admins.isError ? <ErrorMessage error={admins.error} /> : (

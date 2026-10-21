@@ -26,6 +26,7 @@ export function AdminPage() {
           <NavLink
             key={tab.to}
             to={tab.to}
+            data-tour={`admin-tab-${tab.to}`}
             className={({ isActive }) => cx(
               '-mb-px whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium',
               isActive ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink',

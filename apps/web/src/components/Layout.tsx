@@ -12,6 +12,7 @@ import { IdleLogout } from './IdleLogout';
 import { Logo } from './Logo';
 import { NavIcon, type NavIconName } from './NavIcon';
 import { OfflineBanner } from './OfflineBanner';
+import { TourHost, TourOffer } from './Tour';
 
 type NavLabel = keyof typeof shellFr.nav;
 interface NavItem { to: string; label: NavLabel; icon: NavIconName; end: boolean }
@@ -142,8 +143,11 @@ export function Layout() {
   const links = user.role === 'responsable' ? [...base, ADMIN_LINK] : base;
   const mobileMain = links.filter((l) => MOBILE_MAIN.includes(l.to));
   // « Mon profil » : rond avec les initiales en haut, et aussi dans « Plus » sur téléphone
-  const mobileMore: NavItem[] = [...links.filter((l) => !MOBILE_MAIN.includes(l.to)),
-    ...(assistance ? [] : [{ to: '/compte', label: 'profile' as const, icon: 'profil' as const, end: false }])];
+  const mobileMore: { to: string; label: string; icon: NavIconName; tour: string }[] = [
+    ...links.filter((l) => !MOBILE_MAIN.includes(l.to)).map((l) => ({ to: l.to, label: t(`shell.nav.${l.label}`), icon: l.icon, tour: `nav-${l.label}` })),
+    ...(assistance ? [] : [{ to: '/compte', label: t('shell.nav.profile'), icon: 'profil' as const, tour: 'nav-profile' }]),
+    { to: '/aide', label: t('help.nav'), icon: 'aide', tour: 'nav-help' },
+  ];
   const location = useLocation();
   // Menu « Plus » ouvert sur la page courante : il se referme dès qu'on change de page
   const [moreOpenOn, setMoreOpenOn] = useState<string | null>(null);
@@ -169,6 +173,7 @@ export function Layout() {
                 key={link.to}
                 to={link.to}
                 end={link.end}
+                data-tour={`nav-${link.label}`}
                 className={({ isActive }) => cx(
                   'flex items-center rounded-lg px-3 py-2 text-sm font-medium',
                   isActive ? 'bg-info-soft text-primary' : 'text-muted hover:bg-sunken hover:text-ink',
@@ -180,8 +185,12 @@ export function Layout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
+            <NavLink to="/aide" data-tour="header-help" title={t('help.nav')} aria-label={t('help.nav')}
+              className={({ isActive }) => cx('hidden rounded-full p-2 md:block', isActive ? 'bg-info-soft text-primary' : 'text-muted hover:bg-sunken hover:text-ink')}>
+              <NavIcon name="aide" className="size-6" />
+            </NavLink>
             {/* Rond avec les initiales, puis le nom (le nom seul disparaît quand la place manque) */}
-            <NavLink to="/compte" title={t('shell.nav.profile')} aria-label={t('shell.nav.profileOf', { name: fullName(user) })}
+            <NavLink to="/compte" data-tour="header-profile" title={t('shell.nav.profile')} aria-label={t('shell.nav.profileOf', { name: fullName(user) })}
               className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-sunken lg:rounded-lg lg:pr-2">
               <Avatar person={user} />
               <span className="hidden text-left leading-tight sm:block md:hidden lg:block">
@@ -199,6 +208,8 @@ export function Layout() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         <Outlet />
       </main>
+      <TourOffer />
+      <TourHost />
 
       {/* Menu « Plus » : panneau qui monte du bas, au-dessus de la barre */}
       {moreOpen && (
@@ -213,13 +224,14 @@ export function Layout() {
                 <NavLink
                   key={link.to}
                   to={link.to}
+                  data-tour={link.tour}
                   className={({ isActive }) => cx(
                     'flex min-h-12 items-center gap-3 rounded-xl px-3 font-medium',
                     isActive ? 'bg-info-soft text-primary' : 'text-ink hover:bg-sunken',
                   )}
                 >
                   <NavIcon name={link.icon} className="size-5 shrink-0" />
-                  {t(`shell.nav.${link.label}`)}
+                  {link.label}
                 </NavLink>
               ))}
             </div>
@@ -233,11 +245,11 @@ export function Layout() {
         className="fixed inset-x-0 bottom-0 z-20 grid h-[var(--nav-h)] border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_16px_rgb(0_0_0/0.06)] md:hidden"
         style={{ gridTemplateColumns: `repeat(${mobileMain.length + 1}, minmax(0, 1fr))` }}>
         {mobileMain.map((link) => (
-          <NavLink key={link.to} to={link.to} end={link.end} className="min-w-0">
+          <NavLink key={link.to} to={link.to} end={link.end} className="min-w-0" data-tour={`nav-${link.label}`}>
             {({ isActive }) => <MobileTab icon={link.icon} label={t(`shell.nav.${link.label}`)} active={isActive && !moreOpen} badge={<NavBadge to={link.to} />} />}
           </NavLink>
         ))}
-        <button type="button" aria-expanded={moreOpen} aria-controls="menu-plus" onClick={() => setMoreOpen(!moreOpen)} className="min-w-0">
+        <button type="button" aria-expanded={moreOpen} aria-controls="menu-plus" onClick={() => setMoreOpen(!moreOpen)} className="min-w-0" data-tour="nav-more">
           <MobileTab icon="plus" label={t('shell.nav.more')} active={moreOpen || inMore} />
         </button>
       </nav>

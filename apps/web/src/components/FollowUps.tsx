@@ -38,7 +38,7 @@ export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp
           {closed ? <Badge tone="positive">{t('journal.followUp.done')}</Badge> : (
             <>
               {!mine && (
-                <Button className="min-h-9 whitespace-nowrap" busy={take.isPending}
+                <Button data-tour="followup-take" className="min-h-9 whitespace-nowrap" busy={take.isPending}
                   onClick={() => take.mutate({ id: followUp.id, userId: me.id })}>
                   {t('journal.followUp.take')}
                 </Button>

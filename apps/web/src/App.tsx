@@ -8,6 +8,7 @@ import { Loading } from './components/ui';
 import { AdminMessagesPage } from './pages/AdminMessagesPage';
 import { AdminPage } from './pages/AdminPage';
 import { AccountPage } from './pages/AccountPage';
+import { HelpPage } from './pages/HelpPage';
 import { AgendaPage } from './pages/AgendaPage';
 import { AssistancePage } from './pages/AssistancePage';
 import { AuditPage } from './pages/AuditPage';
@@ -84,6 +85,7 @@ const router = createBrowserRouter([
           { path: 'journal', element: <PlatformAuditPage /> },
           { path: 'administrateurs', element: <PlatformAdminsPage /> },
           { path: 'compte', element: <AccountPage /> },
+          { path: 'aide', element: <HelpPage /> },
           { path: '*', element: <NotFound /> },
         ],
       }],
@@ -104,6 +106,7 @@ const router = createBrowserRouter([
           { path: 'residents/:id', element: <ResidentPage /> },
           { path: 'residents/:id/statistiques', element: <ResidentStatsPage /> },
           { path: 'compte', element: <AccountPage /> },
+          { path: 'aide', element: <HelpPage /> },
           {
             element: <RequireResponsable />,
             children: [

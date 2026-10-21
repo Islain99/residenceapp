@@ -25,7 +25,7 @@ export function TeamPage() {
       <PageHeader
         title={t('admin.team.title')}
         subtitle={t('admin.team.subtitle')}
-        actions={<Button variant="primary" onClick={() => setInviting(true)}>{t('admin.team.invite')}</Button>}
+        actions={<Button data-tour="team-invite" variant="primary" onClick={() => setInviting(true)}>{t('admin.team.invite')}</Button>}
       />
       {notice && <p role="status" className="mb-4 rounded-lg bg-positive-soft px-4 py-3 text-sm text-positive">{notice}</p>}
 
