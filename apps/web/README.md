@@ -109,3 +109,8 @@ src/
 ├── lib/          dates en français, utilitaires
 └── pages/        un fichier par écran
 ```
+
+**Aide** (`/aide`, `/plateforme/aide` ; icône « ? » en haut, « Aide » dans « Plus » sur téléphone) : guide d'utilisation de chaque rôle (le sien d'abord ; l'infirmière lit aussi celui du préposé, la responsable ceux de l'infirmière et du préposé), et une section pour tous (installation, notifications, appareil partagé, Loi 25, langue). Textes : `i18n/fr/help.ts` et `i18n/en/help.ts`.
+
+**Visite guidée** (`components/Tour.tsx`, étapes dans `lib/tour.ts`) : proposée une fois à la première connexion sur l'appareil, relançable depuis Aide. Chaque étape ouvre sa page et met en évidence un élément marqué `data-tour="…"` (la première cible visible : l'onglet sur ordinateur, sinon « Plus » sur téléphone) ; sans cible, la bulle s'affiche au centre. La page reste utilisable ; Échap ferme, flèches pour avancer ou reculer. Un élément renommé ou déplacé garde son attribut `data-tour`, sinon l'étape s'affiche au centre.
+

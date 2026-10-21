@@ -26,7 +26,7 @@ export function PlatformHomePage() {
       <PageHeader
         title={t('platform.home.title')}
         subtitle={t('platform.home.subtitle')}
-        actions={<Button variant="primary" onClick={() => setCreating(true)}>{t('platform.home.new')}</Button>}
+        actions={<Button data-tour="platform-new" variant="primary" onClick={() => setCreating(true)}>{t('platform.home.new')}</Button>}
       />
       {notice && <p role="status" className="mb-4 rounded-lg bg-positive-soft px-4 py-3 text-sm text-positive">{notice}</p>}
 

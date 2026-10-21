@@ -24,7 +24,7 @@ export function MessagesPage() {
       <aside className={cx('flex min-h-0 w-full flex-col md:w-80 md:shrink-0', id && 'hidden md:flex')}>
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-2xl font-bold">{t('messages.title')}</h1>
-          <Button variant="primary" className="min-h-10" onClick={() => setCreating(true)}>{t('messages.new')}</Button>
+          <Button data-tour="messages-new" variant="primary" className="min-h-10" onClick={() => setCreating(true)}>{t('messages.new')}</Button>
         </div>
         {conversations.isPending ? <Loading /> : conversations.isError ? <ErrorMessage error={conversations.error} /> : (
           <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto">

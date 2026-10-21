@@ -21,7 +21,7 @@ export function ResidentsPage() {
     <>
       <PageHeader
         title={t('residents.list.title')}
-        actions={isSupervisor(user.role) && <Button variant="primary" onClick={() => setCreating(true)}>{t('residents.list.add')}</Button>}
+        actions={isSupervisor(user.role) && <Button data-tour="residents-add" variant="primary" onClick={() => setCreating(true)}>{t('residents.list.add')}</Button>}
       />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input

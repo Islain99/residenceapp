@@ -49,7 +49,7 @@ export function JournalPage() {
     <>
       <PageHeader
         title={t('journal.journal.title')}
-        actions={<Button variant="primary" onClick={() => setCreating(true)}>{t('journal.journal.newNote')}</Button>}
+        actions={<Button data-tour="journal-new" variant="primary" onClick={() => setCreating(true)}>{t('journal.journal.newNote')}</Button>}
       />
 
       <div className="mb-5 flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">

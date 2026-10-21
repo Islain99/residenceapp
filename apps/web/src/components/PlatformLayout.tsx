@@ -7,7 +7,9 @@ import { cx } from '../lib/cx';
 import { fullName } from '../lib/format';
 import { Avatar } from './Avatar';
 import { Logo } from './Logo';
+import { NavIcon } from './NavIcon';
 import { OfflineBanner } from './OfflineBanner';
+import { TourHost, TourOffer } from './Tour';
 
 const LINKS = [
   { to: '/plateforme', label: 'residences', end: true },
@@ -29,6 +31,7 @@ export function PlatformLayout() {
           key={link.to}
           to={link.to}
           end={link.end}
+          data-tour={`nav-${link.label}`}
           className={({ isActive }) => cx(
             'flex shrink-0 items-center whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium',
             isActive ? 'bg-info-soft text-primary' : 'text-muted hover:bg-sunken hover:text-ink',
@@ -51,8 +54,12 @@ export function PlatformLayout() {
           </span>
           {nav('hidden gap-1 md:flex')}
           <div className="ml-auto flex items-center gap-3 text-sm">
+            <NavLink to="/plateforme/aide" data-tour="header-help" title={t('help.nav')} aria-label={t('help.nav')}
+              className={({ isActive }) => cx('rounded-full p-2', isActive ? 'bg-info-soft text-primary' : 'text-muted hover:bg-sunken hover:text-ink')}>
+              <NavIcon name="aide" className="size-6" />
+            </NavLink>
             {/* Rond avec les initiales, puis le nom (à partir de la largeur d'une tablette) */}
-            <NavLink to="/plateforme/compte" title={t('shell.nav.profile')} aria-label={t('shell.nav.profileOf', { name: fullName(user) })}
+            <NavLink to="/plateforme/compte" data-tour="header-profile" title={t('shell.nav.profile')} aria-label={t('shell.nav.profileOf', { name: fullName(user) })}
               className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-sunken sm:rounded-lg sm:pr-2">
               <Avatar person={user} />
               <span className="hidden text-left leading-tight sm:block">
@@ -78,6 +85,8 @@ export function PlatformLayout() {
         )}
         <Outlet />
       </main>
+      <TourOffer />
+      <TourHost />
     </div>
   );
 }
