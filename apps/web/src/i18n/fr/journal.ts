@@ -154,6 +154,7 @@ export default {
   },
   dictation: {
     dictate: 'Dicter : {{field}}',
+    iosHint: 'Pour dicter, touchez le micro du clavier de l’iPhone.',
     stop: 'Arrêter la dictée ({{field}})',
     installing: 'Installation du français pour la dictée…',
     enable: 'Activer la dictée : {{field}} (télécharge une seule fois la langue sur cet appareil ; la voix reste sur l’appareil)',

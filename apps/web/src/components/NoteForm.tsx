@@ -94,7 +94,7 @@ export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLa
         onChange={(e) => setDescription(e.target.value)}
         placeholder={t('journal.form.descriptionPlaceholder')}
       />
-      <DictationButton field={t('journal.form.dictateDescription')} onText={(spoken) => setDescription((text) => appendDictated(text, spoken))} />
+      <DictationButton iosHint field={t('journal.form.dictateDescription')} onText={(spoken) => setDescription((text) => appendDictated(text, spoken))} />
       <TextArea
         label={t('journal.form.intervention')}
         rows={2}
