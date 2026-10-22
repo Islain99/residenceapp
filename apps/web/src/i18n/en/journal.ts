@@ -156,6 +156,7 @@ export default {
   },
   dictation: {
     dictate: 'Dictate: {{field}}',
+    iosHint: 'To dictate, tap the microphone on the iPhone keyboard.',
     stop: 'Stop dictation ({{field}})',
     installing: 'Installing the language for dictation…',
     enable: 'Turn on dictation: {{field}} (downloads the language once on this device; your voice stays on the device)',

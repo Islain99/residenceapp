@@ -9,9 +9,13 @@ import i18n from '../i18n';
 export const pushSupported = () =>
   typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
+// iPhone ou iPad (un iPad récent se présente comme un Mac tactile)
+export const isIOS = () =>
+  /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 // iPhone ou iPad dans Safari, pas encore installé sur l'écran d'accueil
 export function needsInstallForPush(): boolean {
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ios = isIOS();
   const standalone = window.matchMedia('(display-mode: standalone)').matches
     || (navigator as Navigator & { standalone?: boolean }).standalone === true;
   return ios && !standalone;
