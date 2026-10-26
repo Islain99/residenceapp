@@ -2,6 +2,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { sql } from 'kysely';
 import { audit } from './lib/audit.js';
+import { checkRouteFeatures } from './lib/feature-routes.js';
 import { forbidden, HttpError } from './lib/errors.js';
 
 export const ROLES = ['prepose', 'infirmiere', 'responsable', 'admin'] as const;
@@ -63,6 +64,8 @@ export async function authenticate(request: FastifyRequest): Promise<void> {
     throw new HttpError(401, 'inactive_account', 'Compte désactivé.');
   }
   request.user.role = account.role as Role;
+  // Fonctionnalités activables : module de la route masqué ou en consultation
+  await checkRouteFeatures(request);
 }
 
 // Résidence de l'utilisateur connecté : toute donnée métier est filtrée
@@ -123,6 +126,7 @@ async function authenticateAssistance(request: FastifyRequest, grantId: string):
 
   request.user.role = 'responsable';
   request.assistance = { grantId };
+  await checkRouteFeatures(request);   // ce que la responsable voit
 
   const params = (request.params ?? {}) as Record<string, string>;
   const recent = await db.selectFrom('audit_log')

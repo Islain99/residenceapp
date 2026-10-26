@@ -16,6 +16,8 @@ import type { Notes } from '../db/types.js';
 import { audit } from '../lib/audit.js';
 import { pushIn } from '../lib/locale.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
+import { featureLevel, requireFeature } from '../lib/feature-routes.js';
+import { atLeast } from '../lib/features.js';
 import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
 import { findNote, NoteBody, noteQuery, toNote, validReadSql, type Db, type NoteRow } from '../lib/note-view.js';
 import { IdParams, Nullable, optionalText, Person, Text, Uuid } from '../lib/schemas.js';
@@ -181,6 +183,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const residenceId = residenceOf(request);
     const note = await findNote(db, residenceId, request.user.sub, request.params.id);
     const priorityActive = note.isPriority && note.status === 'active';
+    const showFollowUps = atLeast(await featureLevel(request, 'followUps'), 'read');   // Suivis masqués : pas de liste
     const [versions, followUps, reads, unreadBy] = await Promise.all([
       db.selectFrom('note_versions as v')
         .innerJoin('users as e', 'e.id', 'v.edited_by')
@@ -188,7 +191,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
         .where('v.note_id', '=', note.id)
         .orderBy('v.edited_at', 'desc')
         .execute(),
-      orderFollowUps(followUpQuery(db, residenceId).where('f.note_id', '=', note.id)).execute(),
+      showFollowUps ? orderFollowUps(followUpQuery(db, residenceId).where('f.note_id', '=', note.id)).execute() : [],
       db.selectFrom('note_reads as nr')
         .innerJoin('users as u', 'u.id', 'nr.user_id')
         .select(['nr.read_at', 'u.id', 'u.first_name', 'u.last_name'])
@@ -258,7 +261,10 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request, reply) => {
     const residenceId = residenceOf(request);
     const b = request.body;
-    if (b.isPriority) assertCanMarkPriority(request.user.role);
+    if (b.isPriority) {
+      assertCanMarkPriority(request.user.role);
+      await requireFeature(request, 'priority', 'full');
+    }
     const id = await db.transaction().execute(async (trx) => {
       await assertCategory(trx, residenceId, b.categoryId);
       if (b.residentId) await assertResident(trx, residenceId, b.residentId);
@@ -338,6 +344,7 @@ const noteRoutes: FastifyPluginAsyncTypebox = async (app) => {
       }
       if (b.isPriority !== undefined && b.isPriority !== note.is_priority) {
         assertCanMarkPriority(request.user.role);
+        await requireFeature(request, 'priority', 'full');
         changes.is_priority = b.isPriority;
       }
       if (b.isPositive !== undefined && b.isPositive !== note.is_positive) changes.is_positive = b.isPositive;

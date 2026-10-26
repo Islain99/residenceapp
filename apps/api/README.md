@@ -185,6 +185,14 @@ Toujours actifs : journal d'audit, export d'un dossier (Loi 25), gestion de l'é
 
 Réglages lus une fois par résidence et gardés 30 s en mémoire ; un changement fait par le même serveur s'applique tout de suite.
 
+**Contrôle des routes** (`src/lib/feature-routes.ts`) : chaque route est rattachée à un module et à un niveau minimal (lecture → `read`, écriture → `full`), ou déclarée toujours active ; une route sans règle empêche l'API de démarrer. Vérifié dans `authenticate`, après la lecture du compte. Refus : `403 { error: 'feature_disabled' | 'feature_read_only', feature }`. Une exigence que le rôle ne peut pas atteindre est laissée au contrôle du rôle (même réponse qu'avant). Dans les routes :
+
+- note prioritaire (création ou correction) : `priority` en Complet ;
+- relève et détail d'une note : sections Suivis et Rendez-vous vides si le module est masqué pour la personne ;
+- liste des résidents : permise avec Résidents, Journal, Agenda ou Suivis (pour choisir un résident) ; la fiche exige Résidents ;
+- conversations : privées, groupes et fil d'équipe avec la Messagerie, canal des annonces avec les Annonces (publier : Annonces en Complet) ; une conversation d'un module masqué répond 404 ;
+- notifications push : aucune pour un module masqué pour la personne (messages → Messagerie, annonces → Annonces, consignes → Journal, suivis → Suivis).
+
 ## Journal de bord
 
 Toutes les routes exigent un jeton et ne voient que **la résidence de l'utilisateur** (une note d'une autre résidence répond 404 ; l'admin plateforme, sans résidence, reçoit 403).

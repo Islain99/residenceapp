@@ -4,6 +4,8 @@
 //                       (prioritaires d'abord) + suivis ouverts qui me
 //                       concernent (assignés à moi ou à toute l'équipe)
 //                       + rendez-vous de l'agenda des prochaines 24 h.
+//                       Suivis ou Agenda masqués pour la personne
+//                       (fonctionnalités activables) : section vide.
 //   POST /handover/ack  « j'ai pris connaissance » : enregistre l'instant
 //                       generatedAt reçu du GET, pour qu'une note écrite
 //                       entre la lecture et la confirmation ne soit pas perdue.
@@ -22,6 +24,8 @@ import type { Database } from '../db/index.js';
 import { AppointmentBody, appointmentQuery, toAppointment } from '../lib/appointment-view.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, HttpError } from '../lib/errors.js';
+import { featureLevels } from '../lib/feature-routes.js';
+import { atLeast } from '../lib/features.js';
 import { FollowUpBody, followUpQuery, orderFollowUps, toFollowUp } from '../lib/follow-up-view.js';
 import { NoteBody, noteQuery, toNote, validReadSql } from '../lib/note-view.js';
 import { Nullable } from '../lib/schemas.js';
@@ -80,17 +84,19 @@ const handoverRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const last = await lastHandover(db, userId, residenceId);
     const since = last?.acknowledged_at ?? new Date(generatedAt.getTime() - FIRST_HANDOVER_LOOKBACK_MS);
 
+    // Sections des modules masqués pour cette personne : vides
+    const levels = await featureLevels(request);
     const [rows, followUps, appointments] = await Promise.all([
       noteQuery(db, residenceId, userId)
         .where(inWindow(since, generatedAt))
         .orderBy('n.is_priority', 'desc').orderBy('n.occurred_at', 'desc')
         .limit(MAX_NOTES + 1)
         .execute(),
-      orderFollowUps(followUpQuery(db, residenceId)
+      !atLeast(levels.followUps, 'read') ? [] : orderFollowUps(followUpQuery(db, residenceId)
         .where('f.closed_at', 'is', null)
         .where((eb) => eb.or([eb('f.assigned_to', '=', userId), eb('f.assigned_to', 'is', null)])))
         .execute(),
-      appointmentQuery(db, residenceId)
+      !atLeast(levels.agenda, 'read') ? [] : appointmentQuery(db, residenceId)
         .where('a.status', '=', 'prevu')
         .where('a.starts_at', '>=', new Date(generatedAt.getTime() - APPOINTMENTS_BEHIND_MS))
         .where('a.starts_at', '<', new Date(generatedAt.getTime() + APPOINTMENTS_AHEAD_MS))

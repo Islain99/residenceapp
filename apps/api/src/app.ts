@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
+import { FeatureDisabled, routeKey, ruleFor } from './lib/feature-routes.js';
 import { FeatureStore } from './lib/features.js';
 import { mailerFromConfig, type Mailer } from './lib/mailer.js';
 import { Notifier, webPushSender, type PushSender } from './lib/notifier.js';
@@ -36,6 +37,7 @@ declare module 'fastify' {
     mailer: Mailer;
     notifier: Notifier;
     features: FeatureStore;
+    routeKeys: Set<string>;
   }
 }
 
@@ -67,9 +69,10 @@ export async function buildApp(
       }
     },
   } satisfies Mailer);
-  app.decorate('notifier', new Notifier(db, pushSender, app.log));
   // Fonctionnalités activables par résidence (cache de 30 s)
-  app.decorate('features', new FeatureStore(db));
+  const features = new FeatureStore(db);
+  app.decorate('features', features);
+  app.decorate('notifier', new Notifier(db, pushSender, app.log, features));
 
   // Rappels d'échéance des suivis (pas pendant les tests : ils l'appellent eux-mêmes)
   let reminders: NodeJS.Timeout | undefined;
@@ -117,7 +120,9 @@ export async function buildApp(
     if (status === 429) {
       return reply.code(429).send({ error: 'too_many_requests', message: 'Trop de tentatives : réessayer dans une minute.' });
     }
-    return reply.code(status).send({ error: error.code ?? 'error', message: error.message });
+    // Fonction masquée ou en consultation : le module concerné, pour l'interface
+    const feature = error instanceof FeatureDisabled ? { feature: error.feature } : {};
+    return reply.code(status).send({ error: error.code ?? 'error', message: error.message, ...feature });
   });
 
   // Accès d'assistance (admin plateforme) : lecture seule. Refusé dès la
@@ -134,6 +139,20 @@ export async function buildApp(
     }
     if (payload.asst) {
       return reply.code(403).send({ error: 'assistance_read_only', message: 'Accès d’assistance : consultation seulement.' });
+    }
+  });
+
+  // Toute route doit être rattachée à un module ou déclarée toujours active
+  // (lib/feature-routes.ts) : une route oubliée empêche l'API de démarrer.
+  app.decorate('routeKeys', new Set<string>());
+  let checkRoutes = true;   // routes de l'API (les tests en ajoutent ensuite pour eux-mêmes)
+  app.addHook('onRoute', (route) => {
+    if (!checkRoutes) return;
+    for (const method of [route.method].flat()) {
+      if (method === 'HEAD' || method === 'OPTIONS') continue;
+      const key = routeKey(method, route.url);
+      if (!ruleFor(method, route.url)) throw new Error(`Route sans module (lib/feature-routes.ts) : ${key}`);
+      app.routeKeys.add(key);
     }
   });
 
@@ -157,6 +176,7 @@ export async function buildApp(
   await app.register(platformRoutes);
   await app.register(pushRoutes);
   await app.register(featureRoutes);
+  checkRoutes = false;
 
   return app;
 }
