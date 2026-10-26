@@ -37,6 +37,8 @@ export const API_ERRORS_EN: Record<string, string> = {
   invalid_level: 'This level isn’t possible for this module or role.',
   unknown_feature: 'Unknown module.',
   dependency_conflict: 'Some modules would be hidden by their dependencies.',
+  exception_same_as_role: 'That’s already their role’s level: no exception needed.',
+  exception_blocked: 'This level depends on another module this person doesn’t have.',
   // Comptes de l'équipe
   email_taken: 'This email is already used by an account.',
   cannot_modify_self: 'You can’t change your own account here.',

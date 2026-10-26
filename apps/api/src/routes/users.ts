@@ -13,6 +13,7 @@ import { requireRole, residenceOf } from '../auth.js';
 import type { Users } from '../db/types.js';
 import { invalidateAccountTokens, inviteMail, issueAccountToken } from '../lib/account-tokens.js';
 import { audit } from '../lib/audit.js';
+import { revokeExceptionsOnRoleChange } from '../lib/features.js';
 import { LocaleSchema } from '../lib/locale.js';
 import { badRequest, HttpError, notFound } from '../lib/errors.js';
 import type { Db } from '../lib/note-view.js';
@@ -181,6 +182,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
       throw badRequest('cannot_modify_self', 'Vous ne pouvez pas changer votre propre rôle ni désactiver votre compte.');
     }
 
+    let roleChanged = false;
     await db.transaction().execute(async (trx) => {
       const user = await trx.selectFrom('users').select(['id', 'is_active', 'role'])
         .where('id', '=', request.params.id).where('residence_id', '=', residenceId)
@@ -194,6 +196,12 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
       if (b.role !== undefined) changes.role = b.role;
       if (b.isActive !== undefined) changes.is_active = b.isActive;
       await trx.updateTable('users').set(changes).where('id', '=', user.id).execute();
+      // Nouveau rôle : ses exceptions de fonctionnalités (décidées pour l'ancien) sont retirées
+      if (b.role !== undefined && b.role !== user.role) {
+        roleChanged = await revokeExceptionsOnRoleChange(trx, {
+          userId: user.id, residenceId, actorId: request.user.sub, from: user.role, to: b.role, ip: request.ip,
+        }) > 0;
+      }
 
       // Devenu responsable : double authentification obligatoire, donc nouvelle connexion
       const becomesResponsable = b.role === 'responsable' && user.role !== 'responsable';
@@ -213,6 +221,7 @@ const userRoutes: FastifyPluginAsyncTypebox = async (app) => {
         details: { fields: Object.keys(b) }, ip: request.ip,
       });
     });
+    if (roleChanged) app.features.invalidate(residenceId);
     return findAccount(residenceId, request.params.id);
   });
 };

@@ -15,6 +15,12 @@ const entity = (code: string) => (i18n.exists(`admin.audit.entities.${code}`)
 const reason = (code: string) => (i18n.exists(`admin.audit.reasons.${code}`)
   ? t(`admin.audit.reasons.${code as keyof Audit['reasons']}`) : undefined);
 
+// Fonctionnalités activables : nom du module et du niveau (platform.features)
+const moduleName = (code: unknown) => (typeof code === 'string' && i18n.exists(`platform.features.modules.${code}`)
+  ? i18n.t(`platform.features.modules.${code}` as 'platform.features.modules.journal') : String(code));
+const levelName = (code: unknown) => (typeof code === 'string' && i18n.exists(`platform.features.levels.${code}`)
+  ? i18n.t(`platform.features.levels.${code}` as 'platform.features.levels.full') : String(code));
+
 // Pages consultées pendant un accès d'assistance (route de l'API → page)
 const ROUTES: Record<string, keyof Audit['routes']> = {
   '/handover': 'handover',
@@ -54,6 +60,14 @@ export function describeAudit(entry: AuditEntry): string {
       return t('admin.audit.assistanceStart');
     case 'assistance_end':
       return t('admin.audit.assistanceEnd');
+    case 'feature_exception':
+      return t('admin.audit.featureException', {
+        name: entry.target ? fullName(entry.target) : '', module: moduleName(d.feature), level: levelName(d.to),
+      });
+    case 'feature_exception_revoke':
+      return d.reason === 'role_changed'
+        ? t('admin.audit.featureExceptionRoleChanged', { name: entry.target ? fullName(entry.target) : '' })
+        : t('admin.audit.featureExceptionRevoke', { name: entry.target ? fullName(entry.target) : '', module: moduleName(d.feature) });
     case 'feature_update':
       return t('admin.audit.featureUpdate', { count: Array.isArray(d.changes) ? d.changes.length : 0 });
   }

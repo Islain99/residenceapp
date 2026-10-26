@@ -10,7 +10,7 @@ import type {
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
   AssistanceGrant, NewResidenceInput, OpenAssistanceGrant, PlatformAccount, PlatformAuditPage, PlatformResidence,
   PlatformResidenceDetail, PlatformSecurity, MfaStatus, PushConfig, PushPreferences,
-  ProfileInput, User, FeatureChange, FeatureSettings, PlatformFeatures,
+  ProfileInput, User, FeatureChange, FeatureKey, FeatureLevel, FeatureSettings, PlatformFeatures,
 } from './types';
 
 export interface NoteFilters {
@@ -509,6 +509,14 @@ export const usePlatformFeatures = (id: string) =>
 export const useSaveFeatures = () =>
   usePlatformMutation(({ id, ...body }: { id: string; settings: FeatureSettings; acceptCascade: boolean }) =>
     api<PlatformFeatures & { changes: FeatureChange[]; notified: number }>(`/platform/residences/${id}/features`, { method: 'PUT', body }));
+
+export const useSetException = () =>
+  usePlatformMutation(({ residenceId, userId, ...body }: { residenceId: string; userId: string; feature: FeatureKey; level: FeatureLevel; reason: string | null }) =>
+    api<PlatformFeatures & { notified: number }>(`/platform/residences/${residenceId}/features/users/${userId}`, { method: 'PUT', body }));
+
+export const useRevokeException = () =>
+  usePlatformMutation(({ residenceId, id }: { residenceId: string; id: string }) =>
+    api<PlatformFeatures & { notified: number }>(`/platform/residences/${residenceId}/features/exceptions/${id}/revoke`, { method: 'POST' }));
 
 export const useOpenAssistance = () =>
   useQuery({ queryKey: ['platform', 'assistance'], queryFn: () => api<OpenAssistanceGrant[]>('/platform/assistance'), refetchInterval: 30_000 });

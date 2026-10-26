@@ -392,6 +392,21 @@ export interface PlatformFeatures {
   formulas: Record<Exclude<FeatureFormula, 'custom'>, FeatureSettings>;
   updatedAt: string | null;
   updatedBy: Person | null;
+  exceptions: FeatureException[];
+  staff: (Person & { role: FeatureRole })[];
+}
+
+// Exception pour une personne : remplace le niveau de son rôle pour un module
+export interface FeatureException {
+  id: string;
+  user: Person & { role: FeatureRole };
+  feature: FeatureKey;
+  level: FeatureLevel;
+  roleLevel: FeatureLevel;
+  effective: FeatureLevel;
+  reason: string | null;
+  createdAt: string;
+  createdBy: Person | null;
 }
 
 export interface FeatureChange { role: FeatureRole; feature: FeatureKey; from: FeatureLevel; to: FeatureLevel }
