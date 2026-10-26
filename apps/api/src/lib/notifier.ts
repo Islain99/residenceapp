@@ -13,9 +13,18 @@ import { sql } from 'kysely';
 import type { FastifyBaseLogger } from 'fastify';
 import type { Config } from '../config.js';
 import type { Database } from '../db/index.js';
+import { atLeast, type Feature, type FeatureRole, type FeatureStore, type Level } from './features.js';
 import { asLocale, pushIn, type Localized } from './locale.js';
 
 export type NotificationKind = 'messages' | 'announcements' | 'priority_notes' | 'follow_ups';
+
+// Fonctionnalités activables : pas d'avis pour un module masqué pour la personne
+const KIND_FEATURE: Record<NotificationKind, [Feature, Level]> = {
+  messages: ['messaging', 'full'],
+  announcements: ['announcements', 'read'],
+  priority_notes: ['journal', 'read'],
+  follow_ups: ['followUps', 'read'],
+};
 
 // Contenu reçu par l'appareil (service worker)
 export interface PushMessage {
@@ -90,7 +99,12 @@ const MAX_FAILURES = 5;
 export class Notifier {
   private readonly pending = new Set<Promise<unknown>>();
 
-  constructor(private readonly db: Database, readonly sender: PushSender | null, private readonly log: FastifyBaseLogger) {}
+  constructor(
+    private readonly db: Database,
+    readonly sender: PushSender | null,
+    private readonly log: FastifyBaseLogger,
+    private readonly features?: FeatureStore,
+  ) {}
 
   get enabled() {
     return this.sender !== null;
@@ -120,12 +134,12 @@ export class Notifier {
     let query = this.db.selectFrom('push_subscriptions as s')
       .innerJoin('users as u', 'u.id', 's.user_id')
       .leftJoin('notification_preferences as p', 'p.user_id', 's.user_id')
-      .select(['s.id', 's.endpoint', 's.p256dh', 's.auth', 'u.locale'])
+      .select(['s.id', 's.endpoint', 's.p256dh', 's.auth', 'u.locale', 'u.id as user_id', 'u.residence_id', 'u.role'])
       .where('s.user_id', 'in', userIds)
       .where('s.disabled_at', 'is', null)
       .where('u.is_active', '=', true);
     if (kind) query = query.where(sql<boolean>`coalesce(${sql.ref(`p.${kind}`)}, true)`);
-    const targets = await query.execute();
+    const targets = await this.allowed(await query.execute(), kind);
     const payload = (locale: string) => {
       const message: PushMessage = { ...notice.text[asLocale(locale)], url: notice.url, ...(notice.tag ? { tag: notice.tag } : {}) };
       return JSON.stringify(message);
@@ -149,6 +163,16 @@ export class Notifier {
       }
     }));
     return sent;
+  }
+
+  // Appareils des personnes pour qui le module de l'avis est actif
+  private async allowed<T extends { user_id: string; residence_id: string | null; role: string }>(
+    targets: T[], kind: NotificationKind | null): Promise<T[]> {
+    if (!kind || !this.features) return targets;
+    const [feature, min] = KIND_FEATURE[kind];
+    const keep = await Promise.all(targets.map(async (t) => !t.residence_id || t.role === 'admin'
+      || atLeast(await this.features!.level(t.residence_id, t.user_id, t.role as FeatureRole, feature), min)));
+    return targets.filter((_, i) => keep[i]);
   }
 
   // ------------------------------------------------------------ Destinataires

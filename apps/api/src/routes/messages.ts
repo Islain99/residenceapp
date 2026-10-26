@@ -22,6 +22,8 @@
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { sql } from 'kysely';
 import { authenticate, isSupervisor, requireRole, residenceOf, type Role } from '../auth.js';
+import { FeatureDisabled } from '../lib/feature-routes.js';
+import { atLeast, type FeatureRole, type FeatureStore } from '../lib/features.js';
 import { audit } from '../lib/audit.js';
 import { pushIn } from '../lib/locale.js';
 import { badRequest, forbidden, HttpError, notFound } from '../lib/errors.js';
@@ -87,7 +89,24 @@ async function ensureChannels(db: Db, residenceId: string) {
 }
 
 // Conversations auxquelles userId a accès, avec son état de lecture
-function conversationQuery(db: Db, residenceId: string, userId: string) {
+// Conversations visibles selon les fonctionnalités activables : la Messagerie
+// (privées, groupes, fil d'équipe) et les Annonces, chacune de son côté
+type Viewer = { sub: string; role: Role; rid: string | null };
+interface Access { kinds: string[]; canAnnounce: boolean }
+
+async function accessOf(features: FeatureStore, user: Viewer): Promise<Access> {
+  if (!user.rid) return { kinds: [], canAnnounce: false };
+  const levels = await features.forUser(user.rid, user.sub, user.role as FeatureRole);
+  return {
+    kinds: [
+      ...(atLeast(levels.messaging, 'full') ? ['direct', 'group', 'team'] : []),
+      ...(atLeast(levels.announcements, 'read') ? ['announcements'] : []),
+    ],
+    canAnnounce: atLeast(levels.announcements, 'full'),
+  };
+}
+
+function conversationQuery(db: Db, residenceId: string, userId: string, kinds: string[]) {
   // Point de départ des non-lus : « lu jusqu'à », sinon l'arrivée dans le
   // groupe, sinon la création du compte (pas d'historique « non lu » d'avant)
   const baseline = sql<Date>`coalesce(
@@ -96,6 +115,7 @@ function conversationQuery(db: Db, residenceId: string, userId: string) {
     (SELECT u.created_at FROM users u WHERE u.id = ${userId}))`;
   return db.selectFrom('conversations as c')
     .where('c.residence_id', '=', residenceId)
+    .where(kinds.length ? sql<boolean>`c.kind IN (${sql.join(kinds)})` : sql<boolean>`false`)
     .where(sql<boolean>`(c.kind IN ('team', 'announcements') OR EXISTS (
       SELECT 1 FROM conversation_members cm
       WHERE cm.conversation_id = c.id AND cm.user_id = ${userId} AND cm.left_at IS NULL))`)
@@ -147,6 +167,7 @@ function toConversation(
   members: { id: string; firstName: string; lastName: string; isActive: boolean }[],
   user: { sub: string; role: Role },
   staffCount: number,
+  canAnnounce: boolean,
 ) {
   const others = members.filter((m) => m.id !== user.sub);
   let title = row.title ?? '';
@@ -171,7 +192,7 @@ function toConversation(
     lastMessageAt: row.last_message_at?.toISOString() ?? null,
     unreadCount: Number(row.unread_count),
     pendingAcks: Number(row.pending_acks),
-    canPost: row.kind === 'announcements' ? isSupervisor(user.role)
+    canPost: row.kind === 'announcements' ? canAnnounce   // infirmière, responsable (si Annonces en Complet)
       : row.kind === 'direct' ? others.every((m) => m.isActive) : true,
   };
 }
@@ -224,11 +245,12 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
   const { db } = app;
 
   // Conversation accessible à l'utilisateur, sinon 404 (même réponse qu'inexistante)
-  async function loadConversation(residenceId: string, user: { sub: string; role: Role }, id: string) {
-    const row = await conversationQuery(db, residenceId, user.sub).where('c.id', '=', id).executeTakeFirst();
+  async function loadConversation(residenceId: string, user: Viewer, id: string) {
+    const access = await accessOf(app.features, user);
+    const row = await conversationQuery(db, residenceId, user.sub, access.kinds).where('c.id', '=', id).executeTakeFirst();
     if (!row) throw notFound('Conversation introuvable.');
     const members = (await membersOf(db, [row.id])).get(row.id) ?? [];
-    return toConversation(row, members, user, await activeStaffCount(db, residenceId));
+    return toConversation(row, members, user, await activeStaffCount(db, residenceId), access.canAnnounce);
   }
 
   // Notification push : qui écrit et où, jamais le texte du message
@@ -264,10 +286,16 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     }
   }
 
-  async function loadOwnMessage(residenceId: string, userId: string, id: string) {
-    const row = await db.selectFrom('messages').selectAll()
-      .where('id', '=', id).where('residence_id', '=', residenceId).executeTakeFirst();
+  async function loadOwnMessage(residenceId: string, user: Viewer, id: string) {
+    const userId = user.sub;
+    const row = await db.selectFrom('messages as m').innerJoin('conversations as c', 'c.id', 'm.conversation_id')
+      .selectAll('m').select('c.kind')
+      .where('m.id', '=', id).where('m.residence_id', '=', residenceId).executeTakeFirst();
     if (!row) throw notFound('Message introuvable.');
+    // Conversation d'un module masqué : comme introuvable ; annonce : la publier doit être permis
+    const access = await accessOf(app.features, user);
+    if (!access.kinds.includes(row.kind)) throw notFound('Message introuvable.');
+    if (row.kind === 'announcements' && !access.canAnnounce) throw new FeatureDisabled(true, 'announcements');
     if (row.author_id !== userId) throw forbidden('Seul l\'auteur peut corriger ou retirer son message.');
     if (row.retracted_at) throw new HttpError(409, 'message_retracted', 'Message déjà retiré.');
     if (Date.now() - row.created_at.getTime() > MESSAGE_EDIT_WINDOW_MS) {
@@ -283,12 +311,13 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => {
     const residenceId = residenceOf(request);
     await ensureChannels(db, residenceId);
-    const rows = await conversationQuery(db, residenceId, request.user.sub)
+    const access = await accessOf(app.features, request.user);
+    const rows = await conversationQuery(db, residenceId, request.user.sub, access.kinds)
       .orderBy(sql`coalesce(c.last_message_at, c.created_at)`, 'desc')
       .execute();
     const members = await membersOf(db, rows.filter((r) => !isChannel(r.kind)).map((r) => r.id));
     const staff = await activeStaffCount(db, residenceId);
-    return rows.map((r) => toConversation(r, members.get(r.id) ?? [], request.user, staff));
+    return rows.map((r) => toConversation(r, members.get(r.id) ?? [], request.user, staff, access.canAnnounce));
   });
 
   // Résumé pour la navigation et la relève : non-lus, annonces à confirmer
@@ -306,7 +335,7 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const residenceId = residenceOf(request);
     const userId = request.user.sub;
     await ensureChannels(db, residenceId);
-    const rows = await conversationQuery(db, residenceId, userId).execute();
+    const rows = await conversationQuery(db, residenceId, userId, (await accessOf(app.features, request.user)).kinds).execute();
     const unread = rows.reduce((sum, r) => sum + Number(r.unread_count), 0);
     const channel = rows.find((r) => r.kind === 'announcements');
     const pending = channel && Number(channel.pending_acks) > 0
@@ -397,7 +426,7 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => loadConversation(residenceOf(request), request.user, request.params.id));
 
   // --- Groupe : renommer, ajouter des collègues, quitter ----------------
-  async function loadGroup(residenceId: string, user: { sub: string; role: Role }, id: string) {
+  async function loadGroup(residenceId: string, user: Viewer, id: string) {
     const conversation = await loadConversation(residenceId, user, id);
     if (conversation.kind !== 'group') throw badRequest('not_a_group', 'Seul un groupe peut être modifié.');
     return conversation;
@@ -557,7 +586,7 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => {
     const residenceId = residenceOf(request);
     const me = request.user.sub;
-    const current = await loadOwnMessage(residenceId, me, request.params.id);
+    const current = await loadOwnMessage(residenceId, request.user, request.params.id);
     const body = cleanBody(request.body.body);
     if (body !== current.body) {
       await db.transaction().execute(async (trx) => {
@@ -582,7 +611,7 @@ const messageRoutes: FastifyPluginAsyncTypebox = async (app) => {
   }, async (request) => {
     const residenceId = residenceOf(request);
     const me = request.user.sub;
-    const current = await loadOwnMessage(residenceId, me, request.params.id);
+    const current = await loadOwnMessage(residenceId, request.user, request.params.id);
     await db.transaction().execute(async (trx) => {
       await trx.updateTable('messages').set({ retracted_at: new Date() }).where('id', '=', current.id).execute();
       await audit(trx, {
