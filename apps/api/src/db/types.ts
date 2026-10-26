@@ -241,6 +241,15 @@ export interface RefreshTokens {
   user_id: string;
 }
 
+export interface ResidenceFeatures {
+  feature: string;
+  level: string | null;
+  residence_id: string;
+  role: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
 export interface Residences {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -294,6 +303,20 @@ export interface ShiftTypes {
   start_time: string;
 }
 
+export interface UserFeatures {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  feature: string;
+  id: Generated<string>;
+  level: string;
+  reason: string | null;
+  residence_id: string;
+  revoke_reason: string | null;
+  revoked_at: Timestamp | null;
+  revoked_by: string | null;
+  user_id: string;
+}
+
 export interface Users {
   avatar: string | null;
   avatar_color: string | null;
@@ -338,9 +361,11 @@ export interface DB {
   notification_preferences: NotificationPreferences;
   push_subscriptions: PushSubscriptions;
   refresh_tokens: RefreshTokens;
+  residence_features: ResidenceFeatures;
   residences: Residences;
   residents: Residents;
   shift_types: ShiftTypes;
   shifts: Shifts;
+  user_features: UserFeatures;
   users: Users;
 }

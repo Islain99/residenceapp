@@ -157,6 +157,34 @@ Web Push (service worker de l'interface), si les clés VAPID sont configurées. 
 
 L'envoi se fait après la réponse (une notification qui échoue ne fait pas échouer l'action). Abonnement expiré (404/410) : désactivé ; 5 échecs de suite : désactivé. Rappels d'échéance vérifiés toutes les 5 min (`PUSH_REMINDER_INTERVAL_SECONDS`), sans double envoi même avec plusieurs instances de l'API.
 
+## Fonctionnalités activables
+
+L'administration de la plateforme règle, pour chaque résidence, le niveau d'accès de chaque module : `off` (masqué), `read` (consultation), `full` (complet). Catalogue, plafonds des rôles, dépendances et formules : `src/lib/features.ts` (migration 0014).
+
+Niveau effectif d'une personne : son exception (`user_features`) si elle en a une, sinon le réglage de son rôle (`residence_features`), sinon la valeur par défaut (le comportement d'avant) ; ramené au plafond du rôle (un réglage ne donne jamais plus que le rôle), puis par les dépendances (Journal masqué → Relève, Dictée, Consignes et Statistiques masquées ; Résidents masqués → Statistiques masquées ; Annonces sans Messagerie ni Relève → masquées).
+
+| Module | Préposé·e | Infirmière | Responsable | Niveaux |
+| --- | --- | --- | --- | --- |
+| `handover` Relève | full | full | full | off · full |
+| `journal` Journal | full | full | full | off · read · full |
+| `priority` Consignes prioritaires | — | full | full | off · full |
+| `followUps` Suivis | full | full | full | off · read · full |
+| `messaging` Messagerie | full | full | full | off · full |
+| `announcements` Annonces | read | full | full | off · read · full |
+| `agenda` Agenda | full | full | full | off · read · full |
+| `schedule` Horaires | read | read | full | off · read · full |
+| `residents` Résidents | read | full | full | off · read · full |
+| `stats` Statistiques | — | read | read | off · read |
+| `dictation` Dictée | full | full | full | off · full |
+
+Toujours actifs : journal d'audit, export d'un dossier (Loi 25), gestion de l'équipe, Mon profil, Aide. Formules : `complete` (par défaut), `essential` (sans Agenda, Horaires, Messagerie ni Annonces), `nurseJournal` (préposés : Journal en consultation, Résidents masqués) ; sinon `custom`.
+
+| Route | Rôle |
+| --- | --- |
+| `GET /features` | Tous les comptes d'une résidence (et l'accès d'assistance, avec les niveaux de la responsable) : `{ features: { journal: 'full', … }, locked }`. Admin hors assistance : 403 |
+
+Réglages lus une fois par résidence et gardés 30 s en mémoire ; un changement fait par le même serveur s'applique tout de suite.
+
 ## Journal de bord
 
 Toutes les routes exigent un jeton et ne voient que **la résidence de l'utilisateur** (une note d'une autre résidence répond 404 ; l'admin plateforme, sans résidence, reçoit 403).
