@@ -22,6 +22,7 @@ import {
   createRecognition, DICTATION_ERRORS, dictationStatus, installDictation, releaseRecognition,
   type DictationStatus, type Recognition,
 } from '../lib/dictation';
+import { isIOS } from '../lib/push';
 import { Spinner } from './ui';
 
 // Vérifiée une fois par page : la réponse ne change pas d'un champ à l'autre
@@ -32,9 +33,12 @@ let statusOnce: { lang: string; status: Promise<DictationStatus> } | null = null
 interface Props {
   onText: (spoken: string) => void;   // reçoit chaque passage définitif, à ajouter au champ
   field: string;                      // nom du champ, pour les lecteurs d'écran (« Dicter : intervention »)
+  // iPhone / iPad sans dictée locale : afficher l'aide « micro du clavier »
+  // (sous un seul champ du formulaire, pour ne pas la répéter)
+  iosHint?: boolean;
 }
 
-export function DictationButton({ onText, field }: Props) {
+export function DictationButton({ onText, field, iosHint }: Props) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<DictationStatus | null>(null);   // null : vérification en cours
   const [listening, setListening] = useState(false);
@@ -59,8 +63,18 @@ export function DictationButton({ onText, field }: Props) {
     };
   }, []);
 
-  // Pas de dictée locale possible : aucun bouton (on tape la note)
-  if (!status || status.state === 'unavailable') return null;
+  // Pas de dictée locale possible : aucun bouton (on tape la note). Sur
+  // iPhone / iPad, Safari ne transcrit qu'en ligne (serveurs d'Apple) : on
+  // rappelle plutôt la dictée du clavier de l'appareil.
+  if (!status || status.state === 'unavailable') {
+    if (!status || !iosHint || !isIOS()) return null;
+    return (
+      <p className="-mt-2 flex items-center justify-end gap-1.5 text-right text-xs text-muted">
+        <MicIcon />
+        {t('journal.dictation.iosHint')}
+      </p>
+    );
+  }
   const lang = status.lang;
 
   // Ouvre le micro. Le navigateur demande l'autorisation la première fois.
