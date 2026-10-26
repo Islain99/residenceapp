@@ -5,6 +5,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
+import { FeatureStore } from './lib/features.js';
 import { mailerFromConfig, type Mailer } from './lib/mailer.js';
 import { Notifier, webPushSender, type PushSender } from './lib/notifier.js';
 import agendaRoutes from './routes/agenda.js';
@@ -12,6 +13,7 @@ import assistanceRoutes from './routes/assistance.js';
 import auditRoutes from './routes/audit.js';
 import authRoutes from './routes/auth.js';
 import categoryRoutes from './routes/categories.js';
+import featureRoutes from './routes/features.js';
 import followUpRoutes from './routes/follow-ups.js';
 import handoverRoutes from './routes/handover.js';
 import healthRoutes from './routes/health.js';
@@ -33,6 +35,7 @@ declare module 'fastify' {
     config: Config;
     mailer: Mailer;
     notifier: Notifier;
+    features: FeatureStore;
   }
 }
 
@@ -65,6 +68,8 @@ export async function buildApp(
     },
   } satisfies Mailer);
   app.decorate('notifier', new Notifier(db, pushSender, app.log));
+  // Fonctionnalités activables par résidence (cache de 30 s)
+  app.decorate('features', new FeatureStore(db));
 
   // Rappels d'échéance des suivis (pas pendant les tests : ils l'appellent eux-mêmes)
   let reminders: NodeJS.Timeout | undefined;
@@ -151,6 +156,7 @@ export async function buildApp(
   await app.register(assistanceRoutes);
   await app.register(platformRoutes);
   await app.register(pushRoutes);
+  await app.register(featureRoutes);
 
   return app;
 }
