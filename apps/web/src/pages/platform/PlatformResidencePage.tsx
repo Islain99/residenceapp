@@ -6,7 +6,7 @@ import { Link, useParams } from 'react-router';
 import { useAddResponsable, usePlatformResidence, useUpdateResidence } from '../../api/hooks';
 import type { PlatformResidence, PlatformResidenceDetail } from '../../api/types';
 import { currentLanguage, LANGS } from '../../i18n';
-import { PlatformAccountRow, Stat } from '../../components/platform';
+import { PlatformAccountRow, ResidenceTabs, Stat } from '../../components/platform';
 import {
   Badge, Button, Card, Dialog, EmptyState, ErrorMessage, Loading, PageHeader, SelectField, TextArea, TextField,
 } from '../../components/ui';
@@ -42,6 +42,7 @@ export function PlatformResidencePage() {
             })}>{t('platform.residence.reactivate')}</Button>}
         </>}
       />
+      <ResidenceTabs id={r.id} />
       {!r.isActive && (
         <p className="mb-4 rounded-lg bg-danger-soft px-4 py-3 text-sm text-danger">
           {t('platform.residence.suspendedNotice')}

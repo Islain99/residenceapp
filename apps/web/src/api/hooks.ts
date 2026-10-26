@@ -10,7 +10,7 @@ import type {
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
   AssistanceGrant, NewResidenceInput, OpenAssistanceGrant, PlatformAccount, PlatformAuditPage, PlatformResidence,
   PlatformResidenceDetail, PlatformSecurity, MfaStatus, PushConfig, PushPreferences,
-  ProfileInput, User,
+  ProfileInput, User, FeatureChange, FeatureSettings, PlatformFeatures,
 } from './types';
 
 export interface NoteFilters {
@@ -502,6 +502,13 @@ export const usePlatformResidences = () =>
 
 export const usePlatformResidence = (id: string) =>
   useQuery({ queryKey: ['platform', 'residence', id], queryFn: () => api<PlatformResidenceDetail>(`/platform/residences/${id}`) });
+
+export const usePlatformFeatures = (id: string) =>
+  useQuery({ queryKey: ['platform', 'features', id], queryFn: () => api<PlatformFeatures>(`/platform/residences/${id}/features`) });
+
+export const useSaveFeatures = () =>
+  usePlatformMutation(({ id, ...body }: { id: string; settings: FeatureSettings; acceptCascade: boolean }) =>
+    api<PlatformFeatures & { changes: FeatureChange[]; notified: number }>(`/platform/residences/${id}/features`, { method: 'PUT', body }));
 
 export const useOpenAssistance = () =>
   useQuery({ queryKey: ['platform', 'assistance'], queryFn: () => api<OpenAssistanceGrant[]>('/platform/assistance'), refetchInterval: 30_000 });

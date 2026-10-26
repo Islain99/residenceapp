@@ -1,9 +1,11 @@
 // Éléments partagés des pages de la plateforme.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { NavLink } from 'react-router';
 import { usePlatformAccountAction, useSetPlatformAccountActive, type PlatformAccountAction } from '../api/hooks';
 import type { PlatformAccount } from '../api/types';
 import { useUser } from '../auth/session';
+import { cx } from '../lib/cx';
 import { formatWhen, fullName } from '../lib/format';
 import { Badge, Button, ErrorMessage } from './ui';
 
@@ -86,5 +88,27 @@ export function Stat({ label, value, tone }: { label: string; value: number | st
       <p className="text-2xl font-bold tabular-nums">{value}</p>
       <p className={tone === 'danger' ? 'text-sm' : 'text-sm text-muted'}>{label}</p>
     </div>
+  );
+}
+
+// Onglets de la fiche d'une résidence : informations, fonctionnalités
+export function ResidenceTabs({ id }: { id: string }) {
+  const { t } = useTranslation();
+  const tabs = [
+    { to: `/plateforme/residences/${id}`, label: t('platform.features.overviewTab'), end: true },
+    { to: `/plateforme/residences/${id}/fonctionnalites`, label: t('platform.features.tab'), end: false },
+  ];
+  return (
+    <nav aria-label={t('platform.features.title')} className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
+      {tabs.map((tab) => (
+        <NavLink key={tab.to} to={tab.to} end={tab.end} data-tour={tab.end ? undefined : 'platform-features-tab'}
+          className={({ isActive }) => cx(
+            '-mb-px whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium',
+            isActive ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink',
+          )}>
+          {tab.label}
+        </NavLink>
+      ))}
+    </nav>
   );
 }

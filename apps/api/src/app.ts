@@ -23,6 +23,7 @@ import noteRoutes from './routes/notes.js';
 import passwordRoutes from './routes/password.js';
 import profileRoutes from './routes/profile.js';
 import platformRoutes from './routes/platform.js';
+import platformFeatureRoutes from './routes/platform-features.js';
 import pushRoutes from './routes/push.js';
 import residentRoutes from './routes/residents.js';
 import scheduleRoutes from './routes/schedule.js';
@@ -176,6 +177,7 @@ export async function buildApp(
   await app.register(platformRoutes);
   await app.register(pushRoutes);
   await app.register(featureRoutes);
+  await app.register(platformFeatureRoutes);
   checkRoutes = false;
 
   return app;

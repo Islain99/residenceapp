@@ -48,6 +48,14 @@ export const MAIL_TEXT = {
       subject: 'Essai d’envoi — Journal de bord',
       body: 'Ce courriel confirme que l’envoi fonctionne (invitations, mots de passe oubliés).',
     },
+    features: {
+      subject: (residence: string) => `Fonctionnalités modifiées — ${residence}`,
+      body: (by: string, residence: string) => `${by} (administration de la plateforme) a modifié les fonctionnalités de ${residence} :`,
+      change: (who: string, module: string, from: string, to: string) => `• ${who} — ${module} : ${from} → ${to}`,
+      effect: 'Les changements s’appliquent tout de suite. Rien n’est effacé : un module réactivé retrouve ses données. Le détail est au journal d’audit.',
+      button: 'Ouvrir le journal de bord',
+      footer: 'Courriel automatique, ne pas y répondre. Une question : écrivez à l’administration de la plateforme.',
+    },
   },
   en: {
     hello: (name: string) => `Hello ${name},`,
@@ -78,6 +86,36 @@ export const MAIL_TEXT = {
       subject: 'Test email — Logbook',
       body: 'This email confirms that sending works (invitations, forgotten passwords).',
     },
+    features: {
+      subject: (residence: string) => `Features changed — ${residence}`,
+      body: (by: string, residence: string) => `${by} (platform administration) changed the features of ${residence}:`,
+      change: (who: string, module: string, from: string, to: string) => `• ${who} — ${module}: ${from} → ${to}`,
+      effect: 'Changes apply right away. Nothing is deleted: a module turned back on gets its data back. Details are in the audit log.',
+      button: 'Open the logbook',
+      footer: 'Automatic email, please don’t reply. Questions: write to the platform administration.',
+    },
+  },
+} satisfies Localized<unknown>;
+
+// Noms des modules, des rôles et des niveaux (courriel de changement)
+export const FEATURE_TEXT = {
+  fr: {
+    features: {
+      handover: 'Relève', journal: 'Journal', priority: 'Consignes prioritaires', followUps: 'Suivis',
+      messaging: 'Messagerie', announcements: 'Annonces', agenda: 'Agenda', schedule: 'Horaires',
+      residents: 'Résidents', stats: 'Statistiques', dictation: 'Dictée',
+    },
+    roles: { prepose: 'Préposés', infirmiere: 'Infirmières', responsable: 'Responsables' },
+    levels: { off: 'Masqué', read: 'Consultation', full: 'Complet' },
+  },
+  en: {
+    features: {
+      handover: 'Handover', journal: 'Journal', priority: 'Priority instructions', followUps: 'Follow-ups',
+      messaging: 'Messaging', announcements: 'Announcements', agenda: 'Agenda', schedule: 'Schedule',
+      residents: 'Residents', stats: 'Statistics', dictation: 'Dictation',
+    },
+    roles: { prepose: 'Care attendants', infirmiere: 'Nurses', responsable: 'Managers' },
+    levels: { off: 'Hidden', read: 'View only', full: 'Full' },
   },
 } satisfies Localized<unknown>;
 

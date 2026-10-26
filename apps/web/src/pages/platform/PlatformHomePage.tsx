@@ -71,6 +71,7 @@ function ResidenceCard({ residence: r }: { residence: PlatformResidence }) {
           <h2 className="font-semibold">{r.name}</h2>
           <Badge>{r.type}</Badge>
           {!r.isActive && <Badge tone="danger">{t('platform.home.suspended')}</Badge>}
+          {r.formula !== 'complete' && <Badge tone="info">{t('platform.features.formulaBadge', { name: t(`platform.features.formulas.${r.formula}`) })}</Badge>}
           {r.assistanceUntil && <Badge tone="priority">{t('platform.home.assistanceUntil', { when: formatWhen(r.assistanceUntil) })}</Badge>}
           {noResponsable && <Badge tone="danger">{t('platform.home.noResponsable')}</Badge>}
           {r.lockedAccounts > 0 && <Badge tone="danger">{t('platform.home.lockedBadge', { count: r.lockedAccounts })}</Badge>}

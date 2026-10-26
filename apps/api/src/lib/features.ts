@@ -141,6 +141,16 @@ export function formulaOf(settings: RoleSettings): Formula {
   return 'custom';
 }
 
+// Lignes residence_features (level non NULL) → réglages
+export function settingsFromRows(rows: { feature: string; role: string; level: string | null }[]): RoleSettings {
+  const settings: RoleSettings = {};
+  for (const row of rows) {
+    if (!isFeature(row.feature) || !row.level || !(FEATURE_ROLES as readonly string[]).includes(row.role)) continue;
+    (settings[row.feature] ??= {})[row.role as FeatureRole] = row.level as Level;
+  }
+  return settings;
+}
+
 // ---------------------------------------------------------------------
 // Lecture dans la base, avec un cache de 30 s par résidence. Un changement
 // fait par ce serveur vide le cache tout de suite (invalidate) ; un autre
@@ -194,11 +204,7 @@ export class FeatureStore {
         .where(sql<boolean>`u.role IN ('prepose', 'infirmiere', 'responsable')`)
         .execute(),
     ]);
-    const settings: RoleSettings = {};
-    for (const row of roleRows) {
-      if (!isFeature(row.feature) || !row.level) continue;   // module retiré du catalogue
-      (settings[row.feature] ??= {})[row.role as FeatureRole] = row.level as Level;
-    }
+    const settings = settingsFromRows(roleRows);   // module retiré du catalogue : ignoré
     const exceptions = new Map<string, Partial<Record<Feature, Level>>>();
     for (const row of userRows) {
       if (!isFeature(row.feature)) continue;

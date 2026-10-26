@@ -54,6 +54,8 @@ export function describeAudit(entry: AuditEntry): string {
       return t('admin.audit.assistanceStart');
     case 'assistance_end':
       return t('admin.audit.assistanceEnd');
+    case 'feature_update':
+      return t('admin.audit.featureUpdate', { count: Array.isArray(d.changes) ? d.changes.length : 0 });
   }
   const what = action(entry.action);
   if (entry.entity === 'user' && SELF_ACTIONS.includes(entry.action)) {

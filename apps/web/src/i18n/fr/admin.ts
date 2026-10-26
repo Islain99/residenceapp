@@ -190,6 +190,8 @@ export default {
     accountOf: '{{action}} le compte de {{name}}',
     actionOn: '{{action}} {{name}}',
     entityAction: '{{action}} {{entity}}',
+    featureUpdate_one: 'a modifié les fonctionnalités de la résidence ({{count}} changement)',
+    featureUpdate_other: 'a modifié les fonctionnalités de la résidence ({{count}} changements)',
     residenceReason: ' — motif : {{reason}}',
     assistanceView: 'a consulté {{page}} (accès d’assistance)',
     assistanceGrant: 'a accordé un accès d’assistance ({{hours}} h)',

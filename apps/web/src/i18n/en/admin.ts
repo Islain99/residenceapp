@@ -191,6 +191,8 @@ export default {
     accountOf: '{{action}} the account of {{name}}',
     actionOn: '{{action}} {{name}}',
     entityAction: '{{action}} {{entity}}',
+    featureUpdate_one: 'changed the residence’s features ({{count}} change)',
+    featureUpdate_other: 'changed the residence’s features ({{count}} changes)',
     residenceReason: ' — reason: {{reason}}',
     assistanceView: 'viewed {{page}} (support access)',
     assistanceGrant: 'granted a support access ({{hours}} h)',

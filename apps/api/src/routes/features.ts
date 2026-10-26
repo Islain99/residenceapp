@@ -7,10 +7,12 @@
 // En accès d'assistance : les niveaux de la responsable de la résidence.
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import { authenticate, residenceOf } from '../auth.js';
-import { FEATURE_KEYS, LEVELS, LOCKED, type FeatureRole } from '../lib/features.js';
+import { FEATURE_KEYS, LEVELS, LOCKED, type Feature, type FeatureRole, type Level } from '../lib/features.js';
 
-export const LevelSchema = Type.Union(LEVELS.map((l) => Type.Literal(l)));
+export const LevelSchema = Type.Unsafe<Level>(Type.Union(LEVELS.map((l) => Type.Literal(l))));
 export const FeatureSchema = Type.Union(FEATURE_KEYS.map((k) => Type.Literal(k)));
+// Valeur (hors clé d'objet) : un module du catalogue
+export const FeatureValue = Type.Unsafe<Feature>(FeatureSchema);
 
 export const FeaturesBody = Type.Object({
   features: Type.Record(FeatureSchema, LevelSchema),
