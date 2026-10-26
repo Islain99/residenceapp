@@ -22,6 +22,11 @@ export default {
     platform: 'Plateforme',
     platformRole: 'Administration de la plateforme',
   },
+  features: {
+    offTitle: 'Cette fonction n’est pas activée dans votre résidence.',
+    offBody: 'Elle a pu être désactivée par l’administration de la plateforme, à la demande de votre résidence. Une question : adressez-vous à votre responsable.',
+    home: 'Retour à l’accueil',
+  },
   badges: {
     unread_one: '{{count}} non lue',
     unread_other: '{{count}} non lues',

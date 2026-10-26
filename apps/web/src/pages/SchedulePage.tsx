@@ -3,6 +3,7 @@
 // Semaine et vue dans l'adresse (?semaine=AAAA-MM-JJ&vue=equipe|moi).
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAccess } from '../lib/access';
 import { useSearchParams } from 'react-router';
 import { useCancelShift, useCopyWeek, useSaveShift, useShifts, useShiftTypes, useStaff } from '../api/hooks';
 import type { Shift, StaffMember } from '../api/types';
@@ -23,7 +24,9 @@ type Editing = { shift?: Shift; userId: string; workDate: string };
 export function SchedulePage() {
   const { t } = useTranslation();
   const user = useUser();
-  const responsable = user.role === 'responsable';
+  const { can } = useAccess();
+  // Placer les quarts : la responsable, si les Horaires sont en Complet
+  const responsable = user.role === 'responsable' && can('schedule', 'full');
   const [params, setParams] = useSearchParams();
   const [today] = useState(() => new Date());
   const [editing, setEditing] = useState<Editing | null>(null);

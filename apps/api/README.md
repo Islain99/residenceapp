@@ -190,6 +190,7 @@ Toujours actifs : journal d'audit, export d'un dossier (Loi 25), gestion de l'é
 | `PUT /platform/residences/:id/features/users/:userId` | Admin plateforme : exception pour une personne `{ feature, level, reason? }` (remplace celle en cours pour ce module). Refus : `invalid_user`, `invalid_level` (au-dessus du rôle), `exception_same_as_role`, `exception_blocked` (dépendance manquante). Tracé `feature_exception`, responsables prévenues ; réponse : la grille, `exceptions`, `notified` |
 | `POST /platform/residences/:id/features/exceptions/:exceptionId/revoke` | Admin plateforme : retirer une exception (retour au niveau du rôle). Tracé `feature_exception_revoke`, responsables prévenues |
 | `GET /features` | Tous les comptes d'une résidence (et l'accès d'assistance, avec les niveaux de la responsable) : `{ features: { journal: 'full', … }, locked }`. Admin hors assistance : 403 |
+| `GET /features/residence` | Responsable : réglages de sa résidence par rôle, formule et exceptions en cours (lecture seule ; Admin › Fonctionnalités, Équipe) |
 
 Réglages lus une fois par résidence et gardés 30 s en mémoire ; un changement fait par le même serveur s'applique tout de suite.
 

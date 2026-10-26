@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { ResidentLink } from './ResidentLink';
 import { useMarkRead } from '../api/hooks';
 import type { Note } from '../api/types';
 import { formatWhen, fullName } from '../lib/format';
@@ -26,10 +27,10 @@ export function ResidentLabel({ note }: { note: Note }) {
   const { t } = useTranslation();
   if (!note.resident) return <span className="text-muted">{t('journal.note.general')}</span>;
   return (
-    <Link to={`/residents/${note.resident.id}`} className="font-semibold hover:underline">
+    <ResidentLink id={note.resident.id} className="font-semibold hover:underline">
       {fullName(note.resident)}
       {note.resident.room && <span className="font-normal text-muted"> · {t('journal.note.room', { room: note.resident.room })}</span>}
-    </Link>
+    </ResidentLink>
   );
 }
 

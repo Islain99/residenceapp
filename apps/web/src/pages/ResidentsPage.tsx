@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAccess } from '../lib/access';
 import { Link, useNavigate } from 'react-router';
 import { useResidents, useSaveResident } from '../api/hooks';
 import { isSupervisor, useUser } from '../auth/session';
@@ -9,6 +10,7 @@ import { fullName } from '../lib/format';
 
 export function ResidentsPage() {
   const { t } = useTranslation();
+  const { can } = useAccess();
   const user = useUser();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
@@ -21,7 +23,7 @@ export function ResidentsPage() {
     <>
       <PageHeader
         title={t('residents.list.title')}
-        actions={isSupervisor(user.role) && <Button data-tour="residents-add" variant="primary" onClick={() => setCreating(true)}>{t('residents.list.add')}</Button>}
+        actions={isSupervisor(user.role) && can('residents', 'full') && <Button data-tour="residents-add" variant="primary" onClick={() => setCreating(true)}>{t('residents.list.add')}</Button>}
       />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input

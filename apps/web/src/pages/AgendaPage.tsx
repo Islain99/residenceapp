@@ -2,6 +2,7 @@
 // l'adresse (?semaine=AAAA-MM-JJ&residentId=…), donc partageables.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAccess } from '../lib/access';
 import { useSearchParams } from 'react-router';
 import { useAppointments, useResidents } from '../api/hooks';
 import type { Appointment, AppointmentKind } from '../api/types';
@@ -15,6 +16,7 @@ import {
 
 export function AgendaPage() {
   const { t } = useTranslation();
+  const { can } = useAccess();
   const [params, setParams] = useSearchParams();
   const [today] = useState(() => new Date());
   // Nouveau rendez-vous : start absent = prochaine heure ronde ; sinon le jour choisi à 10 h
@@ -50,7 +52,7 @@ export function AgendaPage() {
       <PageHeader
         title={t('agenda.title')}
         subtitle={t('agenda.subtitle')}
-        actions={<Button variant="primary" onClick={() => setCreating({})}>{t('agenda.add')}</Button>}
+        actions={can('agenda', 'full') && <Button variant="primary" onClick={() => setCreating({})}>{t('agenda.add')}</Button>}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

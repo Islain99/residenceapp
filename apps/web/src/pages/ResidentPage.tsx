@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { downloadResidentExport, useAppointments, useCreateNote, useFollowUps, useNotes, useResident, useSaveResident } from '../api/hooks';
 import type { Resident } from '../api/types';
 import { isSupervisor, useUser } from '../auth/session';
+import { useAccess } from '../lib/access';
 import { AppointmentForm, AppointmentItem } from '../components/Appointments';
 import { FollowUpItem } from '../components/FollowUps';
 import { NoteCard } from '../components/NoteCard';
@@ -25,21 +26,24 @@ function ResidentView({ resident }: { resident: Resident }) {
   const { t } = useTranslation();
   const user = useUser();
   const navigate = useNavigate();
-  const notes = useNotes({ residentId: resident.id }, 10);
-  const followUps = useFollowUps({ status: 'open', residentId: resident.id });
+  // Fonctionnalités activables : chaque section suit son module
+  const { can } = useAccess();
+  const notes = useNotes({ residentId: resident.id }, 10, can('journal'));
+  const followUps = useFollowUps({ status: 'open', residentId: resident.id }, can('followUps'));
   // Suivis terminés : ce qui a été fait, avec la note de clôture
-  const doneFollowUps = useFollowUps({ status: 'closed', residentId: resident.id });
+  const doneFollowUps = useFollowUps({ status: 'closed', residentId: resident.id }, can('followUps'));
   // Rendez-vous des trois prochains mois. 90 jours et non 92 (limite de l'API) :
   // un changement d'heure ajoute une heure à la période.
   const [today] = useState(() => startOfDay(new Date()));
   const appointments = useAppointments({
     from: today.toISOString(), to: addDays(today, 90).toISOString(), residentId: resident.id,
-  });
+  }, can('agenda'));
   const createNote = useCreateNote();
   const [dialog, setDialog] = useState<'note' | 'appointment' | 'edit' | 'leave' | null>(null);
   const close = () => setDialog(null);
   const save = useSaveResident(resident.id);
   const supervisor = isSupervisor(user.role);
+  const manage = supervisor && can('residents', 'full');   // Résidents en consultation : pas de modification
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<unknown>(null);
 
@@ -71,17 +75,17 @@ function ResidentView({ resident }: { resident: Resident }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => setDialog('note')}>{t('residents.detail.addNote')}</Button>
-            <Button onClick={() => setDialog('appointment')}>{t('residents.detail.addAppointment')}</Button>
-            {supervisor && (
+            {can('journal', 'full') && <Button variant="primary" onClick={() => setDialog('note')}>{t('residents.detail.addNote')}</Button>}
+            {can('agenda', 'full') && <Button onClick={() => setDialog('appointment')}>{t('residents.detail.addAppointment')}</Button>}
+            {supervisor && can('stats') && (
               <Link to={`/residents/${resident.id}/statistiques`}
                 className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 text-sm font-medium hover:bg-sunken">
                 {t('residents.detail.stats')}
               </Link>
             )}
-            {supervisor && <Button onClick={() => setDialog('edit')}>{t('common.edit')}</Button>}
-            {supervisor && resident.status === 'actif' && <Button variant="ghost" onClick={() => setDialog('leave')}>{t('residents.detail.leave')}</Button>}
-            {supervisor && resident.status === 'parti' && (
+            {manage && <Button onClick={() => setDialog('edit')}>{t('common.edit')}</Button>}
+            {manage && resident.status === 'actif' && <Button variant="ghost" onClick={() => setDialog('leave')}>{t('residents.detail.leave')}</Button>}
+            {manage && resident.status === 'parti' && (
               <Button variant="ghost" busy={save.isPending} onClick={() => save.mutate({ status: 'actif' })}>{t('residents.detail.readmit')}</Button>
             )}
             {user.role === 'responsable' && (
@@ -114,7 +118,7 @@ function ResidentView({ resident }: { resident: Resident }) {
         )}
       </Card>
 
-      <section className="mt-8">
+      {can('agenda') && <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{t('residents.detail.upcoming')}</h2>
           <Link to={`/agenda?residentId=${resident.id}`} className="text-sm text-primary hover:underline">{t('residents.detail.seeInAgenda')}</Link>
@@ -122,14 +126,14 @@ function ResidentView({ resident }: { resident: Resident }) {
         {appointments.isPending ? <Loading /> : !appointments.data?.length ? <EmptyState>{t('residents.detail.noAppointments')}</EmptyState> : (
           <ul className="flex flex-col gap-2">{appointments.data.map((a) => <AppointmentItem key={a.id} appointment={a} showDate />)}</ul>
         )}
-      </section>
+      </section>}
 
-      <section className="mt-8">
+      {can('followUps') && <section className="mt-8">
         <h2 className="mb-3 text-lg font-semibold">{t('residents.detail.openFollowUps')}</h2>
         {followUps.isPending ? <Loading /> : !followUps.data?.length ? <EmptyState>{t('residents.detail.noOpenFollowUps')}</EmptyState> : (
           <ul className="flex flex-col gap-3">{followUps.data.map((f) => <FollowUpItem key={f.id} followUp={f} />)}</ul>
         )}
-      </section>
+      </section>}
 
       {!!doneFollowUps.data?.length && (
         <section className="mt-8">
@@ -140,7 +144,7 @@ function ResidentView({ resident }: { resident: Resident }) {
         </section>
       )}
 
-      <section className="mt-8">
+      {can('journal') && <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{t('residents.detail.recentNotes')}</h2>
           <Link to={`/journal?residentId=${resident.id}`} className="text-sm text-primary hover:underline">{t('residents.detail.allNotes')}</Link>
@@ -148,7 +152,7 @@ function ResidentView({ resident }: { resident: Resident }) {
         {notes.isPending ? <Loading /> : items.length === 0 ? <EmptyState>{t('residents.detail.noNotes')}</EmptyState> : (
           <div className="flex flex-col gap-3">{items.map((n) => <NoteCard key={n.id} note={n} />)}</div>
         )}
-      </section>
+      </section>}
 
       <Dialog open={dialog === 'appointment'} onClose={close} title={t('residents.detail.newAppointment', { name: fullName(resident) })}>
         <AppointmentForm defaultResidentId={resident.id} onDone={close} />

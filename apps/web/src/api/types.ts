@@ -409,6 +409,14 @@ export interface FeatureException {
   createdBy: Person | null;
 }
 
+// Réglages de sa résidence, vus par la responsable (GET /features/residence)
+export interface ResidenceFeatures {
+  formula: FeatureFormula;
+  effective: FeatureGrid;
+  catalogue: FeatureDef[];
+  exceptions: Omit<FeatureException, 'createdBy'>[];
+}
+
 export interface FeatureChange { role: FeatureRole; feature: FeatureKey; from: FeatureLevel; to: FeatureLevel }
 
 export interface PlatformAccount {

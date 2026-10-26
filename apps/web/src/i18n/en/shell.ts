@@ -23,6 +23,11 @@ export default {
     platform: 'Platform',
     platformRole: 'Platform administration',
   },
+  features: {
+    offTitle: 'This feature isn’t turned on in your residence.',
+    offBody: 'It may have been turned off by the platform administration, at your residence’s request. Questions: ask your manager.',
+    home: 'Back to home',
+  },
   badges: {
     unread_one: '{{count}} unread',
     unread_other: '{{count}} unread',

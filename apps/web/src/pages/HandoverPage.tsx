@@ -5,6 +5,7 @@
 // « J'ai pris connaissance » confirme la lecture des notes ordinaires.
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAccess } from '../lib/access';
 import { Link } from 'react-router';
 import { PushPrompt } from '../components/PushPrompt';
 import { useAckAnnouncement, useAcknowledgeHandover, useHandover, useMessagingSummary } from '../api/hooks';
@@ -20,6 +21,7 @@ export function HandoverPage() {
   const user = useUser();
   const handover = useHandover();
   const ack = useAcknowledgeHandover();
+  const { can } = useAccess();   // sections des modules masqués : absentes
   const [done, setDone] = useState(false);
 
   if (handover.isPending) return <Loading />;
@@ -55,9 +57,11 @@ export function HandoverPage() {
         <Badge tone="info">{t('journal.handover.notes', { count: h.counts.notes })}</Badge>
         <Badge tone="priority">{t('journal.handover.priority', { count: h.counts.priority })}</Badge>
         <Badge>{t('journal.handover.unread', { count: h.counts.unread })}</Badge>
-        <Badge tone={h.followUps.some((f) => f.isOverdue) ? 'danger' : 'neutral'}>
-          {t('journal.handover.followUps', { count: h.followUps.length })}
-        </Badge>
+        {can('followUps') && (
+          <Badge tone={h.followUps.some((f) => f.isOverdue) ? 'danger' : 'neutral'}>
+            {t('journal.handover.followUps', { count: h.followUps.length })}
+          </Badge>
+        )}
       </div>
 
       <PushPrompt />
@@ -79,18 +83,20 @@ export function HandoverPage() {
         <section className="mb-8">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold">{t('journal.handover.appointments')}</h2>
-            <Link to="/agenda" className="text-sm text-primary hover:underline">{t('journal.handover.agendaLink')}</Link>
+            {can('agenda') && <Link to="/agenda" className="text-sm text-primary hover:underline">{t('journal.handover.agendaLink')}</Link>}
           </div>
           <ul className="flex flex-col gap-2">{h.appointments.map((a) => <AppointmentItem key={a.id} appointment={a} showDate />)}</ul>
         </section>
       )}
 
-      <section className="mb-8">
-        <h2 className="mb-3 text-lg font-semibold">{t('journal.handover.followUpsTitle')}</h2>
-        {h.followUps.length === 0
-          ? <EmptyState>{t('journal.handover.noFollowUps')}</EmptyState>
-          : <ul className="flex flex-col gap-3">{h.followUps.map((f) => <FollowUpItem key={f.id} followUp={f} />)}</ul>}
-      </section>
+      {can('followUps') && (
+        <section className="mb-8">
+          <h2 className="mb-3 text-lg font-semibold">{t('journal.handover.followUpsTitle')}</h2>
+          {h.followUps.length === 0
+            ? <EmptyState>{t('journal.handover.noFollowUps')}</EmptyState>
+            : <ul className="flex flex-col gap-3">{h.followUps.map((f) => <FollowUpItem key={f.id} followUp={f} />)}</ul>}
+        </section>
+      )}
 
       <section className="mb-8">
         <h2 className="mb-3 text-lg font-semibold">{t('journal.handover.newNotes')}</h2>
@@ -127,7 +133,9 @@ export function HandoverPage() {
 // Annonces de la messagerie pas encore confirmées : en tête de la relève
 function AnnouncementsToConfirm() {
   const { t } = useTranslation();
-  const summary = useMessagingSummary();
+  const { can } = useAccess();
+  // Annonces masquées pour la personne (fonctionnalités activables) : rien à confirmer
+  const summary = useMessagingSummary(can('announcements'));
   const ack = useAckAnnouncement();
   const pending = summary.data?.announcements ?? [];
   if (pending.length === 0) return null;
@@ -135,7 +143,7 @@ function AnnouncementsToConfirm() {
     <section className="mb-8">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-priority">{t('journal.handover.announcementsTitle')}</h2>
-        <Link to={`/messages/${pending[0]!.conversationId}`} className="text-sm text-primary hover:underline">{t('journal.handover.announcementsLink')}</Link>
+        {can('messaging', 'full') && <Link to={`/messages/${pending[0]!.conversationId}`} className="text-sm text-primary hover:underline">{t('journal.handover.announcementsLink')}</Link>}
       </div>
       <ul className="flex flex-col gap-3">
         {pending.map((m) => (

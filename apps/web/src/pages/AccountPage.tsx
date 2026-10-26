@@ -2,6 +2,7 @@
 // langue), notifications sur cet appareil, double authentification.
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAccess, type Need } from '../lib/access';
 import {
   useChangePassword, useMfaStatus, usePushConfig, usePushPreferences, useRegenerateBackupCodes, useSendTestPush,
   useUpdateProfile, useUpdatePushPreferences,
@@ -225,11 +226,16 @@ function PasswordSection({ email }: { email: string }) {
 }
 
 const KINDS: (keyof Omit<PushPreferences, 'devices'>)[] = ['priorityNotes', 'messages', 'announcements', 'followUps'];
+// Module de chaque avis : pas de réglage pour un module masqué (aucun avis n'en part)
+const KIND_NEEDS: Record<(typeof KINDS)[number], Need> = {
+  priorityNotes: ['journal'], messages: ['messaging', 'full'], announcements: ['announcements'], followUps: ['followUps'],
+};
 
 // Administration de la plateforme : aucun avis à recevoir, mais l'essai
 // permet de vérifier les notifications (clés VAPID) sur un appareil
 function NotificationsSection({ forResidence }: { forResidence: boolean }) {
   const { t } = useTranslation();
+  const { can } = useAccess();
   const { sharedDevice } = useAuth();
   const config = usePushConfig();
   const prefs = usePushPreferences();
@@ -304,7 +310,7 @@ function NotificationsSection({ forResidence }: { forResidence: boolean }) {
             {t('account.notifications.receive')}
             {prefs.data.devices > 0 && <span className="font-normal text-muted">{t('account.notifications.devices', { count: prefs.data.devices })}</span>}
           </legend>
-          {KINDS.map((k) => (
+          {KINDS.filter((k) => can(...KIND_NEEDS[k])).map((k) => (
             <Checkbox key={k} checked={prefs.data[k]} disabled={update.isPending}
               onChange={(e) => update.mutate({ [k]: e.target.checked })}
               label={<span>{t(`account.notifications.kinds.${k}`)} <span className="text-muted">— {t(`account.notifications.kinds.${k}Hint`)}</span></span>} />

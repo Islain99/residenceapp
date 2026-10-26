@@ -7,6 +7,7 @@ import type { Note, NoteInput } from '../api/types';
 import { appendDictated } from '../lib/dictation';
 import { fromLocalInput, fullName, toLocalInput } from '../lib/format';
 import { DictationButton } from './Dictation';
+import { useAccess } from '../lib/access';
 import { Button, Checkbox, ErrorMessage, SelectField, TextArea, TextField } from './ui';
 
 interface Props {
@@ -21,7 +22,10 @@ export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLa
   const { t } = useTranslation();
   const user = useUser();
   // Consigne prioritaire : infirmière ou responsable seulement (règle de l'API)
-  const canMarkPriority = isSupervisor(user.role);
+  const { can } = useAccess();
+  // Fonctionnalités activables : consignes prioritaires et dictée peuvent être désactivées
+  const canMarkPriority = isSupervisor(user.role) && can('priority', 'full');
+  const dictation = can('dictation', 'full');
   const categories = useCategories();
   const residents = useResidents('actif');
   const [occurredAt, setOccurredAt] = useState(() => toLocalInput(note ? new Date(note.occurredAt) : new Date()));
@@ -94,7 +98,7 @@ export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLa
         onChange={(e) => setDescription(e.target.value)}
         placeholder={t('journal.form.descriptionPlaceholder')}
       />
-      <DictationButton iosHint field={t('journal.form.dictateDescription')} onText={(spoken) => setDescription((text) => appendDictated(text, spoken))} />
+      {dictation && <DictationButton iosHint field={t('journal.form.dictateDescription')} onText={(spoken) => setDescription((text) => appendDictated(text, spoken))} />}
       <TextArea
         label={t('journal.form.intervention')}
         rows={2}
@@ -103,7 +107,7 @@ export function NoteForm({ note, defaultResidentId, onSubmit, onCancel, submitLa
         onChange={(e) => setIntervention(e.target.value)}
         placeholder={t('journal.form.interventionPlaceholder')}
       />
-      <DictationButton field={t('journal.form.dictateIntervention')} onText={(spoken) => setIntervention((text) => appendDictated(text, spoken))} />
+      {dictation && <DictationButton field={t('journal.form.dictateIntervention')} onText={(spoken) => setIntervention((text) => appendDictated(text, spoken))} />}
 
       <div className="flex flex-wrap gap-x-6">
         {canMarkPriority && (

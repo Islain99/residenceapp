@@ -1,24 +1,28 @@
 // Administration (responsable) : onglets Équipe, Catégories, Quarts, Messagerie,
-// Assistance, Journal d'audit.
+// Fonctionnalités (lecture seule), Assistance, Journal d'audit.
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/session';
+import { useAccess, type Need } from '../lib/access';
 import { cx } from '../lib/cx';
 
 const TABS = [
-  { to: 'equipe', label: 'team' },
-  { to: 'categories', label: 'categories' },
-  { to: 'quarts', label: 'shifts' },
-  { to: 'messagerie', label: 'messaging' },
-  { to: 'assistance', label: 'assistance' },
-  { to: 'audit', label: 'audit' },
-] as const;
+  { to: 'equipe', label: 'team', needs: null },
+  { to: 'categories', label: 'categories', needs: [['journal']] },
+  { to: 'quarts', label: 'shifts', needs: [['schedule', 'full']] },
+  { to: 'messagerie', label: 'messaging', needs: null },
+  { to: 'fonctionnalites', label: 'features', needs: null },
+  { to: 'assistance', label: 'assistance', needs: null },
+  { to: 'audit', label: 'audit', needs: null },
+] as const satisfies { to: string; label: string; needs: Need[] | null }[];
 
 export function AdminPage() {
   const { t } = useTranslation();
   const { assistance } = useAuth();
-  // Assistance (admin plateforme) : la messagerie reste privée
-  const tabs = assistance ? TABS.filter((tab) => tab.to !== 'messagerie') : TABS;
+  const { canAny } = useAccess();
+  // Assistance (admin plateforme) : la messagerie reste privée. Catégories et
+  // quarts suivent leur module (fonctionnalités activables).
+  const tabs = TABS.filter((tab) => !(assistance && tab.to === 'messagerie') && (!tab.needs || canAny(tab.needs as Need[])));
   return (
     <>
       <nav aria-label={t('admin.tabs.label')} className="mb-6 flex gap-1 overflow-x-auto border-b border-line">
