@@ -361,7 +361,40 @@ export interface PlatformResidence {
   lockedAccounts: number;
   failedLogins24h: number;
   assistanceUntil: string | null;
+  formula: FeatureFormula;
 }
+
+// Fonctionnalités activables (API : lib/features.ts)
+export type FeatureKey = 'handover' | 'journal' | 'priority' | 'followUps' | 'messaging' | 'announcements'
+  | 'agenda' | 'schedule' | 'residents' | 'stats' | 'dictation';
+export type FeatureLevel = 'off' | 'read' | 'full';
+export type FeatureRole = 'prepose' | 'infirmiere' | 'responsable';
+export type FeatureFormula = 'complete' | 'essential' | 'nurseJournal' | 'custom';
+export type FeatureSettings = Partial<Record<FeatureKey, Partial<Record<FeatureRole, FeatureLevel>>>>;
+export type FeatureGrid = Record<FeatureRole, Record<FeatureKey, FeatureLevel>>;
+
+export interface FeatureNeed { feature: FeatureKey; min: FeatureLevel }
+
+export interface FeatureDef {
+  key: FeatureKey;
+  levels: FeatureLevel[];
+  ceiling: Record<FeatureRole, FeatureLevel>;
+  requires: FeatureNeed[];
+  requiresAny: FeatureNeed[];
+}
+
+export interface PlatformFeatures {
+  residence: { id: string; name: string };
+  formula: FeatureFormula;
+  settings: FeatureSettings;
+  effective: FeatureGrid;
+  catalogue: FeatureDef[];
+  formulas: Record<Exclude<FeatureFormula, 'custom'>, FeatureSettings>;
+  updatedAt: string | null;
+  updatedBy: Person | null;
+}
+
+export interface FeatureChange { role: FeatureRole; feature: FeatureKey; from: FeatureLevel; to: FeatureLevel }
 
 export interface PlatformAccount {
   id: string;

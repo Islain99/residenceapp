@@ -31,6 +31,7 @@ import { sql, type Updateable } from 'kysely';
 import { requireRole, type AccessTokenPayload } from '../auth.js';
 import type { Users } from '../db/types.js';
 import { invalidateAccountTokens, inviteMail, issueAccountToken, resetMail } from '../lib/account-tokens.js';
+import { formulaOf, settingsFromRows } from '../lib/features.js';
 import { mailerKind } from '../lib/mailer.js';
 import { audit } from '../lib/audit.js';
 import { asLocale, LocaleSchema, MAIL_TEXT } from '../lib/locale.js';
@@ -59,6 +60,7 @@ const ResidenceSummary = Type.Object({
   lockedAccounts: Type.Integer(),
   failedLogins24h: Type.Integer(),
   assistanceUntil: Nullable(Type.String()),   // accès d'assistance ouvert jusqu'à…
+  formula: Type.String(),                      // fonctionnalités : complete, essential, nurseJournal, custom
 });
 
 const Account = Type.Object({
@@ -113,6 +115,9 @@ function residenceQuery(db: Db) {
     eb.selectFrom('assistance_grants as g').whereRef('g.residence_id', '=', 'r.id')
       .where('g.revoked_at', 'is', null).where('g.expires_at', '>', sql<Date>`now()`)
       .select((c) => c.fn.max('g.expires_at').as('m')).as('assistance_until'),
+    sql<{ feature: string; role: string; level: string }[]>`(SELECT coalesce(json_agg(json_build_object(
+      'feature', f.feature, 'role', f.role, 'level', f.level)), '[]') FROM residence_features f
+      WHERE f.residence_id = r.id AND f.level IS NOT NULL)`.as('features'),
   ]);
 }
 
@@ -133,6 +138,7 @@ const toResidence = (r: ResidenceRow) => ({
   lockedAccounts: n(r.locked),
   failedLogins24h: n(r.failed_24h),
   assistanceUntil: iso(r.assistance_until),
+  formula: formulaOf(settingsFromRows(r.features)),
 });
 
 function accountQuery(db: Db) {

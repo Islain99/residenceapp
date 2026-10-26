@@ -29,6 +29,7 @@ import { TeamPage } from './pages/TeamPage';
 import { PlatformAdminsPage } from './pages/platform/PlatformAdminsPage';
 import { PlatformAuditPage } from './pages/platform/PlatformAuditPage';
 import { PlatformHomePage } from './pages/platform/PlatformHomePage';
+import { PlatformFeaturesPage } from './pages/platform/PlatformFeaturesPage';
 import { PlatformResidencePage } from './pages/platform/PlatformResidencePage';
 import { PlatformSecurityPage } from './pages/platform/PlatformSecurityPage';
 
@@ -81,6 +82,7 @@ const router = createBrowserRouter([
         children: [
           { index: true, element: <PlatformHomePage /> },
           { path: 'residences/:id', element: <PlatformResidencePage /> },
+          { path: 'residences/:id/fonctionnalites', element: <PlatformFeaturesPage /> },
           { path: 'securite', element: <PlatformSecurityPage /> },
           { path: 'journal', element: <PlatformAuditPage /> },
           { path: 'administrateurs', element: <PlatformAdminsPage /> },

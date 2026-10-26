@@ -31,6 +31,12 @@ export const API_ERRORS_EN: Record<string, string> = {
   invalid_name: 'First and last name are required.',
   nothing_to_update: 'Nothing to update.',
   mail_failed: 'The email couldn’t be sent. Try again later.',
+  // Fonctionnalités activables
+  feature_disabled: 'This feature isn’t turned on in your residence.',
+  feature_read_only: 'This feature is view-only in your residence.',
+  invalid_level: 'This level isn’t possible for this module or role.',
+  unknown_feature: 'Unknown module.',
+  dependency_conflict: 'Some modules would be hidden by their dependencies.',
   // Comptes de l'équipe
   email_taken: 'This email is already used by an account.',
   cannot_modify_self: 'You can’t change your own account here.',
