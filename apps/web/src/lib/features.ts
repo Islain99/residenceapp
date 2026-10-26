@@ -29,22 +29,24 @@ export function requestedGrid(catalogue: FeatureDef[], settings: FeatureSettings
   return grid;
 }
 
-// Niveaux effectifs : la grille demandée, ramenée par les dépendances
-export function effectiveGrid(catalogue: FeatureDef[], requested: FeatureGrid): FeatureGrid {
-  const grid = Object.fromEntries(FEATURE_ROLES.map((r) => [r, { ...requested[r] }])) as FeatureGrid;
-  for (const role of FEATURE_ROLES) {
-    const levels = grid[role];
-    for (let changed = true; changed;) {
-      changed = false;
-      for (const def of catalogue) {
-        if (levels[def.key] === 'off') continue;
-        const ok = def.requires.every((d) => atLeast(levels[d.feature], d.min))
-          && (def.requiresAny.length === 0 || def.requiresAny.some((d) => atLeast(levels[d.feature], d.min)));
-        if (!ok) { levels[def.key] = 'off'; changed = true; }
-      }
+// Niveaux d'un rôle (ou d'une personne), ramenés par les dépendances
+export function applyDependencies(catalogue: FeatureDef[], requested: Record<FeatureKey, FeatureLevel>): Record<FeatureKey, FeatureLevel> {
+  const levels = { ...requested };
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const def of catalogue) {
+      if (levels[def.key] === 'off') continue;
+      const ok = def.requires.every((d) => atLeast(levels[d.feature], d.min))
+        && (def.requiresAny.length === 0 || def.requiresAny.some((d) => atLeast(levels[d.feature], d.min)));
+      if (!ok) { levels[def.key] = 'off'; changed = true; }
     }
   }
-  return grid;
+  return levels;
+}
+
+// Niveaux effectifs : la grille demandée, ramenée par les dépendances
+export function effectiveGrid(catalogue: FeatureDef[], requested: FeatureGrid): FeatureGrid {
+  return Object.fromEntries(FEATURE_ROLES.map((r) => [r, applyDependencies(catalogue, requested[r])])) as FeatureGrid;
 }
 
 // Modules dont dépend un module masqué par ses dépendances (pour l'expliquer)

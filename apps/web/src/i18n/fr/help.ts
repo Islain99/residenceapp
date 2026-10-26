@@ -110,7 +110,7 @@ export default {
       intro: 'Vous gérez les résidences et leurs responsables, jamais le contenu d’une résidence.',
       residences: {
         title: 'Les résidences',
-        body: 'Résidences › « Nouvelle résidence » : nom, type, fuseau, et sa responsable (invitée par courriel).\nFiche d’une résidence : modifier, suspendre avec un motif (sessions fermées, données conservées), réactiver.\nResponsables : inviter, nommer un employé, renvoyer l’invitation, lien de mot de passe, réinitialiser la double authentification.\nOnglet Fonctionnalités : ce que chaque rôle voit et peut faire (formule, puis case par case) ; la responsable est prévenue par courriel.',
+        body: 'Résidences › « Nouvelle résidence » : nom, type, fuseau, et sa responsable (invitée par courriel).\nFiche d’une résidence : modifier, suspendre avec un motif (sessions fermées, données conservées), réactiver.\nResponsables : inviter, nommer un employé, renvoyer l’invitation, lien de mot de passe, réinitialiser la double authentification.\nOnglet Fonctionnalités : ce que chaque rôle voit et peut faire (formule, puis case par case), et des exceptions pour une personne ; la responsable est prévenue par courriel.',
       },
       security: {
         title: 'Sécurité',

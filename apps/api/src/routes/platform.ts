@@ -31,7 +31,7 @@ import { sql, type Updateable } from 'kysely';
 import { requireRole, type AccessTokenPayload } from '../auth.js';
 import type { Users } from '../db/types.js';
 import { invalidateAccountTokens, inviteMail, issueAccountToken, resetMail } from '../lib/account-tokens.js';
-import { formulaOf, settingsFromRows } from '../lib/features.js';
+import { formulaOf, revokeExceptionsOnRoleChange, settingsFromRows } from '../lib/features.js';
 import { mailerKind } from '../lib/mailer.js';
 import { audit } from '../lib/audit.js';
 import { asLocale, LocaleSchema, MAIL_TEXT } from '../lib/locale.js';
@@ -382,6 +382,9 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         if (!user.is_active) throw new HttpError(409, 'inactive_account', 'Compte désactivé.');
         if (user.role === 'responsable') throw new HttpError(409, 'already_responsable', 'Cet employé est déjà responsable.');
         await trx.updateTable('users').set({ role: 'responsable' }).where('id', '=', user.id).execute();
+        await revokeExceptionsOnRoleChange(trx, {
+          userId: user.id, residenceId: residence.id, actorId: request.user.sub, from: user.role, to: 'responsable', ip: request.ip,
+        });
         // Double authentification obligatoire : nouvelle connexion
         await trx.updateTable('refresh_tokens').set({ expires_at: new Date() })
           .where('user_id', '=', user.id).where('revoked_at', 'is', null).execute();
@@ -404,6 +407,7 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
       await sendInvite(trx, user, residence.name, request.user.sub);
       return user.id;
     });
+    app.features.invalidate(request.params.id);   // employé nommé : exceptions retirées
     return reply.code(201).send(await findAccount(id));
   });
 

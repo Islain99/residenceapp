@@ -12,6 +12,8 @@
 //   3. ramené par les dépendances (Relève sans Journal → masquée, etc.).
 import { sql } from 'kysely';
 import type { Database } from '../db/index.js';
+import { audit } from './audit.js';
+import type { Db } from './note-view.js';
 
 export const LEVELS = ['off', 'read', 'full'] as const;
 export type Level = (typeof LEVELS)[number];
@@ -149,6 +151,25 @@ export function settingsFromRows(rows: { feature: string; role: string; level: s
     (settings[row.feature] ??= {})[row.role as FeatureRole] = row.level as Level;
   }
   return settings;
+}
+
+// Changement de rôle : les exceptions de la personne, décidées pour l'ancien
+// rôle, sont retirées (tracé). Vider ensuite le cache de la résidence.
+export async function revokeExceptionsOnRoleChange(trx: Db, opts: {
+  userId: string; residenceId: string; actorId: string; from: string; to: string; ip?: string;
+}): Promise<number> {
+  const revoked = await trx.updateTable('user_features')
+    .set({ revoked_at: sql<Date>`now()`, revoked_by: opts.actorId, revoke_reason: 'role_changed' })
+    .where('user_id', '=', opts.userId).where('revoked_at', 'is', null)
+    .returning(['feature']).execute();
+  if (revoked.length) {
+    await audit(trx, {
+      action: 'feature_exception_revoke', entity: 'user', entityId: opts.userId, userId: opts.actorId,
+      residenceId: opts.residenceId, ip: opts.ip ?? null,
+      details: { reason: 'role_changed', from: opts.from, to: opts.to, features: revoked.map((r) => r.feature) },
+    });
+  }
+  return revoked.length;
 }
 
 // ---------------------------------------------------------------------

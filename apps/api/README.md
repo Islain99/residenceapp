@@ -179,12 +179,16 @@ Niveau effectif d'une personne : son exception (`user_features`) si elle en a un
 
 Le tableau de bord de la plateforme indique la formule de chaque résidence (`formula` dans `GET /platform/residences`).
 
+Une exception suit la personne : si son rôle change (responsable, ou plateforme qui nomme un employé responsable), ses exceptions sont retirées d'office et le retrait est tracé (`feature_exception_revoke`, motif `role_changed`).
+
 Toujours actifs : journal d'audit, export d'un dossier (Loi 25), gestion de l'équipe, Mon profil, Aide. Formules : `complete` (par défaut), `essential` (sans Agenda, Horaires, Messagerie ni Annonces), `nurseJournal` (préposés : Journal en consultation, Résidents masqués) ; sinon `custom`.
 
 | Route | Rôle |
 | --- | --- |
 | `GET /platform/residences/:id/features` | Admin plateforme : réglages, niveaux effectifs par rôle, catalogue (niveaux, plafonds, dépendances), formules, dernière modification |
 | `PUT /platform/residences/:id/features` | Admin plateforme : `{ settings, acceptCascade? }`, la grille voulue (absent : défaut). `400 invalid_level` (niveau impossible ou au-dessus du rôle), `400 unknown_feature`, `409 dependency_conflict` + `conflicts` (modules masqués par leurs dépendances ; renvoyer avec `acceptCascade: true`). Enregistre les niveaux effectifs, trace `feature_update` (avant → après) et prévient par courriel les responsables actives ; réponse : `changes`, `notified` |
+| `PUT /platform/residences/:id/features/users/:userId` | Admin plateforme : exception pour une personne `{ feature, level, reason? }` (remplace celle en cours pour ce module). Refus : `invalid_user`, `invalid_level` (au-dessus du rôle), `exception_same_as_role`, `exception_blocked` (dépendance manquante). Tracé `feature_exception`, responsables prévenues ; réponse : la grille, `exceptions`, `notified` |
+| `POST /platform/residences/:id/features/exceptions/:exceptionId/revoke` | Admin plateforme : retirer une exception (retour au niveau du rôle). Tracé `feature_exception_revoke`, responsables prévenues |
 | `GET /features` | Tous les comptes d'une résidence (et l'accès d'assistance, avec les niveaux de la responsable) : `{ features: { journal: 'full', … }, locked }`. Admin hors assistance : 403 |
 
 Réglages lus une fois par résidence et gardés 30 s en mémoire ; un changement fait par le même serveur s'applique tout de suite.

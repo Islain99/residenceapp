@@ -52,6 +52,10 @@ export const MAIL_TEXT = {
       subject: (residence: string) => `Fonctionnalités modifiées — ${residence}`,
       body: (by: string, residence: string) => `${by} (administration de la plateforme) a modifié les fonctionnalités de ${residence} :`,
       change: (who: string, module: string, from: string, to: string) => `• ${who} — ${module} : ${from} → ${to}`,
+      exception: (name: string, module: string, from: string, to: string, reason: string | null) =>
+        `• Exception pour ${name} — ${module} : ${from} → ${to}${reason ? ` (motif : ${reason})` : ''}`,
+      exceptionRemoved: (name: string, module: string, level: string) =>
+        `• Exception retirée pour ${name} — ${module} : retour au niveau de son rôle (${level})`,
       effect: 'Les changements s’appliquent tout de suite. Rien n’est effacé : un module réactivé retrouve ses données. Le détail est au journal d’audit.',
       button: 'Ouvrir le journal de bord',
       footer: 'Courriel automatique, ne pas y répondre. Une question : écrivez à l’administration de la plateforme.',
@@ -90,6 +94,10 @@ export const MAIL_TEXT = {
       subject: (residence: string) => `Features changed — ${residence}`,
       body: (by: string, residence: string) => `${by} (platform administration) changed the features of ${residence}:`,
       change: (who: string, module: string, from: string, to: string) => `• ${who} — ${module}: ${from} → ${to}`,
+      exception: (name: string, module: string, from: string, to: string, reason: string | null) =>
+        `• Exception for ${name} — ${module}: ${from} → ${to}${reason ? ` (reason: ${reason})` : ''}`,
+      exceptionRemoved: (name: string, module: string, level: string) =>
+        `• Exception removed for ${name} — ${module}: back to their role’s level (${level})`,
       effect: 'Changes apply right away. Nothing is deleted: a module turned back on gets its data back. Details are in the audit log.',
       button: 'Open the logbook',
       footer: 'Automatic email, please don’t reply. Questions: write to the platform administration.',

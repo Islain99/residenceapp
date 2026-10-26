@@ -111,7 +111,7 @@ export default {
       intro: 'You manage residences and their managers, never a residence’s content.',
       residences: {
         title: 'Residences',
-        body: 'Residences › “New residence”: name, type, time zone, and its manager (invited by email).\nA residence’s page: edit, suspend with a reason (sessions closed, data kept), reactivate.\nManagers: invite, promote an employee, resend the invitation, password link, reset two-factor authentication.\nFeatures tab: what each role sees and can do (a plan, then cell by cell); the manager is notified by email.',
+        body: 'Residences › “New residence”: name, type, time zone, and its manager (invited by email).\nA residence’s page: edit, suspend with a reason (sessions closed, data kept), reactivate.\nManagers: invite, promote an employee, resend the invitation, password link, reset two-factor authentication.\nFeatures tab: what each role sees and can do (a plan, then cell by cell), and exceptions for one person; the manager is notified by email.',
       },
       security: {
         title: 'Security',
