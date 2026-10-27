@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type shellFr from '../i18n/fr/shell';
 import { useEndAssistance, useHandover, useMessagingSummary } from '../api/hooks';
 import { useAuth, useUser } from '../auth/session';
+import { PAGE_NEEDS, useAccess } from '../lib/access';
 import { formatWhen, fullName } from '../lib/format';
 import { cx } from '../lib/cx';
 import { Avatar } from './Avatar';
@@ -41,7 +42,8 @@ function NavBadge({ to }: { to: string }) {
 
 function MessagesBadge() {
   const { t } = useTranslation();
-  const summary = useMessagingSummary();
+  const { allowedAny } = useAccess();
+  const summary = useMessagingSummary(allowedAny(PAGE_NEEDS['/messages']!));
   const count = (summary.data?.unread ?? 0) + (summary.data?.announcements.length ?? 0);
   if (!count) return null;
   return (
@@ -53,7 +55,8 @@ function MessagesBadge() {
 
 function HandoverBadge() {
   const { t } = useTranslation();
-  const handover = useHandover();
+  const { allowed } = useAccess();
+  const handover = useHandover(allowed('handover', 'full'));
   const unread = handover.data?.counts.unread ?? 0;
   if (!unread) return null;
   return (
@@ -138,8 +141,10 @@ export function Layout() {
   const { t } = useTranslation();
   const user = useUser();
   const { logout, sharedDevice, assistance } = useAuth();
-  // Assistance : la messagerie reste privée (l'API la refuse aussi)
-  const base = assistance ? LINKS.filter((l) => l.to !== '/messages') : LINKS;
+  const { canAny } = useAccess();
+  // Modules masqués pour cette personne (fonctionnalités activables) ; en
+  // assistance, la messagerie reste privée (l'API la refuse aussi)
+  const base = LINKS.filter((l) => canAny(PAGE_NEEDS[l.to]!) && !(assistance && l.to === '/messages'));
   const links = user.role === 'responsable' ? [...base, ADMIN_LINK] : base;
   const mobileMain = links.filter((l) => MOBILE_MAIN.includes(l.to));
   // « Mon profil » : rond avec les initiales en haut, et aussi dans « Plus » sur téléphone
@@ -165,7 +170,7 @@ export function Layout() {
           <span className="flex shrink-0 items-center gap-2 font-bold">
             <Logo className="size-10" />
             {/* Ordinateur : le nom laisse la place aux onglets, sauf sur grand écran */}
-            <span className="whitespace-nowrap md:hidden xl:inline">{t('common.appName')}</span>
+            <span className="whitespace-nowrap md:hidden 2xl:inline">{t('common.appName')}</span>
           </span>
           <nav aria-label={t('shell.nav.main')} className="hidden gap-1 md:flex">
             {links.map((link) => (

@@ -1,12 +1,16 @@
 // Fonctionnalités actives pour la personne connectée (lib/features.ts).
 //
-//   GET /features   { features: { journal: 'full', residents: 'off', … }, locked: […] }
+//   GET /features            { features: { journal: 'full', residents: 'off', … }, locked: […] }
+//   GET /features/residence  responsable : réglages de sa résidence par rôle et
+//                            exceptions en cours (lecture seule ; seule la
+//                            plateforme les change)
 //
 // L'interface construit la navigation et les boutons à partir de cette
 // réponse ; l'API applique elle-même les mêmes niveaux à chaque route.
 // En accès d'assistance : les niveaux de la responsable de la résidence.
 import { Type, type FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { authenticate, residenceOf } from '../auth.js';
+import { authenticate, requireRole, residenceOf } from '../auth.js';
+import { residenceFeatureView } from '../lib/feature-view.js';
 import { FEATURE_KEYS, LEVELS, LOCKED, type Feature, type FeatureRole, type Level } from '../lib/features.js';
 
 export const LevelSchema = Type.Unsafe<Level>(Type.Union(LEVELS.map((l) => Type.Literal(l))));
@@ -27,6 +31,14 @@ const featureRoutes: FastifyPluginAsyncTypebox = async (app) => {
     const residenceId = residenceOf(request);   // admin hors assistance : 403
     const features = await app.features.forUser(residenceId, request.user.sub, request.user.role as FeatureRole);
     return { features, locked: [...LOCKED] };
+  });
+
+  app.get('/features/residence', {
+    preHandler: requireRole('responsable'),
+  }, async (request) => {
+    const { formula, effective, catalogue, exceptions } = await residenceFeatureView(app.db, residenceOf(request));
+    // Sans « créée par » : un nom de l'administration de la plateforme n'apporte rien ici
+    return { formula, effective, catalogue, exceptions: exceptions.map((e) => ({ ...e, createdBy: undefined })) };
   });
 };
 

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { useCloseFollowUp, useCreateFollowUp, useStaff, useTakeFollowUp } from '../api/hooks';
 import { useUser } from '../auth/session';
+import { useAccess } from '../lib/access';
+import { ResidentLink } from './ResidentLink';
 import type { FollowUp } from '../api/types';
 import { formatWhen, fromLocalInput, fullName } from '../lib/format';
 import { cx } from '../lib/cx';
@@ -13,6 +15,8 @@ export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp
   const { t } = useTranslation();
   const me = useUser();
   const take = useTakeFollowUp();
+  const { can } = useAccess();
+  const canAct = can('followUps', 'full');   // Suivis en consultation : lecture seule
   const [closing, setClosing] = useState(false);
   const closed = followUp.closedAt !== null;
   const mine = followUp.assignedTo?.id === me.id;
@@ -23,9 +27,9 @@ export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp
           <p className={cx('font-medium', closed && 'text-muted line-through')}>{followUp.description}</p>
           <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
             {followUp.resident && (
-              <Link to={`/residents/${followUp.resident.id}`} className="font-medium text-ink hover:underline">
+              <ResidentLink id={followUp.resident.id} className="font-medium text-ink hover:underline">
                 {fullName(followUp.resident)}{followUp.resident.room && ` · ${t('journal.note.room', { room: followUp.resident.room })}`}
-              </Link>
+              </ResidentLink>
             )}
             <span className={cx(mine && !closed && 'font-medium text-primary')}>
               {mine ? t('journal.followUp.forMe') : followUp.assignedTo ? t('journal.followUp.forPerson', { name: fullName(followUp.assignedTo) }) : t('journal.followUp.forTeam')}
@@ -35,7 +39,7 @@ export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
           {followUp.isOverdue && <Badge tone="danger">{t('journal.followUp.overdue')}</Badge>}
-          {closed ? <Badge tone="positive">{t('journal.followUp.done')}</Badge> : (
+          {closed ? <Badge tone="positive">{t('journal.followUp.done')}</Badge> : canAct && (
             <>
               {!mine && (
                 <Button data-tour="followup-take" className="min-h-9 whitespace-nowrap" busy={take.isPending}
@@ -49,7 +53,7 @@ export function FollowUpItem({ followUp, showNote = true }: { followUp: FollowUp
         </div>
       </div>
 
-      {showNote && (
+      {showNote && can('journal') && (
         <Link to={`/notes/${followUp.note.id}`} className="mt-2 block rounded-md bg-sunken px-3 py-2 text-sm text-muted hover:underline">
           {t('journal.followUp.noteOf', { when: formatWhen(followUp.note.occurredAt), excerpt: followUp.note.excerpt })}
         </Link>

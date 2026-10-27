@@ -2,6 +2,7 @@
 // Téléphone : la liste, puis le fil en plein écran (/messages/:id).
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAccess } from '../lib/access';
 import { Link, useParams } from 'react-router';
 import { useConversation, useConversations } from '../api/hooks';
 import { useUser } from '../auth/session';
@@ -16,6 +17,7 @@ export function MessagesPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const conversations = useConversations();
+  const { can } = useAccess();   // Messagerie masquée : seulement les annonces
   const [creating, setCreating] = useState(false);
 
   return (
@@ -24,7 +26,7 @@ export function MessagesPage() {
       <aside className={cx('flex min-h-0 w-full flex-col md:w-80 md:shrink-0', id && 'hidden md:flex')}>
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-2xl font-bold">{t('messages.title')}</h1>
-          <Button data-tour="messages-new" variant="primary" className="min-h-10" onClick={() => setCreating(true)}>{t('messages.new')}</Button>
+          {can('messaging', 'full') && <Button data-tour="messages-new" variant="primary" className="min-h-10" onClick={() => setCreating(true)}>{t('messages.new')}</Button>}
         </div>
         {conversations.isPending ? <Loading /> : conversations.isError ? <ErrorMessage error={conversations.error} /> : (
           <ul className="-mx-1 min-h-0 flex-1 overflow-y-auto">

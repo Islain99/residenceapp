@@ -6,7 +6,8 @@ import type { Role } from '../api/types';
 import { useAuth, useUser } from '../auth/session';
 import { Button, Card, Chip, PageHeader } from '../components/ui';
 import type helpFr from '../i18n/fr/help';
-import { startTour, tourForRole } from '../lib/tour';
+import { useAccess, type Need } from '../lib/access';
+import { useStartTour } from '../lib/tour';
 
 type Guides = typeof helpFr.guides;
 
@@ -14,8 +15,8 @@ type Guides = typeof helpFr.guides;
 const SECTIONS: { [R in keyof Guides]: Exclude<keyof Guides[R], 'intro'>[] } = {
   prepose: ['handover', 'notes', 'followUps', 'messages', 'agenda', 'residents'],
   infirmiere: ['priority', 'corrections', 'residents', 'announcements'],
-  responsable: ['security', 'team', 'settings', 'compliance', 'assistance'],
-  admin: ['residences', 'security', 'audit', 'assistance', 'admins'],
+  responsable: ['security', 'team', 'settings', 'features', 'compliance', 'assistance'],
+  admin: ['residences', 'features', 'security', 'audit', 'assistance', 'admins'],
 };
 
 // Ce que chaque rôle doit lire : l'infirmière fait tout ce que fait le
@@ -25,6 +26,21 @@ const READS: Record<Role, (keyof Guides)[]> = {
   infirmiere: ['infirmiere', 'prepose'],
   responsable: ['responsable', 'infirmiere', 'prepose'],
   admin: ['admin'],
+};
+
+// Sections d'un module (fonctionnalités activables) : masquées dans les guides
+// de son propre rôle si le module l'est pour la personne
+const SECTION_NEEDS: Record<string, Need[]> = {
+  'prepose.handover': [['handover', 'full']],
+  'prepose.notes': [['journal', 'full']],
+  'prepose.followUps': [['followUps']],
+  'prepose.messages': [['messaging', 'full']],
+  'prepose.agenda': [['agenda'], ['schedule']],
+  'prepose.residents': [['residents']],
+  'infirmiere.priority': [['priority', 'full']],
+  'infirmiere.corrections': [['journal', 'full']],
+  'infirmiere.residents': [['residents', 'full']],
+  'infirmiere.announcements': [['announcements', 'full']],
 };
 
 const GENERAL = ['install', 'notifications', 'shared', 'privacy', 'language'] as const;
@@ -46,6 +62,11 @@ export function HelpPage() {
   const user = useUser();
   const { assistance } = useAuth();
   const [role, setRole] = useState<Role>(user.role);
+  const startTour = useStartTour();
+  const { canAny } = useAccess();
+  // Guides de son propre rôle : sans ce qui est masqué pour soi
+  const shown = (guide: keyof Guides, section: string) =>
+    role !== user.role || !SECTION_NEEDS[`${guide}.${section}`] || canAny(SECTION_NEEDS[`${guide}.${section}`]!);
 
   return (
     <>
@@ -54,7 +75,7 @@ export function HelpPage() {
       {!assistance && (
         <Card className="mb-6 flex flex-col gap-3 border-primary p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm">{t('help.tourHint')}</p>
-          <Button variant="primary" onClick={() => startTour(tourForRole(user.role))}>{t('help.startTour')}</Button>
+          <Button variant="primary" onClick={startTour}>{t('help.startTour')}</Button>
         </Card>
       )}
 
@@ -69,7 +90,7 @@ export function HelpPage() {
             <h2 className="mb-1 text-lg font-semibold">{t(`help.roles.${guide}`)}</h2>
             <p className="mb-3 text-sm text-muted">{t(`help.guides.${guide}.intro`)}</p>
             <div className="grid gap-3 md:grid-cols-2">
-              {SECTIONS[guide].map((section) => (
+              {SECTIONS[guide].filter((section) => shown(guide, String(section))).map((section) => (
                 <Card key={String(section)} className="p-4">
                   <h3 className="mb-2 font-semibold">{t(`help.guides.${guide}.${String(section)}.title` as never)}</h3>
                   <Lines text={t(`help.guides.${guide}.${String(section)}.body` as never)} />

@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router';
 import { useCancelNote, useCategories, useMarkRead, useNote, useUpdateNote } from '../api/hooks';
 import type { NoteDetail } from '../api/types';
 import { isSupervisor, useUser } from '../auth/session';
+import { useAccess } from '../lib/access';
 import { FollowUpForm, FollowUpItem } from '../components/FollowUps';
 import { NoteBadges, ResidentLabel } from '../components/NoteCard';
 import { NoteForm } from '../components/NoteForm';
@@ -32,7 +33,11 @@ function NoteView({ note }: { note: NoteDetail }) {
 
   // Affichage seulement : l'API applique la même règle et refuse sinon
   const active = note.status === 'active';
-  const canModify = active && (isSupervisor(user.role)
+  const { can } = useAccess();
+  // Fonctionnalités activables : journal en consultation, suivis masqués ou en consultation
+  const canWrite = can('journal', 'full');
+  const canAddFollowUp = canWrite && can('followUps', 'full');
+  const canModify = active && canWrite && (isSupervisor(user.role)
     || (note.author.id === user.id && openedAt - Date.parse(note.createdAt) < AUTHOR_EDIT_WINDOW_MS));
 
   return (
@@ -68,23 +73,25 @@ function NoteView({ note }: { note: NoteDetail }) {
               {note.isPriority ? t('journal.note.readPriority') : t('journal.note.markRead')}
             </Button>
           )}
-          {active && <Button onClick={() => setDialog('follow-up')}>{t('journal.note.addFollowUp')}</Button>}
+          {active && canAddFollowUp && <Button onClick={() => setDialog('follow-up')}>{t('journal.note.addFollowUp')}</Button>}
           {canModify && <Button onClick={() => setDialog('edit')}>{t('journal.note.correct')}</Button>}
           {canModify && <Button variant="ghost" className="text-danger" onClick={() => setDialog('cancel')}>{t('journal.note.cancel')}</Button>}
         </div>
-        {active && !canModify && (
+        {active && !canModify && canWrite && (
           <p className="mt-3 text-xs text-muted">
             {t('journal.note.whoCanEdit')}
           </p>
         )}
       </Card>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-lg font-semibold">{t('journal.note.followUps')}</h2>
-        {note.followUps.length === 0
-          ? <EmptyState>{t('journal.note.noFollowUps')}</EmptyState>
-          : <ul className="flex flex-col gap-3">{note.followUps.map((f) => <FollowUpItem key={f.id} followUp={f} showNote={false} />)}</ul>}
-      </section>
+      {can('followUps') && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-lg font-semibold">{t('journal.note.followUps')}</h2>
+          {note.followUps.length === 0
+            ? <EmptyState>{t('journal.note.noFollowUps')}</EmptyState>
+            : <ul className="flex flex-col gap-3">{note.followUps.map((f) => <FollowUpItem key={f.id} followUp={f} showNote={false} />)}</ul>}
+        </section>
+      )}
 
       {note.isPriority && active && (
         <section className="mt-8">

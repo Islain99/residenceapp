@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import { useAuth, useUser } from '../auth/session';
 import { cx } from '../lib/cx';
-import { goToStep, markTourSeen, startTour, stopTour, tourForRole, TOURS, tourSeen, useTourState } from '../lib/tour';
+import { goToStep, markTourSeen, stopTour, tourSeen, useStartTour, useTourState } from '../lib/tour';
 import { Button } from './ui';
 
 interface Box { top: number; left: number; width: number; height: number }
@@ -44,7 +44,7 @@ export function TourHost() {
   const [cardH, setCardH] = useState(0);
   const [, setViewport] = useState(0);   // nouveau rendu au redimensionnement
 
-  const steps = tour ? TOURS[tour.id] : [];
+  const steps = tour ? tour.steps : [];
   const step = tour ? steps[tour.step] : undefined;
   const last = tour ? tour.step === steps.length - 1 : false;
   const stepId = tour ? `${tour.id}:${tour.step}` : '';
@@ -176,6 +176,7 @@ export function TourOffer() {
   const user = useUser();
   const { assistance } = useAuth();
   const tour = useTourState();
+  const start = useStartTour();
   const [seen, setSeen] = useState(() => tourSeen(user.id));
   if (seen || tour || assistance) return null;
   const close = () => { markTourSeen(user.id); setSeen(true); };
@@ -186,10 +187,11 @@ export function TourOffer() {
       <p className="mt-1 text-sm text-muted">{t('help.tour.offer.body')}</p>
       <div className="mt-3 flex justify-end gap-2">
         <Button variant="ghost" className="min-h-10" onClick={close}>{t('help.tour.offer.later')}</Button>
-        <Button variant="primary" className="min-h-10" onClick={() => { setSeen(true); startTour(tourForRole(user.role)); }}>
+        <Button variant="primary" className="min-h-10" onClick={() => { setSeen(true); start(); }}>
           {t('help.tour.offer.start')}
         </Button>
       </div>
     </div>
   );
 }
+

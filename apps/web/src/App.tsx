@@ -29,6 +29,9 @@ import { TeamPage } from './pages/TeamPage';
 import { PlatformAdminsPage } from './pages/platform/PlatformAdminsPage';
 import { PlatformAuditPage } from './pages/platform/PlatformAuditPage';
 import { PlatformHomePage } from './pages/platform/PlatformHomePage';
+import { FeatureGate, HomeRoute } from './components/FeatureGate';
+import { PAGE_NEEDS } from './lib/access';
+import { ResidenceFeaturesPage } from './pages/ResidenceFeaturesPage';
 import { PlatformFeaturesPage } from './pages/platform/PlatformFeaturesPage';
 import { PlatformResidencePage } from './pages/platform/PlatformResidencePage';
 import { PlatformSecurityPage } from './pages/platform/PlatformSecurityPage';
@@ -96,17 +99,17 @@ const router = createBrowserRouter([
       children: [{
         element: <Layout />,
         children: [
-          { index: true, element: <HandoverPage /> },
-          { path: 'journal', element: <JournalPage /> },
-          { path: 'notes/:id', element: <NoteDetailPage /> },
-          { path: 'suivis', element: <FollowUpsPage /> },
-          { path: 'messages', element: <MessagesPage /> },
-          { path: 'messages/:id', element: <MessagesPage /> },
-          { path: 'agenda', element: <AgendaPage /> },
-          { path: 'horaires', element: <SchedulePage /> },
-          { path: 'residents', element: <ResidentsPage /> },
-          { path: 'residents/:id', element: <ResidentPage /> },
-          { path: 'residents/:id/statistiques', element: <ResidentStatsPage /> },
+          { index: true, element: <HomeRoute><HandoverPage /></HomeRoute> },
+          { path: 'journal', element: <FeatureGate needs={PAGE_NEEDS['/journal']!}><JournalPage /></FeatureGate> },
+          { path: 'notes/:id', element: <FeatureGate needs={PAGE_NEEDS['/journal']!}><NoteDetailPage /></FeatureGate> },
+          { path: 'suivis', element: <FeatureGate needs={PAGE_NEEDS['/suivis']!}><FollowUpsPage /></FeatureGate> },
+          { path: 'messages', element: <FeatureGate needs={PAGE_NEEDS['/messages']!}><MessagesPage /></FeatureGate> },
+          { path: 'messages/:id', element: <FeatureGate needs={PAGE_NEEDS['/messages']!}><MessagesPage /></FeatureGate> },
+          { path: 'agenda', element: <FeatureGate needs={PAGE_NEEDS['/agenda']!}><AgendaPage /></FeatureGate> },
+          { path: 'horaires', element: <FeatureGate needs={PAGE_NEEDS['/horaires']!}><SchedulePage /></FeatureGate> },
+          { path: 'residents', element: <FeatureGate needs={PAGE_NEEDS['/residents']!}><ResidentsPage /></FeatureGate> },
+          { path: 'residents/:id', element: <FeatureGate needs={PAGE_NEEDS['/residents']!}><ResidentPage /></FeatureGate> },
+          { path: 'residents/:id/statistiques', element: <FeatureGate needs={[['stats']]}><ResidentStatsPage /></FeatureGate> },
           { path: 'compte', element: <AccountPage /> },
           { path: 'aide', element: <HelpPage /> },
           {
@@ -118,9 +121,10 @@ const router = createBrowserRouter([
                 children: [
                   { index: true, element: <Navigate to="equipe" replace /> },
                   { path: 'equipe', element: <TeamPage /> },
-                  { path: 'categories', element: <CategoriesPage /> },
-                  { path: 'quarts', element: <ShiftTypesPage /> },
+                  { path: 'categories', element: <FeatureGate needs={[['journal']]}><CategoriesPage /></FeatureGate> },
+                  { path: 'quarts', element: <FeatureGate needs={[['schedule', 'full']]}><ShiftTypesPage /></FeatureGate> },
                   { path: 'messagerie', element: <AdminMessagesPage /> },
+                  { path: 'fonctionnalites', element: <ResidenceFeaturesPage /> },
                   { path: 'assistance', element: <AssistancePage /> },
                   { path: 'audit', element: <AuditPage /> },
                 ],

@@ -1,4 +1,4 @@
-import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ApiError } from './api/client';
@@ -7,13 +7,23 @@ import { AuthProvider } from './auth/AuthProvider';
 import './i18n';   // avant tout composant : langue choisie (français par défaut)
 import './index.css';
 
-const queryClient = new QueryClient({
+// Fonction masquée ou passée en consultation pendant qu'on l'utilise : les
+// fonctionnalités sont relues, la navigation et les boutons s'adaptent
+const featureChanged = (error: unknown) => {
+  if (error instanceof ApiError && (error.code === 'feature_disabled' || error.code === 'feature_read_only')) {
+    void queryClient.invalidateQueries({ queryKey: ['features'] });
+  }
+};
+
+const queryClient: QueryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: featureChanged }),
   // Accès d'assistance : toute tentative de modification est signalée dans le bandeau
   mutationCache: new MutationCache({
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'assistance_read_only') {
         window.dispatchEvent(new CustomEvent('assistance-refused'));
       }
+      featureChanged(error);
     },
   }),
   defaultOptions: {

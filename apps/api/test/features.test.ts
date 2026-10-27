@@ -202,3 +202,29 @@ describe('cache de 30 s', () => {
     }
   });
 });
+
+describe('GET /features/residence', () => {
+  it('la responsable voit les réglages de sa résidence et les exceptions ; les autres rôles non', async () => {
+    const app = await buildTestApp();
+    try {
+      const call = caller(app, await loginAll(app, ['responsable', 'infirmiere']));
+      const ids = await seedIds(app);
+      await app.db.insertInto('residence_features').values({ residence_id: RESIDENCE_A, feature: 'journal', role: 'prepose', level: 'read' })
+        .onConflict((oc) => oc.columns(['residence_id', 'feature', 'role']).doUpdateSet({ level: 'read' })).execute();
+      await app.db.insertInto('user_features').values({
+        residence_id: RESIDENCE_A, user_id: ids.userId('prepose1'), feature: 'journal', level: 'full', reason: 'Formé',
+      }).execute();
+      const res = await call('responsable', 'GET', '/features/residence');
+      expect(res.statusCode, res.body).toBe(200);
+      expect(res.json().formula).toBe('custom');
+      expect(res.json().effective.prepose.journal).toBe('read');
+      expect(res.json().exceptions).toEqual([expect.objectContaining({ feature: 'journal', level: 'full', roleLevel: 'read', reason: 'Formé' })]);
+      expect(res.json().exceptions[0].createdBy).toBeUndefined();
+      expect((await call('infirmiere', 'GET', '/features/residence')).statusCode).toBe(403);
+    } finally {
+      await app.db.updateTable('residence_features').set({ level: null }).execute();
+      await app.db.updateTable('user_features').set({ revoked_at: new Date(), revoke_reason: 'removed' }).where('revoked_at', 'is', null).execute();
+      await app.close();
+    }
+  });
+});

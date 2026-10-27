@@ -27,6 +27,7 @@ export const ROUTE_FEATURES: Record<string, RouteRule> = {
   // Toujours actifs : connexion, compte, équipe, conformité, plateforme
   'GET /health': 'always',
   'GET /features': 'always',
+  'GET /features/residence': 'always',
   'POST /auth/login': 'always',
   'POST /auth/mfa/verify': 'always',
   'POST /auth/mfa/setup': 'always',

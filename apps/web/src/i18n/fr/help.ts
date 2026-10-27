@@ -101,6 +101,10 @@ export default {
         title: 'Conformité et plaintes',
         body: 'Admin › Journal d’audit : qui a consulté ou modifié quoi.\nExport complet du dossier d’un résident (Loi 25) depuis sa fiche.\nAdmin › Messagerie : consulter une conversation en cas de plainte, avec un motif (tracé).',
       },
+      features: {
+        title: 'Fonctionnalités de la résidence',
+        body: 'Admin › Fonctionnalités : ce que chaque rôle voit et peut faire, et les exceptions par personne (aussi indiquées dans Équipe).\nCes réglages font partie de l’offre convenue avec votre résidence : pour les changer, écrire à l’administration de la plateforme. Vous êtes prévenue par courriel de chaque changement.\nChanger le rôle d’un employé retire ses exceptions.',
+      },
       assistance: {
         title: 'Accès d’assistance',
         body: 'Admin › Assistance : permettre à l’équipe de la plateforme de consulter la résidence pour régler un problème.\nDurée limitée, lecture seule, messagerie exclue ; chaque page consultée est inscrite au journal. Retirable à tout moment.',
@@ -110,7 +114,11 @@ export default {
       intro: 'Vous gérez les résidences et leurs responsables, jamais le contenu d’une résidence.',
       residences: {
         title: 'Les résidences',
-        body: 'Résidences › « Nouvelle résidence » : nom, type, fuseau, et sa responsable (invitée par courriel).\nFiche d’une résidence : modifier, suspendre avec un motif (sessions fermées, données conservées), réactiver.\nResponsables : inviter, nommer un employé, renvoyer l’invitation, lien de mot de passe, réinitialiser la double authentification.\nOnglet Fonctionnalités : ce que chaque rôle voit et peut faire (formule, puis case par case), et des exceptions pour une personne ; la responsable est prévenue par courriel.',
+        body: 'Résidences › « Nouvelle résidence » : nom, type, fuseau, et sa responsable (invitée par courriel).\nFiche d’une résidence : modifier, suspendre avec un motif (sessions fermées, données conservées), réactiver.\nResponsables : inviter, nommer un employé, renvoyer l’invitation, lien de mot de passe, réinitialiser la double authentification.',
+      },
+      features: {
+        title: 'Fonctionnalités d’une résidence',
+        body: 'Fiche d’une résidence › onglet Fonctionnalités : ce que chaque rôle voit et peut faire. Masqué : la page disparaît ; Consultation : lire sans écrire ; Complet : tout.\nCommencer par une formule (Complète, Essentielle, Journal infirmier), puis ajuster case par case : elle devient « Personnalisée ».\nUn réglage ne donne jamais plus que le rôle (« — (rôle) ») ; un module dont un autre dépend est signalé avant d’enregistrer (sans Journal, pas de Relève).\nExceptions par personne : un autre niveau pour un employé précis, avec un motif ; retirées d’office si son rôle change.\nRien n’est effacé : réactiver un module rend ses données. Chaque changement est inscrit au journal et la responsable reçoit un courriel ; il s’applique en moins d’une minute.',
       },
       security: {
         title: 'Sécurité',

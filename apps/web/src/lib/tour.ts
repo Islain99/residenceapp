@@ -9,6 +9,8 @@
 import { useSyncExternalStore } from 'react';
 import type helpFr from '../i18n/fr/help';
 import type { Role } from '../api/types';
+import { useUser } from '../auth/session';
+import { useAccess, type Need } from './access';
 
 export type TourStepKey = keyof typeof helpFr.tour.steps;
 export type TourId = 'prepose' | 'infirmiere' | 'responsable' | 'admin';
@@ -17,19 +19,20 @@ export interface TourStep {
   key: TourStepKey;
   route?: string;
   targets?: string[];
+  needs?: Need[];   // module à activer pour montrer l'étape (fonctionnalités activables)
 }
 
 const COMMON_START: TourStep[] = [
-  { key: 'welcome', route: '/' },
-  { key: 'handoverTab', route: '/', targets: ['nav-handover'] },
-  { key: 'handoverAck', route: '/', targets: ['handover-ack'] },
-  { key: 'journalNew', route: '/journal', targets: ['journal-new', 'nav-journal'] },
+  { key: 'welcome' },
+  { key: 'handoverTab', route: '/', targets: ['nav-handover'], needs: [['handover', 'full']] },
+  { key: 'handoverAck', route: '/', targets: ['handover-ack'], needs: [['handover', 'full']] },
+  { key: 'journalNew', route: '/journal', targets: ['journal-new', 'nav-journal'], needs: [['journal', 'full']] },
 ];
 
 const COMMON_MIDDLE: TourStep[] = [
-  { key: 'followUps', route: '/suivis', targets: ['followup-take', 'nav-followUps'] },
-  { key: 'messages', route: '/messages', targets: ['messages-new', 'nav-messages'] },
-  { key: 'agenda', route: '/agenda', targets: ['nav-agenda', 'nav-more'] },
+  { key: 'followUps', route: '/suivis', targets: ['followup-take', 'nav-followUps'], needs: [['followUps']] },
+  { key: 'messages', route: '/messages', targets: ['messages-new', 'nav-messages'], needs: [['messaging', 'full']] },
+  { key: 'agenda', route: '/agenda', targets: ['nav-agenda', 'nav-more'], needs: [['agenda']] },
 ];
 
 const COMMON_END: TourStep[] = [
@@ -41,21 +44,21 @@ export const TOURS: Record<TourId, TourStep[]> = {
   prepose: [
     ...COMMON_START,
     ...COMMON_MIDDLE,
-    { key: 'residents', route: '/residents', targets: ['nav-residents'] },
+    { key: 'residents', route: '/residents', targets: ['nav-residents'], needs: [['residents']] },
     ...COMMON_END,
   ],
   infirmiere: [
     ...COMMON_START,
-    { key: 'priority', route: '/journal', targets: ['journal-new', 'nav-journal'] },
+    { key: 'priority', route: '/journal', targets: ['journal-new', 'nav-journal'], needs: [['priority', 'full']] },
     ...COMMON_MIDDLE,
-    { key: 'residentsSupervisor', route: '/residents', targets: ['residents-add', 'nav-residents'] },
+    { key: 'residentsSupervisor', route: '/residents', targets: ['residents-add', 'nav-residents'], needs: [['residents', 'full']] },
     ...COMMON_END,
   ],
   responsable: [
     ...COMMON_START,
-    { key: 'priority', route: '/journal', targets: ['journal-new', 'nav-journal'] },
+    { key: 'priority', route: '/journal', targets: ['journal-new', 'nav-journal'], needs: [['priority', 'full']] },
     ...COMMON_MIDDLE,
-    { key: 'residentsSupervisor', route: '/residents', targets: ['residents-add', 'nav-residents'] },
+    { key: 'residentsSupervisor', route: '/residents', targets: ['residents-add', 'nav-residents'], needs: [['residents', 'full']] },
     { key: 'admin', route: '/administration/equipe', targets: ['nav-admin', 'nav-more'] },
     { key: 'teamInvite', route: '/administration/equipe', targets: ['team-invite'] },
     { key: 'assistance', route: '/administration/equipe', targets: ['admin-tab-assistance'] },
@@ -76,14 +79,15 @@ export const tourForRole = (role: Role): TourId => role;
 
 // ------------------------------------------------------------- État courant
 
-interface TourState { id: TourId; step: number }
+interface TourState { id: TourId; steps: TourStep[]; step: number }
 
 let state: TourState | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
-export function startTour(id: TourId): void {
-  state = { id, step: 0 };
+// steps : les étapes de la visite, sans celles des modules masqués (useStartTour)
+export function startTour(id: TourId, steps: TourStep[] = TOURS[id]): void {
+  state = { id, steps, step: 0 };
   emit();
 }
 
@@ -123,4 +127,14 @@ export function markTourSeen(userId: string): void {
   } catch {
     // stockage indisponible
   }
+}
+
+// Lance la visite du rôle, sans les étapes des modules masqués pour la personne
+export function useStartTour() {
+  const user = useUser();
+  const { canAny } = useAccess();
+  return () => {
+    const id = tourForRole(user.role);
+    startTour(id, TOURS[id].filter((step) => !step.needs || canAny(step.needs)));
+  };
 }

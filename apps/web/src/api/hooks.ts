@@ -10,7 +10,7 @@ import type {
   NotePage, Resident, ResidentInput, ResidentSummary, StaffMember,
   AssistanceGrant, NewResidenceInput, OpenAssistanceGrant, PlatformAccount, PlatformAuditPage, PlatformResidence,
   PlatformResidenceDetail, PlatformSecurity, MfaStatus, PushConfig, PushPreferences,
-  ProfileInput, User, FeatureChange, FeatureKey, FeatureLevel, FeatureSettings, PlatformFeatures,
+  ProfileInput, User, FeatureChange, FeatureKey, FeatureLevel, FeatureSettings, PlatformFeatures, ResidenceFeatures,
 } from './types';
 
 export interface NoteFilters {
@@ -62,8 +62,9 @@ export const useResidents = (status: 'actif' | 'parti' | 'all' = 'actif', q = ''
 export const useResident = (id: string) =>
   useQuery({ queryKey: ['resident', id], queryFn: () => api<Resident>(`/residents/${id}`) });
 
-export const useNotes = (filters: NoteFilters, limit = 30) =>
+export const useNotes = (filters: NoteFilters, limit = 30, enabled = true) =>
   useInfiniteQuery({
+    enabled,
     queryKey: ['notes', filters, limit],
     queryFn: ({ pageParam }) => api<NotePage>('/notes', { query: { ...filters, limit, cursor: pageParam } }),
     initialPageParam: undefined as string | undefined,
@@ -73,11 +74,30 @@ export const useNotes = (filters: NoteFilters, limit = 30) =>
 export const useNote = (id: string) =>
   useQuery({ queryKey: ['note', id], queryFn: () => api<NoteDetail>(`/notes/${id}`) });
 
-export const useFollowUps = (filter: FollowUpFilter) =>
-  useQuery({ queryKey: ['follow-ups', filter], queryFn: () => api<FollowUp[]>('/follow-ups', { query: filter }) });
+export const useFollowUps = (filter: FollowUpFilter, enabled = true) =>
+  useQuery({ queryKey: ['follow-ups', filter], queryFn: () => api<FollowUp[]>('/follow-ups', { query: filter }), enabled });
 
-export const useHandover = () =>
-  useQuery({ queryKey: ['handover'], queryFn: () => api<Handover>('/handover'), refetchInterval: 60_000 });
+export const useHandover = (enabled = true) =>
+  useQuery({ queryKey: ['handover'], queryFn: () => api<Handover>('/handover'), refetchInterval: 60_000, enabled });
+
+// Fonctionnalités actives pour la personne connectée (réglées par la
+// plateforme). Relues souvent : un changement s'applique sans reconnexion.
+export const useFeatures = () => {
+  const { assistance, user } = useAuth();
+  return useQuery({
+    // Administration de la plateforme (hors assistance) : aucune résidence
+    enabled: user?.role !== 'admin' || Boolean(assistance),
+    queryKey: ['features', assistance?.grantId ?? null],
+    queryFn: () => api<{ features: Record<FeatureKey, FeatureLevel>; locked: string[] }>('/features'),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+};
+
+// Fonctionnalités de la résidence, vues par la responsable (lecture seule)
+export const useResidenceFeatures = () =>
+  useQuery({ queryKey: ['residence-features'], queryFn: () => api<ResidenceFeatures>('/features/residence') });
 
 // ---------------------------------------------------------------------
 // Écritures
@@ -197,7 +217,7 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ id, ...input }: { id: string } & Partial<Omit<AccountInput, 'email'>> & { isActive?: boolean }) =>
       api<Account>(`/users/${id}`, { method: 'PATCH', body: input }),
-    onSuccess: () => invalidate('accounts', 'staff'),
+    onSuccess: () => invalidate('accounts', 'staff', 'residence-features'),
   });
 }
 
@@ -252,8 +272,8 @@ export interface AppointmentFilters {
   status?: 'prevu' | 'annule' | 'all';
 }
 
-export const useAppointments = (filters: AppointmentFilters) =>
-  useQuery({ queryKey: ['appointments', filters], queryFn: () => api<Appointment[]>('/appointments', { query: { ...filters } }) });
+export const useAppointments = (filters: AppointmentFilters, enabled = true) =>
+  useQuery({ queryKey: ['appointments', filters], queryFn: () => api<Appointment[]>('/appointments', { query: { ...filters } }), enabled });
 
 export function useSaveAppointment(id?: string) {
   const invalidate = useInvalidate();
@@ -352,13 +372,13 @@ export const useConversations = () =>
   useQuery({ queryKey: ['conversations'], queryFn: () => api<Conversation[]>('/conversations'), refetchInterval: LIST_REFRESH_MS });
 
 // Pas en accès d'assistance : la messagerie reste privée
-export function useMessagingSummary() {
+export function useMessagingSummary(enabled = true) {
   const { assistance } = useAuth();
   return useQuery({
     queryKey: ['messaging-summary'],
     queryFn: () => api<MessagingSummary>('/messaging/summary'),
     refetchInterval: LIST_REFRESH_MS,
-    enabled: !assistance,
+    enabled: enabled && !assistance,
   });
 }
 

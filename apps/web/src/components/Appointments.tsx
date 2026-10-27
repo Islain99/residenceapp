@@ -1,10 +1,11 @@
 // Agenda : rendez-vous dans une liste (avec modification / annulation) et formulaire.
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router';
 import { useCancelAppointment, useResidents, useSaveAppointment } from '../api/hooks';
 import type { Appointment, AppointmentInput, AppointmentKind } from '../api/types';
 import { isSupervisor, useUser } from '../auth/session';
+import { useAccess } from '../lib/access';
+import { ResidentLink } from './ResidentLink';
 import { APPOINTMENT_KINDS } from '../lib/agenda';
 import { cx } from '../lib/cx';
 import { formatTime, formatWhen, fromLocalInput, fullName, toLocalInput } from '../lib/format';
@@ -17,7 +18,9 @@ export function AppointmentItem({ appointment: a, showDate = false }: { appointm
   const user = useUser();
   const [dialog, setDialog] = useState<'edit' | 'cancel' | null>(null);
   const cancelled = a.status === 'annule';
-  const canModify = !cancelled && (isSupervisor(user.role) || a.createdBy.id === user.id);
+  const { can } = useAccess();
+  // Agenda en consultation (fonctionnalités activables) : lecture seule
+  const canModify = !cancelled && can('agenda', 'full') && (isSupervisor(user.role) || a.createdBy.id === user.id);
   const when = showDate ? formatWhen(a.startsAt) : formatTime(a.startsAt);
 
   return (
@@ -35,9 +38,9 @@ export function AppointmentItem({ appointment: a, showDate = false }: { appointm
             </p>
             <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
               {a.resident ? (
-                <Link to={`/residents/${a.resident.id}`} className="font-medium text-ink hover:underline">
+                <ResidentLink id={a.resident.id} className="font-medium text-ink hover:underline">
                   {fullName(a.resident)}{a.resident.room && ` · ${t('agenda.item.room', { room: a.resident.room })}`}
-                </Link>
+                </ResidentLink>
               ) : <span>{t('agenda.item.residence')}</span>}
               {a.location && <span>📍 {a.location}</span>}
             </p>

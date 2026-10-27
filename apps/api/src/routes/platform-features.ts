@@ -27,10 +27,11 @@ import { requireRole } from '../auth.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import {
-  atLeast, defaultLevel, isFeature, effectiveFeatures, FEATURE_KEYS, FEATURE_ROLES, FEATURES, FORMULAS, formulaOf,
+  atLeast, defaultLevel, isFeature, effectiveFeatures, FEATURE_KEYS, FEATURE_ROLES, FEATURES, formulaOf,
   settingsFromRows, type EffectiveFeatures, type Feature, type FeatureRole, type Level, type RoleSettings,
 } from '../lib/features.js';
 import { asLocale, FEATURE_TEXT, MAIL_TEXT } from '../lib/locale.js';
+import { residenceFeatureView } from '../lib/feature-view.js';
 import { linkMail } from '../lib/mailer.js';
 import { IdParams, Nullable, Person } from '../lib/schemas.js';
 import { FeatureValue, LevelSchema } from './features.js';
@@ -93,59 +94,23 @@ const platformFeatureRoutes: FastifyPluginAsyncTypebox = async (app) => {
     .select(['feature', 'role', 'level']).where('residence_id', '=', residenceId).execute();
 
   async function body(residence: { id: string; name: string }) {
-    const settings = settingsFromRows(await storedRows(residence.id));
-    const [exceptions, staff] = await Promise.all([exceptionRows(residence.id), staffOf(residence.id)]);
-    const byUser = new Map<string, Partial<Record<Feature, Level>>>();
-    for (const e of exceptions) byUser.set(e.user_id, { ...byUser.get(e.user_id), [e.feature as Feature]: e.level as Level });
-    const roleGrid = grid(settings);
-    const last = await db.selectFrom('residence_features as f').leftJoin('users as u', 'u.id', 'f.updated_by')
-      .select(['f.updated_at', 'u.id', 'u.first_name', 'u.last_name'])
-      .where('f.residence_id', '=', residence.id).orderBy('f.updated_at', 'desc').limit(1).executeTakeFirst();
+    const [view, staff, last] = await Promise.all([
+      residenceFeatureView(db, residence.id),
+      db.selectFrom('users').select(['id', 'first_name', 'last_name', 'role'])
+        .where('residence_id', '=', residence.id).where('is_active', '=', true).where('role', 'in', [...FEATURE_ROLES])
+        .orderBy('last_name').orderBy('first_name').execute(),
+      db.selectFrom('residence_features as f').leftJoin('users as u', 'u.id', 'f.updated_by')
+        .select(['f.updated_at', 'u.id', 'u.first_name', 'u.last_name'])
+        .where('f.residence_id', '=', residence.id).orderBy('f.updated_at', 'desc').limit(1).executeTakeFirst(),
+    ]);
     return {
       residence,
-      formula: formulaOf(settings),
-      settings,
-      effective: grid(settings),
-      catalogue: FEATURE_KEYS.map((key) => ({
-        key, levels: [...FEATURES[key].levels], ceiling: FEATURES[key].ceiling,
-        requires: FEATURES[key].requires ?? [], requiresAny: FEATURES[key].requiresAny ?? [],
-      })),
-      formulas: FORMULAS as Record<string, RoleSettings>,
+      ...view,
       updatedAt: last?.updated_at.toISOString() ?? null,
       updatedBy: last?.id ? { id: last.id, firstName: last.first_name!, lastName: last.last_name! } : null,
-      exceptions: exceptions.filter((e) => isFeature(e.feature)).map((e) => {
-        const role = e.role as FeatureRole;
-        const feature = e.feature as Feature;
-        return {
-          id: e.id,
-          user: { id: e.user_id, firstName: e.first_name, lastName: e.last_name, role },
-          feature, level: e.level as Level,
-          roleLevel: roleGrid[role][feature],
-          effective: effectiveFeatures(role, settings, byUser.get(e.user_id))[feature],
-          reason: e.reason,
-          createdAt: e.created_at.toISOString(),
-          createdBy: e.by_id ? { id: e.by_id, firstName: e.by_first!, lastName: e.by_last! } : null,
-        };
-      }),
       staff: staff.map((u) => ({ id: u.id, firstName: u.first_name, lastName: u.last_name, role: u.role })),
     };
   }
-
-  // Exceptions en cours d'employés actifs de la résidence (rôle actuel)
-  const exceptionRows = (residenceId: string) => db.selectFrom('user_features as f')
-    .innerJoin('users as u', 'u.id', 'f.user_id')
-    .leftJoin('users as c', 'c.id', 'f.created_by')
-    .select(['f.id', 'f.user_id', 'f.feature', 'f.level', 'f.reason', 'f.created_at', 'u.first_name', 'u.last_name', 'u.role',
-      'c.id as by_id', 'c.first_name as by_first', 'c.last_name as by_last'])
-    .where('f.residence_id', '=', residenceId).where('f.revoked_at', 'is', null)
-    .where('u.residence_id', '=', residenceId).where('u.is_active', '=', true)
-    .where('u.role', 'in', [...FEATURE_ROLES])
-    .orderBy('u.last_name').orderBy('u.first_name').orderBy('f.feature')
-    .execute();
-
-  const staffOf = (residenceId: string) => db.selectFrom('users').select(['id', 'first_name', 'last_name', 'role'])
-    .where('residence_id', '=', residenceId).where('is_active', '=', true).where('role', 'in', [...FEATURE_ROLES])
-    .orderBy('last_name').orderBy('first_name').execute();
 
   app.get('/platform/residences/:id/features', {
     schema: { params: IdParams, response: { 200: FeaturesBody } },

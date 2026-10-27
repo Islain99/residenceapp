@@ -2,7 +2,7 @@
 // changer le rôle, désactiver / réactiver.
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAccounts, useInviteAccount, useResendInvite, useUpdateAccount } from '../api/hooks';
+import { useAccounts, useInviteAccount, useResendInvite, useUpdateAccount, useResidenceFeatures } from '../api/hooks';
 import type { Account, AccountInput } from '../api/types';
 import { useUser } from '../auth/session';
 import { currentLanguage, LANGS } from '../i18n';
@@ -54,6 +54,9 @@ function AccountRow({ account, onNotice }: { account: Account; onNotice: (messag
   const self = account.id === me.id;
   const [openedAt] = useState(() => Date.now());
   const tone = STATUS_TONE[account.status];
+  // Exceptions de fonctionnalités de cette personne (réglées par la plateforme)
+  const features = useResidenceFeatures();
+  const exceptions = features.data?.exceptions.filter((e) => e.user.id === account.id) ?? [];
 
   return (
     <li className="rounded-xl border border-line bg-surface p-4">
@@ -77,6 +80,13 @@ function AccountRow({ account, onNotice }: { account: Account; onNotice: (messag
                   : t('admin.team.expired')
                 : account.lastLoginAt ? t('admin.team.lastLogin', { when: formatWhen(account.lastLoginAt) }) : t('admin.team.neverLoggedIn')}
             </p>
+            {exceptions.length > 0 && (
+              <p className="text-xs text-primary">
+                {t('admin.team.exceptions', {
+                  list: exceptions.map((e) => `${t(`platform.features.modules.${e.feature}`)} (${t(`platform.features.levels.${e.level}`)})`).join(', '),
+                })}
+              </p>
+            )}
           </div>
         </div>
 
