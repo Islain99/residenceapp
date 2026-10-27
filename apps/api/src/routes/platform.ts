@@ -609,10 +609,13 @@ const platformRoutes: FastifyPluginAsyncTypebox = async (app) => {
         text: `${m.hello(me.first_name)}\n\n${m.test.body}`,
         html: `<p>${m.hello(me.first_name.replace(/[&<>"']/g, ''))}</p><p>${m.test.body}</p>`,
       });
-    } catch {
-      throw new HttpError(502, 'mail_failed', mailerKind(config) === 'resend' && config.MAIL_FROM.includes('@resend.dev')
+    } catch (err) {
+      // Courriel d'essai (administration seulement) : la réponse du fournisseur
+      // est montrée telle quelle, c'est elle qui dit quoi corriger
+      const detail = err instanceof Error ? ` Réponse du fournisseur : ${err.message.slice(0, 300)}` : '';
+      throw new HttpError(502, 'mail_failed', (mailerKind(config) === 'resend' && config.MAIL_FROM.includes('@resend.dev')
         ? 'Refusé par Resend : sans domaine vérifié, il n’envoie qu’à l’adresse de votre compte Resend. Indiquez-la comme destinataire.'
-        : 'Le courriel n’a pas pu être envoyé : vérifier la clé du fournisseur et l’adresse d’expédition (MAIL_FROM). Détail dans le journal du serveur.');
+        : 'Le courriel n’a pas pu être envoyé : vérifier la clé du fournisseur et l’adresse d’expédition (MAIL_FROM).') + detail);
     }
     await audit(db, { action: 'email_test', entity: 'user', entityId: request.user.sub, userId: request.user.sub, details: { to }, ip: request.ip });
     return { to, provider: mailerKind(config) };

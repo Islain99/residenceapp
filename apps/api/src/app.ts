@@ -6,6 +6,7 @@ import type { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import type { Config } from './config.js';
 import type { Database } from './db/index.js';
 import { FeatureDisabled, routeKey, ruleFor } from './lib/feature-routes.js';
+import { HttpError } from './lib/errors.js';
 import { FeatureStore } from './lib/features.js';
 import { mailerFromConfig, type Mailer } from './lib/mailer.js';
 import { Notifier, webPushSender, type PushSender } from './lib/notifier.js';
@@ -104,6 +105,12 @@ export async function buildApp(
   // (pas de message SQL ni de nom de table envoyé au client).
   app.setErrorHandler((error: FastifyError, request, reply) => {
     const status = error.statusCode ?? 500;
+    // Erreur prévue côté serveur (ex. 502 mail_failed : le fournisseur de
+    // courriel refuse) : son code et son message, rédigés pour l'utilisateur
+    if (error instanceof HttpError && status >= 500) {
+      request.log.warn({ err: error }, error.code);
+      return reply.code(status).send({ error: error.code, message: error.message });
+    }
     if (status >= 500) {
       request.log.error({ err: error }, 'erreur interne');
       return reply.code(500).send({ error: 'internal_error', message: 'Erreur interne.' });
