@@ -90,6 +90,8 @@ export async function loginAs(app: App, email: string): Promise<string> {
 
 const mailers = new WeakMap<App, MemoryMailer>();
 export const outbox = (app: App) => mailers.get(app)!.outbox;
+// Fournisseur de courriel qui refuse (le temps d'un test)
+export const testMailer = (app: App) => mailers.get(app)!;
 
 // Notifications push envoyées (après app.notifier.flush())
 export const pushSender = (app: App) => app.notifier.sender as MemoryPushSender;

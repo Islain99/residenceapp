@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { App } from '../src/app.js';
-import { bearer, buildTestApp, caller, loginAll, outbox, passwordLogin, RESIDENCE_A, tokenFromMail } from './helpers.js';
+import { bearer, buildTestApp, caller, loginAll, outbox, passwordLogin, RESIDENCE_A, testMailer, tokenFromMail } from './helpers.js';
 
 let app: App;
 let call: ReturnType<typeof caller>;
@@ -293,6 +293,25 @@ describe('courriels', () => {
     expect(lastMail().to).toBe('compte.resend@exemple.test');
     expect((await call('admin', 'POST', '/platform/email/test', { to: 'pas-un-courriel' })).statusCode).toBe(400);
     expect((await call('responsable', 'POST', '/platform/email/test', {})).statusCode).toBe(403);
+  });
+
+  it('fournisseur qui refuse : 502 avec sa réponse (pas une « erreur interne »)', async () => {
+    const mailer = testMailer(app);
+    const send = mailer.send.bind(mailer);
+    mailer.send = async () => { throw new Error('Envoi refusé par le fournisseur (401) : {"code":"unauthorized","message":"unrecognised IP address"}'); };
+    try {
+      const res = await call('admin', 'POST', '/platform/email/test', { to: 'frank@exemple.test' });
+      expect(res.statusCode).toBe(502);
+      expect(res.json().error).toBe('mail_failed');
+      expect(res.json().message).toContain('unrecognised IP address');
+      // Invitation : même refus clair, rien n'est créé
+      const invite = await call('admin', 'POST', '/platform/admins', { email: 'frank.refus@exemple.test', firstName: 'Frank', lastName: 'Test' });
+      expect(invite.statusCode).toBe(502);
+      expect(invite.json().error).toBe('mail_failed');
+      expect(await app.db.selectFrom('users').select('id').where('email', '=', 'frank.refus@exemple.test').executeTakeFirst()).toBeUndefined();
+    } finally {
+      mailer.send = send;
+    }
   });
 });
 
