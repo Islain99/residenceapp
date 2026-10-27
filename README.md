@@ -99,6 +99,18 @@ Les mots de passe ne sont stockés nulle part en clair, seulement sous forme hac
 | http://127.0.0.1:3000/health | État de l'API et de la base |
 | `localhost:5432` / `localhost:5433` | PostgreSQL principal / serveur de reprise (lecture seule) |
 
+## Fonctionnalités activables par résidence
+
+L'administration de la plateforme choisit, pour chaque résidence, ce que chaque rôle voit et peut faire (Plateforme › une résidence › **Fonctionnalités**). Trois niveaux par module : **Masqué**, **Consultation** (lire sans écrire), **Complet**. Formules prêtes : Complète (par défaut), Essentielle, Journal infirmier ; exceptions possibles pour une personne précise.
+
+- **Onze modules** : Relève, Journal, Consignes prioritaires, Suivis, Messagerie, Annonces, Agenda, Horaires, Résidents, Statistiques, Dictée. Toujours actifs : journal d'audit, export d'un dossier (Loi 25), équipe, Mon profil, Aide.
+- **Un réglage ne donne jamais plus que le rôle**, et les dépendances sont appliquées (sans Journal, pas de Relève ni de Dictée).
+- **L'API décide** : chaque route est rattachée à un module (`apps/api/src/lib/feature-routes.ts`) ; une route sans règle empêche l'API de démarrer. L'interface cache ce que l'API refuserait (navigation, boutons, sections, visite guidée, aide, notifications).
+- **Rien n'est effacé** : réactiver un module rend ses données. Chaque changement est tracé et la responsable est prévenue par courriel ; elle voit les réglages dans Admin › Fonctionnalités (lecture seule).
+- **Délai** : un changement s'applique en moins d'une minute, sans reconnexion.
+
+Ajouter un module : le déclarer dans `apps/api/src/lib/features.ts` (niveaux, plafond par rôle, dépendances), rattacher ses routes dans `feature-routes.ts`, puis ajouter ses libellés (`platform.features` en français et en anglais) et sa règle d'affichage (`apps/web/src/lib/access.ts`). Détails : [apps/api/README.md](apps/api/README.md#fonctionnalités-activables).
+
 ## Tests
 
 ```bash

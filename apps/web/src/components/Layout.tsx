@@ -42,8 +42,8 @@ function NavBadge({ to }: { to: string }) {
 
 function MessagesBadge() {
   const { t } = useTranslation();
-  const { canAny } = useAccess();
-  const summary = useMessagingSummary(canAny(PAGE_NEEDS['/messages']!));
+  const { allowedAny } = useAccess();
+  const summary = useMessagingSummary(allowedAny(PAGE_NEEDS['/messages']!));
   const count = (summary.data?.unread ?? 0) + (summary.data?.announcements.length ?? 0);
   if (!count) return null;
   return (
@@ -55,8 +55,8 @@ function MessagesBadge() {
 
 function HandoverBadge() {
   const { t } = useTranslation();
-  const { can } = useAccess();
-  const handover = useHandover(can('handover', 'full'));
+  const { allowed } = useAccess();
+  const handover = useHandover(allowed('handover', 'full'));
   const unread = handover.data?.counts.unread ?? 0;
   if (!unread) return null;
   return (

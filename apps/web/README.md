@@ -75,6 +75,16 @@ L'interface masque les actions non permises (ex. « Corriger » après 24 h pour
 - **Hors React** : `public/offline.html` lit la même préférence ; la dictée des notes écoute la langue de l'interface (`fr-CA` ou `en-CA`).
 - Les données saisies (notes, catégories, quarts types, noms des canaux créés par le serveur) ne sont pas traduites, sauf les canaux « Toute l'équipe » et « Annonces » (`lib/messaging.ts`).
 
+## Fonctionnalités activables
+
+`GET /features` donne les niveaux de la personne connectée (`useFeatures`, relu chaque minute et après un refus `feature_disabled` / `feature_read_only`). `src/lib/access.ts` :
+
+- `can(module, niveau)` : afficher ou non (vrai pendant le chargement : rien ne clignote, l'API reste seule juge) ;
+- `allowed(module, niveau)` : lancer une requête (faux tant que les niveaux ne sont pas connus) ;
+- `PAGE_NEEDS` : module de chaque page. `FeatureGate` (App.tsx) attend les niveaux puis affiche la page ou « Cette fonction n'est pas activée » ; `HomeRoute` envoie vers la première page disponible si la relève est masquée.
+
+Navigation, boutons d'écriture, sections (relève, note, fiche résident), lien vers une fiche (`ResidentLink`), visite guidée (`needs` de chaque étape), aide et réglages des notifications suivent ces niveaux. Écrans de réglage : `pages/platform/PlatformFeaturesPage.tsx` (administration, calcul des dépendances dans `lib/features.ts`) et `pages/ResidenceFeaturesPage.tsx` (responsable, lecture seule).
+
 ## Session
 
 - Connexion en **mode cookie** : le jeton de rafraîchissement est dans un cookie `httpOnly` (illisible par le JavaScript de la page), le jeton d'accès reste **en mémoire** seulement.

@@ -27,17 +27,17 @@ function ResidentView({ resident }: { resident: Resident }) {
   const user = useUser();
   const navigate = useNavigate();
   // Fonctionnalités activables : chaque section suit son module
-  const { can } = useAccess();
-  const notes = useNotes({ residentId: resident.id }, 10, can('journal'));
-  const followUps = useFollowUps({ status: 'open', residentId: resident.id }, can('followUps'));
+  const { can, allowed } = useAccess();
+  const notes = useNotes({ residentId: resident.id }, 10, allowed('journal'));
+  const followUps = useFollowUps({ status: 'open', residentId: resident.id }, allowed('followUps'));
   // Suivis terminés : ce qui a été fait, avec la note de clôture
-  const doneFollowUps = useFollowUps({ status: 'closed', residentId: resident.id }, can('followUps'));
+  const doneFollowUps = useFollowUps({ status: 'closed', residentId: resident.id }, allowed('followUps'));
   // Rendez-vous des trois prochains mois. 90 jours et non 92 (limite de l'API) :
   // un changement d'heure ajoute une heure à la période.
   const [today] = useState(() => startOfDay(new Date()));
   const appointments = useAppointments({
     from: today.toISOString(), to: addDays(today, 90).toISOString(), residentId: resident.id,
-  }, can('agenda'));
+  }, allowed('agenda'));
   const createNote = useCreateNote();
   const [dialog, setDialog] = useState<'note' | 'appointment' | 'edit' | 'leave' | null>(null);
   const close = () => setDialog(null);

@@ -4,7 +4,7 @@
 // résidence) et la responsable est prévenue par courriel de chaque changement.
 import { useTranslation } from 'react-i18next';
 import { useResidenceFeatures } from '../api/hooks';
-import type { FeatureKey, FeatureLevel, FeatureRole } from '../api/types';
+import type { FeatureDef, FeatureKey, FeatureLevel, FeatureRole } from '../api/types';
 import { Badge, EmptyState, ErrorMessage, Loading, PageHeader } from '../components/ui';
 import { cx } from '../lib/cx';
 import { FEATURE_ROLES, levelsFor } from '../lib/features';
@@ -35,8 +35,25 @@ export function ResidenceFeaturesPage() {
         <span className="text-muted">{t(`platform.features.formulaHints.${formula}`)}</span>
       </p>
 
-      <div className="mb-2 overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[32rem] text-sm">
+      {/* Téléphone : un module par carte */}
+      <ul className="mb-2 flex flex-col gap-3 md:hidden">
+        {catalogue.map((def) => (
+          <li key={def.key} className="rounded-xl border border-line bg-surface p-4 text-sm">
+            <p className="font-medium">{module(def.key)}</p>
+            <p className="mb-2 text-xs text-muted">{t(`platform.features.moduleHints.${def.key}`)}</p>
+            <dl className="grid grid-cols-[7rem_1fr] gap-x-2 gap-y-1.5">
+              {FEATURE_ROLES.map((r) => (
+                <div key={r} className="contents">
+                  <dt className="text-muted">{role(r)}</dt>
+                  <dd><Level def={def} role={r} value={effective[r][def.key]} label={level} /></dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        ))}
+      </ul>
+      <div className="mb-2 hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-line text-left">
               <th scope="col" className="px-4 py-3 font-semibold">{t('platform.features.module')}</th>
@@ -52,11 +69,7 @@ export function ResidenceFeaturesPage() {
                 </th>
                 {FEATURE_ROLES.map((r) => (
                   <td key={r} className="px-3 py-3">
-                    {levelsFor(def, r).length <= 1
-                      ? <span className="text-muted" title={t('platform.features.roleOnlyHint')}>{t('platform.features.roleOnly')}</span>
-                      : <span className={cx('inline-flex rounded-full px-2 py-0.5 text-xs font-semibold', TONE[effective[r][def.key]])}>
-                        {level(effective[r][def.key])}
-                      </span>}
+                    <Level def={def} role={r} value={effective[r][def.key]} label={level} />
                   </td>
                 ))}
               </tr>
@@ -82,4 +95,15 @@ export function ResidenceFeaturesPage() {
       <p className="mt-6 rounded-lg bg-info-soft px-4 py-3 text-sm text-primary">{t('admin.features.howToChange')}</p>
     </>
   );
+}
+
+// Niveau d'une case : pastille, ou « — (rôle) » si le rôle n'y a pas accès
+function Level({ def, role, value, label }: {
+  def: FeatureDef; role: FeatureRole; value: FeatureLevel; label: (l: FeatureLevel) => string;
+}) {
+  const { t } = useTranslation();
+  if (levelsFor(def, role).length <= 1) {
+    return <span className="text-muted" title={t('platform.features.roleOnlyHint')}>{t('platform.features.roleOnly')}</span>;
+  }
+  return <span className={cx('inline-flex rounded-full px-2 py-0.5 text-xs font-semibold', TONE[value])}>{label(value)}</span>;
 }

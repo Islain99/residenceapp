@@ -102,6 +102,10 @@ export default {
         title: 'Compliance and complaints',
         body: 'Admin › Audit log: who viewed or changed what.\nFull export of a resident’s file (Law 25) from their file.\nAdmin › Messaging: view a conversation in case of a complaint, with a reason (logged).',
       },
+      features: {
+        title: 'The residence’s features',
+        body: 'Admin › Features: what each role sees and can do, and exceptions for a person (also shown in Team).\nThese settings are part of the plan agreed with your residence: to change them, write to the platform administration. You’re notified by email of each change.\nChanging an employee’s role removes their exceptions.',
+      },
       assistance: {
         title: 'Assistance access',
         body: 'Admin › Assistance: let the platform team view the residence to fix a problem.\nLimited time, read-only, messaging excluded; every page viewed is written to the log. Can be withdrawn at any time.',
@@ -111,7 +115,11 @@ export default {
       intro: 'You manage residences and their managers, never a residence’s content.',
       residences: {
         title: 'Residences',
-        body: 'Residences › “New residence”: name, type, time zone, and its manager (invited by email).\nA residence’s page: edit, suspend with a reason (sessions closed, data kept), reactivate.\nManagers: invite, promote an employee, resend the invitation, password link, reset two-factor authentication.\nFeatures tab: what each role sees and can do (a plan, then cell by cell), and exceptions for one person; the manager is notified by email.',
+        body: 'Residences › “New residence”: name, type, time zone, and its manager (invited by email).\nA residence’s page: edit, suspend with a reason (sessions closed, data kept), reactivate.\nManagers: invite, promote an employee, resend the invitation, password link, reset two-factor authentication.',
+      },
+      features: {
+        title: 'A residence’s features',
+        body: 'A residence’s page › Features tab: what each role sees and can do. Hidden: the page disappears; View only: read without writing; Full: everything.\nStart with a plan (Complete, Essential, Nurse-kept journal), then adjust cell by cell: it becomes “Custom”.\nA setting never gives more than the role (“— (role)”); a module another one depends on is flagged before saving (no Journal, no Handover).\nExceptions for a person: a different level for one employee, with a reason; removed automatically if their role changes.\nNothing is deleted: turning a module back on brings its data back. Every change is logged and the manager gets an email; it applies within a minute.',
       },
       security: {
         title: 'Security',

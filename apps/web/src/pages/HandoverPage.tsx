@@ -133,9 +133,9 @@ export function HandoverPage() {
 // Annonces de la messagerie pas encore confirmées : en tête de la relève
 function AnnouncementsToConfirm() {
   const { t } = useTranslation();
-  const { can } = useAccess();
+  const { can, allowed } = useAccess();
   // Annonces masquées pour la personne (fonctionnalités activables) : rien à confirmer
-  const summary = useMessagingSummary(can('announcements'));
+  const summary = useMessagingSummary(allowed('announcements'));
   const ack = useAckAnnouncement();
   const pending = summary.data?.announcements ?? [];
   if (pending.length === 0) return null;

@@ -9,7 +9,9 @@ import { Loading } from './ui';
 
 export function FeatureGate({ needs, children }: { needs: Need[]; children?: ReactNode }) {
   const { ready, canAny } = useAccess();
-  if (ready && !canAny(needs)) return <FeatureOff />;
+  // Attendre les niveaux : la page d'un module masqué ne lance aucune requête
+  if (!ready) return <Loading />;
+  if (!canAny(needs)) return <FeatureOff />;
   return children ?? <Outlet />;
 }
 

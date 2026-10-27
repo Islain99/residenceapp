@@ -13,11 +13,16 @@ export function useAccess() {
   const levels = query.data?.features;
   const can = (feature: FeatureKey, min: FeatureLevel = 'read') => !levels || atLeast(levels[feature], min);
   return {
-    ready: Boolean(levels),
+    // Niveaux connus, ou impossibles à lire (réseau) : on n'attend plus
+    ready: Boolean(levels) || query.isError || !query.isEnabled,
     levels,
     can,
+    // Pour lancer une requête : seulement une fois les niveaux connus (sinon
+    // l'API refuserait la requête d'un module masqué)
+    allowed: (feature: FeatureKey, min: FeatureLevel = 'read') => Boolean(levels) && atLeast(levels![feature], min),
     // Au moins une des conditions
     canAny: (needs: Need[]) => needs.some(([feature, min]) => can(feature, min)),
+    allowedAny: (needs: Need[]) => Boolean(levels) && needs.some(([feature, min]) => atLeast(levels![feature], min ?? 'read')),
   };
 }
 

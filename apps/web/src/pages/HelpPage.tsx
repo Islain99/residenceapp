@@ -15,8 +15,8 @@ type Guides = typeof helpFr.guides;
 const SECTIONS: { [R in keyof Guides]: Exclude<keyof Guides[R], 'intro'>[] } = {
   prepose: ['handover', 'notes', 'followUps', 'messages', 'agenda', 'residents'],
   infirmiere: ['priority', 'corrections', 'residents', 'announcements'],
-  responsable: ['security', 'team', 'settings', 'compliance', 'assistance'],
-  admin: ['residences', 'security', 'audit', 'assistance', 'admins'],
+  responsable: ['security', 'team', 'settings', 'features', 'compliance', 'assistance'],
+  admin: ['residences', 'features', 'security', 'audit', 'assistance', 'admins'],
 };
 
 // Ce que chaque rôle doit lire : l'infirmière fait tout ce que fait le
